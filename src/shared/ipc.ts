@@ -1,0 +1,18 @@
+export const ipc = {
+  snapshot: 'grafter:snapshot',
+  chooseProject: 'grafter:choose-project',
+  removeProject: 'grafter:remove-project',
+  refresh: 'grafter:refresh',
+  listBranches: 'grafter:list-branches',
+  suggestWorktreePath: 'grafter:suggest-worktree-path',
+  createWorktree: 'grafter:create-worktree',
+  prepareRemove: 'grafter:prepare-remove',
+  approveCommand: 'grafter:approve-command',
+  rejectCommand: 'grafter:reject-command',
+  worktreeDetails: 'grafter:worktree-details',
+  updateSettings: 'grafter:update-settings',
+  updateProjectSetup: 'grafter:update-project-setup',
+  revealPath: 'grafter:reveal-path',
+  openExternal: 'grafter:open-external',
+  commandUpdate: 'grafter:command-update',
+} as const;

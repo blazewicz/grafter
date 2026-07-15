@@ -1,0 +1,39 @@
+import { contextBridge, ipcRenderer } from 'electron';
+import type {
+  CommandRecord,
+  CreateWorktreeRequest,
+  GrafterApi,
+  Settings,
+} from '../shared/contracts';
+import { ipc } from '../shared/ipc';
+
+const api: GrafterApi = {
+  getSnapshot: () => ipcRenderer.invoke(ipc.snapshot),
+  chooseProject: () => ipcRenderer.invoke(ipc.chooseProject),
+  removeProject: (projectId) => ipcRenderer.invoke(ipc.removeProject, projectId),
+  refresh: () => ipcRenderer.invoke(ipc.refresh),
+  listBranches: (projectId) => ipcRenderer.invoke(ipc.listBranches, projectId),
+  suggestWorktreePath: (projectId, branch) =>
+    ipcRenderer.invoke(ipc.suggestWorktreePath, projectId, branch),
+  createWorktree: (request: CreateWorktreeRequest) =>
+    ipcRenderer.invoke(ipc.createWorktree, request),
+  prepareRemoveWorktree: (worktreeId) =>
+    ipcRenderer.invoke(ipc.prepareRemove, worktreeId),
+  approveCommand: (approvalId) => ipcRenderer.invoke(ipc.approveCommand, approvalId),
+  rejectCommand: (approvalId) => ipcRenderer.invoke(ipc.rejectCommand, approvalId),
+  getWorktreeDetails: (worktreeId) => ipcRenderer.invoke(ipc.worktreeDetails, worktreeId),
+  updateSettings: (settings: Settings) =>
+    ipcRenderer.invoke(ipc.updateSettings, settings),
+  updateProjectSetup: (projectId, script) =>
+    ipcRenderer.invoke(ipc.updateProjectSetup, projectId, script),
+  revealPath: (path) => ipcRenderer.invoke(ipc.revealPath, path),
+  openExternal: (url) => ipcRenderer.invoke(ipc.openExternal, url),
+  onCommandUpdate: (listener) => {
+    const handler = (_event: Electron.IpcRendererEvent, command: CommandRecord): void =>
+      listener(command);
+    ipcRenderer.on(ipc.commandUpdate, handler);
+    return () => ipcRenderer.removeListener(ipc.commandUpdate, handler);
+  },
+};
+
+contextBridge.exposeInMainWorld('grafter', api);
