@@ -15,6 +15,7 @@ export interface CommandRecord {
   cwd: string;
   displayCommand: string;
   purpose: string;
+  isReadOnly: boolean;
   status: CommandStatus;
   requiresApproval: boolean;
   startedAt: string;

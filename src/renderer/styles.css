@@ -826,6 +826,7 @@ select {
   padding: 0 11px;
 }
 .audit-title {
+  min-width: 0;
   height: 100%;
   display: flex;
   align-items: center;
@@ -836,22 +837,41 @@ select {
   font-size: 10.75px;
   font-weight: 570;
 }
-.audit-count {
-  min-width: 17px;
+.audit-title-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.audit-running-count {
+  flex: 0 0 auto;
+  width: 17px;
   height: 16px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0 5px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.07);
-  color: var(--muted);
+  border-radius: 50%;
+  background: var(--accent-bg);
+  color: #d9dcff;
   font-size: 9px;
 }
 .audit-tools {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+.audit-readonly-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 10px;
+  white-space: nowrap;
+}
+.audit-readonly-filter input {
+  width: 13px;
+  height: 13px;
+  margin: 0;
+  accent-color: #8d91ba;
 }
 .audit-tools select {
   height: 25px;

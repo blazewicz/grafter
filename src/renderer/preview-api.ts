@@ -71,6 +71,7 @@ let snapshot: AppSnapshot = {
       cwd: '/Users/kasia/Code/grafter.worktrees/feature-glass-sidebar',
       displayCommand: 'git diff --numstat main...HEAD',
       purpose: 'Compare with main',
+      isReadOnly: true,
       status: 'succeeded',
       requiresApproval: false,
       startedAt: now,
@@ -90,6 +91,7 @@ let snapshot: AppSnapshot = {
       displayCommand:
         "gh pr view feature/glass-sidebar --json 'number,title,url,state,baseRefName'",
       purpose: 'Find pull request',
+      isReadOnly: true,
       status: 'succeeded',
       requiresApproval: false,
       startedAt: now,
@@ -182,6 +184,7 @@ export const previewApi: GrafterApi = {
       cwd: snapshot.projects[0]?.path ?? '/path/to/main-clone',
       displayCommand: `git worktree remove '${worktree?.path ?? '/path/to/worktree'}'`,
       purpose: `Remove the ${worktree?.branch ?? 'selected'} worktree`,
+      isReadOnly: false,
       status: 'awaiting-approval',
       requiresApproval: true,
       startedAt: new Date().toISOString(),

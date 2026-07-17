@@ -37,6 +37,13 @@ import type {
   WorktreeDetails,
   WorktreeStatus,
 } from '../shared/contracts';
+import {
+  filterAuditCommands,
+  mergeCommandRecord,
+  summarizeRunningCommands,
+  transitionRunningCommandDisplay,
+  type RunningCommandDisplay,
+} from './command-audit';
 import { previewApi } from './preview-api';
 
 const api: GrafterApi = window.grafter ?? previewApi;
@@ -118,10 +125,7 @@ export function App(): React.JSX.Element {
         current
           ? {
               ...current,
-              commands: [
-                record,
-                ...current.commands.filter((item) => item.id !== record.id),
-              ],
+              commands: mergeCommandRecord(current.commands, record),
             }
           : current,
       );
@@ -720,32 +724,61 @@ function AuditPanel({
   onToggle: () => void;
 }): React.JSX.Element {
   const [tool, setTool] = useState<ToolName>('git');
-  const filtered = commands.filter((command) => command.tool === tool);
+  const [hideReadOnly, setHideReadOnly] = useState(false);
+  const filtered = filterAuditCommands(commands, tool, hideReadOnly);
   const [selectedId, setSelectedId] = useState<string>();
   const selected = filtered.find((command) => command.id === selectedId) ?? filtered[0];
+  const running = summarizeRunningCommands(commands);
+  const displayedRunningCommand = useRunningCommandDisplay(running.latest);
+  const title =
+    !open && displayedRunningCommand ? displayedRunningCommand.purpose : 'Command log';
+
   return (
     <section className={`audit-panel ${open ? 'open' : ''}`}>
       <div className="audit-header">
-        <button className="audit-title" onClick={onToggle}>
+        <button
+          className="audit-title"
+          aria-label={open ? 'Collapse command log' : 'Expand command log'}
+          onClick={onToggle}
+        >
           {open ? <ChevronsDownUp size={14} /> : <ChevronsUpDown size={14} />}
           <TerminalSquare size={15} />
-          <span>Command audit</span>
-          <span className="audit-count">{commands.length}</span>
+          <span className="audit-title-text" aria-live="polite" title={title}>
+            {title}
+          </span>
+          {!open && displayedRunningCommand && running.count > 1 && (
+            <span
+              className="audit-running-count"
+              aria-label={`${running.count} commands running`}
+            >
+              {running.count}
+            </span>
+          )}
         </button>
-        <div className="audit-tools">
-          <select
-            aria-label="Select command tool"
-            value={tool}
-            onChange={(event) => {
-              setTool(event.target.value as ToolName);
-              setSelectedId(undefined);
-            }}
-          >
-            <option value="git">Git</option>
-            <option value="github">GitHub CLI</option>
-            <option value="shell">Setup scripts</option>
-          </select>
-        </div>
+        {open && (
+          <div className="audit-tools">
+            <label className="audit-readonly-filter">
+              <input
+                type="checkbox"
+                checked={hideReadOnly}
+                onChange={(event) => setHideReadOnly(event.target.checked)}
+              />
+              <span>Hide read-only</span>
+            </label>
+            <select
+              aria-label="Select command tool"
+              value={tool}
+              onChange={(event) => {
+                setTool(event.target.value as ToolName);
+                setSelectedId(undefined);
+              }}
+            >
+              <option value="git">Git</option>
+              <option value="github">GitHub CLI</option>
+              <option value="shell">Setup scripts</option>
+            </select>
+          </div>
+        )}
       </div>
       {open && (
         <div className="audit-body">
@@ -769,9 +802,7 @@ function AuditPanel({
                 </time>
               </button>
             ))}
-            {!filtered.length && (
-              <div className="no-commands">No {tool} commands yet.</div>
-            )}
+            {!filtered.length && <div className="no-commands">No matching commands.</div>}
           </div>
           <div className="command-output">
             {selected ? (
@@ -797,6 +828,34 @@ function AuditPanel({
       )}
     </section>
   );
+}
+
+function useRunningCommandDisplay(
+  latest: CommandRecord | undefined,
+): RunningCommandDisplay['command'] {
+  const [display, setDisplay] = useState<RunningCommandDisplay>({
+    command: undefined,
+    shownAt: undefined,
+  });
+  const latestId = latest?.id;
+  const latestPurpose = latest?.purpose;
+
+  useEffect(() => {
+    const latestLabel =
+      latestId === undefined ? undefined : { id: latestId, purpose: latestPurpose ?? '' };
+    const transition = transitionRunningCommandDisplay(display, latestLabel, Date.now());
+    if (transition.display === display && transition.waitMs === undefined) return;
+
+    const timeoutId = window.setTimeout(() => {
+      setDisplay(
+        (current) =>
+          transitionRunningCommandDisplay(current, latestLabel, Date.now()).display,
+      );
+    }, transition.waitMs ?? 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [display, latestId, latestPurpose]);
+
+  return display.command;
 }
 
 function ApprovalDialog({

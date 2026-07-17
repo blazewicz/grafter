@@ -23,10 +23,20 @@ export class GitService {
   async inspectMainClone(selectedPath: string): Promise<Omit<Project, 'id'>> {
     const chosen = await realpath(selectedPath);
     const topLevel = (
-      await this.#git(chosen, ['rev-parse', '--show-toplevel'], 'Validate Git repository')
+      await this.#git(
+        chosen,
+        ['rev-parse', '--show-toplevel'],
+        'Validate Git repository',
+        true,
+      )
     ).stdout.trim();
     const worktreeOutput = (
-      await this.#git(topLevel, ['worktree', 'list', '--porcelain'], 'Find main clone')
+      await this.#git(
+        topLevel,
+        ['worktree', 'list', '--porcelain'],
+        'Find main clone',
+        true,
+      )
     ).stdout;
     const firstPath = /^worktree (.+)$/m.exec(worktreeOutput)?.[1];
     if (!firstPath || (await realpath(firstPath)) !== (await realpath(topLevel))) {
@@ -43,6 +53,7 @@ export class GitService {
         project.path,
         ['worktree', 'list', '--porcelain'],
         `Discover ${project.name} worktrees`,
+        true,
       )
     ).stdout;
     return parseWorktreePorcelain(output, project.id);
@@ -53,6 +64,7 @@ export class GitService {
       project.path,
       ['for-each-ref', '--format=%(refname:short)', 'refs/heads', 'refs/remotes/origin'],
       `List branches in ${project.name}`,
+      true,
     );
     const branches = result.stdout
       .split('\n')
@@ -70,12 +82,13 @@ export class GitService {
       project.path,
       ['show-ref', '--verify', '--quiet', `refs/heads/${branch}`],
       `Check local branch ${branch}`,
+      true,
     );
     const args =
       localBranch.record.exitCode === 0
         ? ['worktree', 'add', worktreePath, branch]
         : ['worktree', 'add', '--track', '-b', branch, worktreePath, `origin/${branch}`];
-    await this.#git(project.path, args, `Create worktree for ${branch}`);
+    await this.#git(project.path, args, `Create worktree for ${branch}`, false);
   }
 
   removeSpec(worktree: Worktree, mainClonePath: string): CommandSpec {
@@ -85,6 +98,7 @@ export class GitService {
       args: ['worktree', 'remove', worktree.path],
       cwd: mainClonePath,
       purpose: `Remove the ${worktree.branch} worktree`,
+      isReadOnly: false,
       requiresApproval: true,
     };
   }
@@ -107,6 +121,7 @@ export class GitService {
       worktree.path,
       ['status', '--porcelain=v1', '--untracked-files=normal'],
       `Check ${worktree.branch} worktree status`,
+      true,
     );
     return parseWorktreeStatus(result.stdout);
   }
@@ -142,6 +157,7 @@ export class GitService {
       args: ['-lc', script],
       cwd: worktreePath,
       purpose: 'Run the project worktree setup script',
+      isReadOnly: false,
       requiresApproval: true,
     };
   }
@@ -155,6 +171,7 @@ export class GitService {
       project.path,
       ['symbolic-ref', '--short', 'refs/remotes/origin/HEAD'],
       'Resolve default branch',
+      true,
     );
     if (remote.record.exitCode === 0)
       return remote.stdout.trim().replace(/^origin\//, '');
@@ -162,6 +179,7 @@ export class GitService {
       project.path,
       ['branch', '--show-current'],
       'Resolve current branch',
+      true,
     );
     return current.stdout.trim() || 'main';
   }
@@ -171,12 +189,14 @@ export class GitService {
       worktreePath,
       ['diff', '--numstat', `${targetBranch}...HEAD`],
       `Compare with ${targetBranch}`,
+      true,
     );
     if (result.record.exitCode === 0) return parseNumStat(result.stdout);
     const remoteResult = await this.#git(
       worktreePath,
       ['diff', '--numstat', `origin/${targetBranch}...HEAD`],
       `Compare with origin/${targetBranch}`,
+      true,
     );
     return parseNumStat(remoteResult.stdout);
   }
@@ -196,6 +216,7 @@ export class GitService {
         ],
         cwd: worktree.path,
         purpose: `Find the pull request for ${worktree.branch}`,
+        isReadOnly: true,
       });
       if (result.record.exitCode !== 0) return undefined;
       const parsed = JSON.parse(result.stdout) as {
@@ -217,8 +238,13 @@ export class GitService {
     }
   }
 
-  async #git(cwd: string, args: string[], purpose: string): Promise<CommandResult> {
-    const result = await this.#gitAllowFailure(cwd, args, purpose);
+  async #git(
+    cwd: string,
+    args: string[],
+    purpose: string,
+    isReadOnly: boolean,
+  ): Promise<CommandResult> {
+    const result = await this.#gitAllowFailure(cwd, args, purpose, isReadOnly);
     if (result.record.exitCode !== 0) {
       throw new Error(
         result.stderr.trim() || `Git command failed: ${result.record.displayCommand}`,
@@ -227,7 +253,19 @@ export class GitService {
     return result;
   }
 
-  #gitAllowFailure(cwd: string, args: string[], purpose: string): Promise<CommandResult> {
-    return this.runner.run({ tool: 'git', executable: 'git', args, cwd, purpose });
+  #gitAllowFailure(
+    cwd: string,
+    args: string[],
+    purpose: string,
+    isReadOnly: boolean,
+  ): Promise<CommandResult> {
+    return this.runner.run({
+      tool: 'git',
+      executable: 'git',
+      args,
+      cwd,
+      purpose,
+      isReadOnly,
+    });
   }
 }

@@ -8,6 +8,7 @@ export interface CommandSpec {
   args: string[];
   cwd: string;
   purpose: string;
+  isReadOnly: boolean;
   requiresApproval?: boolean;
 }
 
@@ -120,6 +121,7 @@ export class CommandRunner {
       cwd: spec.cwd,
       displayCommand: displayCommand(spec.executable, spec.args),
       purpose: spec.purpose,
+      isReadOnly: spec.isReadOnly,
       status,
       requiresApproval: spec.requiresApproval ?? false,
       startedAt: new Date().toISOString(),

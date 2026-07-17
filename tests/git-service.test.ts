@@ -16,6 +16,7 @@ describe('GitService worktree status', () => {
       args: ['init'],
       cwd: directory,
       purpose: 'Initialize test repository',
+      isReadOnly: false,
     });
     expect(initialized.record.exitCode).toBe(0);
 
@@ -38,6 +39,7 @@ describe('GitService worktree status', () => {
       record.purpose.endsWith('worktree status'),
     );
     expect(statusCommands).toHaveLength(2);
+    expect(statusCommands.every((record) => record.isReadOnly)).toBe(true);
     expect(statusCommands[0]?.args).toEqual([
       'status',
       '--porcelain=v1',
