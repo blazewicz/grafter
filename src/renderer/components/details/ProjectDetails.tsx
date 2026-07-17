@@ -1,6 +1,7 @@
 import { FolderGit2 } from 'lucide-react';
 import type { ProjectTreeItem } from '../../../shared/contracts';
 import { WorktreeSummary } from './WorktreeSummary';
+import styles from './details.module.css';
 
 export function ProjectDetails({
   project,
@@ -8,11 +9,11 @@ export function ProjectDetails({
   project: ProjectTreeItem;
 }): React.JSX.Element {
   return (
-    <div className="details-wrap">
-      <div className="details-eyebrow">
+    <div className={styles.detailsWrap}>
+      <div className={styles.detailsEyebrow}>
         <FolderGit2 size={14} /> Git project
       </div>
-      <div className="details-title-row">
+      <div className={styles.detailsTitleRow}>
         <div>
           <h1>{project.name}</h1>
           <p>
@@ -21,9 +22,9 @@ export function ProjectDetails({
           </p>
         </div>
       </div>
-      <section className="path-card">
-        <div className="path-copy">
-          <span className="section-label">MAIN CLONE</span>
+      <section className={styles.pathCard}>
+        <div className={styles.pathCopy}>
+          <span className={styles.sectionLabel}>MAIN CLONE</span>
           <code>{project.path}</code>
         </div>
       </section>

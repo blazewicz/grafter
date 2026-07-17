@@ -5,7 +5,9 @@ import {
   RefreshCw,
   Settings,
 } from 'lucide-react';
+import controls from '../../styles/controls.module.css';
 import { BranchMark } from '../ui/BrandMarks';
+import styles from './AppTitlebar.module.css';
 
 export function AppTitlebar({
   projectName,
@@ -21,32 +23,32 @@ export function AppTitlebar({
   onOpenSettings: () => void;
 }): React.JSX.Element {
   return (
-    <header className="titlebar">
-      <div className="drag-region" />
-      <div className="app-mark">
+    <header className={styles.titlebar}>
+      <div className={styles.dragRegion} />
+      <div className={styles.appMark}>
         <BranchMark /> <span>Grafter</span>
       </div>
-      <div className="title-context">
+      <div className={styles.titleContext}>
         <FolderGit2 size={14} />
-        <span className="title-project">{projectName}</span>
+        <span className={styles.titleProject}>{projectName}</span>
         {branchName && (
           <>
             <ChevronRight size={13} />
-            <span className="title-branch">{branchName}</span>
+            <span className={styles.titleBranch}>{branchName}</span>
           </>
         )}
       </div>
-      <div className="title-actions no-drag">
+      <div className={`${styles.titleActions} no-drag`}>
         {busy && <LoaderCircle className="spin" size={14} />}
         <button
-          className="icon-button"
+          className={controls.iconButton}
           aria-label="Refresh repositories"
           onClick={onRefresh}
         >
           <RefreshCw size={15} />
         </button>
         <button
-          className="icon-button"
+          className={controls.iconButton}
           aria-label="Open settings"
           onClick={onOpenSettings}
         >

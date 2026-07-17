@@ -8,6 +8,7 @@ import type {
 import { ProjectDetails } from './ProjectDetails';
 import { Welcome } from './Welcome';
 import { WorktreeDetails as WorktreeDetailsView } from './WorktreeDetails';
+import styles from './details.module.css';
 
 export function MainView({
   selectedProject,
@@ -27,7 +28,7 @@ export function MainView({
   onError: (message: string) => void;
 }): React.JSX.Element {
   return (
-    <main className="main-view">
+    <main className={styles.mainView}>
       {selectedWorktree && details?.id === selectedWorktree.id ? (
         <WorktreeDetailsView
           details={details}
@@ -48,7 +49,7 @@ export function MainView({
 
 function DetailsLoading(): React.JSX.Element {
   return (
-    <div className="details-loading">
+    <div className={styles.detailsLoading}>
       <LoaderCircle className="spin" size={20} />
       <span>Inspecting worktree…</span>
     </div>

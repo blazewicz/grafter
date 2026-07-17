@@ -1,5 +1,7 @@
 import { AlertTriangle, Check, LoaderCircle, ShieldCheck } from 'lucide-react';
 import type { ApprovalRequest } from '../../../shared/contracts';
+import controls from '../../styles/controls.module.css';
+import styles from './dialogs.module.css';
 
 export function ApprovalDialog({
   request,
@@ -13,22 +15,22 @@ export function ApprovalDialog({
   onApprove: () => void;
 }): React.JSX.Element {
   return (
-    <div className="modal-backdrop">
+    <div className={styles.modalBackdrop}>
       <div
-        className="modal approval-modal"
+        className={styles.modal}
         role="dialog"
         aria-modal="true"
         aria-labelledby="approval-title"
       >
-        <div className="modal-icon warning">
+        <div className={`${styles.modalIcon} ${styles.warning}`}>
           <AlertTriangle size={20} />
         </div>
-        <div className="modal-heading">
+        <div className={styles.modalHeading}>
           <span>APPROVAL REQUIRED</span>
           <h2 id="approval-title">Review command</h2>
           <p>{request.warning}</p>
         </div>
-        <div className="approval-command">
+        <div className={styles.approvalCommand}>
           <div>
             <span>COMMAND</span>
             <code>{request.command.displayCommand}</code>
@@ -38,17 +40,25 @@ export function ApprovalDialog({
             <code>{request.command.cwd}</code>
           </div>
         </div>
-        <div className="approval-note">
+        <div className={styles.approvalNote}>
           <ShieldCheck size={16} />
           <span>
             Approval applies only to this exact command. Any change requires a new review.
           </span>
         </div>
-        <div className="modal-actions">
-          <button className="button ghost" disabled={busy} onClick={onReject}>
+        <div className={styles.modalActions}>
+          <button
+            className={`${controls.button} ${controls.ghost}`}
+            disabled={busy}
+            onClick={onReject}
+          >
             Don’t run
           </button>
-          <button className="button danger" disabled={busy} onClick={onApprove}>
+          <button
+            className={`${controls.button} ${controls.danger}`}
+            disabled={busy}
+            onClick={onApprove}
+          >
             {busy ? <LoaderCircle className="spin" size={14} /> : <Check size={14} />}{' '}
             Approve & run
           </button>

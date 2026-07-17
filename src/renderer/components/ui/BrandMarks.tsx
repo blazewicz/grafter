@@ -1,3 +1,5 @@
+import styles from './BrandMarks.module.css';
+
 export function BranchMark(): React.JSX.Element {
   return (
     <svg width="18" height="19" viewBox="0 0 18 19" fill="none" aria-hidden="true">
@@ -17,7 +19,7 @@ export function BranchMark(): React.JSX.Element {
 export function VisualStudioCodeMark(): React.JSX.Element {
   return (
     <svg
-      className="vscode-mark"
+      className={styles.vscodeMark}
       width="17"
       height="17"
       viewBox="0 0 20 20"

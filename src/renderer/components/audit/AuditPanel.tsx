@@ -16,6 +16,7 @@ import {
   summarizeRunningCommands,
 } from '../../command-audit';
 import { useRunningCommandDisplay } from './useRunningCommandDisplay';
+import styles from './AuditPanel.module.css';
 
 export function AuditPanel({
   open,
@@ -47,21 +48,21 @@ export function AuditPanel({
         : 'Command log';
 
   return (
-    <section className={`audit-panel ${open ? 'open' : ''}`}>
-      <div className="audit-header">
+    <section className={styles.auditPanel}>
+      <div className={styles.auditHeader}>
         <button
-          className="audit-title"
+          className={styles.auditTitle}
           aria-label={open ? 'Collapse command log' : 'Expand command log'}
           onClick={onToggle}
         >
           {open ? <ChevronsDownUp size={14} /> : <ChevronsUpDown size={14} />}
           <TerminalSquare size={15} />
-          <span className="audit-title-text" aria-live="polite" title={title}>
+          <span className={styles.auditTitleText} aria-live="polite" title={title}>
             {title}
           </span>
           {!open && displayedRunningCommand && running.count > 1 && (
             <span
-              className="audit-running-count"
+              className={styles.auditRunningCount}
               aria-label={`${running.count} commands running`}
             >
               {running.count}
@@ -69,8 +70,8 @@ export function AuditPanel({
           )}
         </button>
         {open && (
-          <div className="audit-tools">
-            <label className="audit-readonly-filter">
+          <div className={styles.auditTools}>
+            <label className={styles.auditReadonlyFilter}>
               <input
                 type="checkbox"
                 checked={hideReadOnly}
@@ -94,21 +95,21 @@ export function AuditPanel({
         )}
       </div>
       {open && (
-        <div className="audit-body">
-          <div className="command-list">
+        <div className={styles.auditBody}>
+          <div className={styles.commandList}>
             {filtered.map((group) => (
               <button
                 key={group.id}
-                className={selected?.id === group.id ? 'active' : ''}
+                className={selected?.id === group.id ? styles.active : ''}
                 onClick={() => setSelectedId(group.id)}
               >
                 <StatusIcon status={group.latest.status} />
                 <div>
-                  <div className="command-list-title">
+                  <div className={styles.commandListTitle}>
                     <span>{group.latest.purpose}</span>
                     {group.calls.length > 1 && (
                       <span
-                        className="command-call-count"
+                        className={styles.commandCallCount}
                         aria-label={`${group.calls.length} calls`}
                       >
                         ×{group.calls.length}
@@ -125,17 +126,19 @@ export function AuditPanel({
                 </time>
               </button>
             ))}
-            {!filtered.length && <div className="no-commands">No matching commands.</div>}
+            {!filtered.length && (
+              <div className={styles.noCommands}>No matching commands.</div>
+            )}
           </div>
-          <div className="command-output">
+          <div className={styles.commandOutput}>
             {selected ? (
               selected.calls.map((command) => (
-                <section className="command-invocation" key={command.id}>
-                  <div className="command-invocation-meta">
+                <section className={styles.commandInvocation} key={command.id}>
+                  <div className={styles.commandInvocationMeta}>
                     <time>{new Date(command.startedAt).toLocaleString()}</time>
                     <span>{statusLabel(command.status)}</span>
                   </div>
-                  <div className="terminal-command">
+                  <div className={styles.terminalCommand}>
                     <span>$</span> {command.displayCommand}
                   </div>
                   <pre>
@@ -147,7 +150,7 @@ export function AuditPanel({
                 </section>
               ))
             ) : (
-              <div className="terminal-empty">
+              <div className={styles.terminalEmpty}>
                 <Code2 size={18} />
                 Command output will appear here
               </div>
@@ -160,12 +163,12 @@ export function AuditPanel({
 }
 
 function StatusIcon({ status }: { status: CommandRecord['status'] }): React.JSX.Element {
-  if (status === 'succeeded') return <Check className="status-ok" size={13} />;
+  if (status === 'succeeded') return <Check className={styles.statusOk} size={13} />;
   if (status === 'running')
-    return <LoaderCircle className="spin status-running" size={13} />;
+    return <LoaderCircle className={`spin ${styles.statusRunning}`} size={13} />;
   if (status === 'awaiting-approval')
-    return <ShieldCheck className="status-waiting" size={13} />;
-  return <X className="status-error" size={13} />;
+    return <ShieldCheck className={styles.statusWaiting} size={13} />;
+  return <X className={styles.statusError} size={13} />;
 }
 
 function statusLabel(status: CommandRecord['status']): string {

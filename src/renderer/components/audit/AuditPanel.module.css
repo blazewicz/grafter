@@ -1,0 +1,244 @@
+.audit-panel {
+  grid-column: 2;
+  grid-row: 3;
+  border-top: 1px solid var(--line);
+  background: rgba(17, 17, 18, 0.97);
+}
+
+.audit-header {
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 11px;
+}
+
+.audit-title {
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border: 0;
+  background: transparent;
+  color: #b6b6ba;
+  font-size: 10.75px;
+  font-weight: 570;
+}
+
+.audit-title-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.audit-running-count {
+  flex: 0 0 auto;
+  width: 17px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--accent-bg);
+  color: #d9dcff;
+  font-size: 9px;
+}
+
+.audit-tools {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.audit-readonly-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.audit-readonly-filter input {
+  width: 13px;
+  height: 13px;
+  margin: 0;
+  accent-color: #8d91ba;
+}
+
+.audit-tools select {
+  height: 25px;
+  padding: 0 25px 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #242425;
+  color: #bdbdc0;
+  font-size: 10px;
+}
+
+.audit-body {
+  height: 188px;
+  display: grid;
+  grid-template-columns: minmax(240px, 37%) 1fr;
+  border-top: 1px solid var(--line);
+}
+
+.command-list {
+  overflow: auto;
+  border-right: 1px solid var(--line);
+  padding: 5px;
+}
+
+.command-list > button {
+  width: 100%;
+  min-height: 42px;
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 5px;
+  padding: 6px 7px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  text-align: left;
+}
+
+.command-list > button:hover {
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.command-list > button.active {
+  background: rgba(117, 116, 139, 0.19);
+}
+
+.command-list button > div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.command-list button span {
+  color: #b8bac1;
+  font-size: 10.5px;
+}
+
+.command-list button code {
+  overflow: hidden;
+  color: var(--faint);
+  font-size: 8.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.command-list button .command-list-title {
+  min-width: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 5px;
+}
+
+.command-list-title > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.command-list button .command-call-count {
+  flex: 0 0 auto;
+  padding: 1px 5px;
+  border-radius: 8px;
+  background: rgba(142, 147, 196, 0.13);
+  color: #898ea9;
+  font-size: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.command-list time {
+  color: #585b63;
+  font-size: 8.5px;
+}
+
+.status-ok {
+  color: var(--green);
+}
+
+.status-running {
+  color: var(--accent);
+}
+
+.status-waiting {
+  color: var(--amber);
+}
+
+.status-error {
+  color: var(--red);
+}
+
+.no-commands {
+  padding: 24px;
+  color: var(--faint);
+  font-size: 10.5px;
+  text-align: center;
+}
+
+.command-output {
+  min-width: 0;
+  overflow: auto;
+  padding: 11px 13px;
+  background: rgba(0, 0, 0, 0.11);
+}
+
+.command-invocation + .command-invocation {
+  margin-top: 13px;
+  padding-top: 11px;
+  border-top: 1px solid rgba(255, 255, 255, 0.055);
+}
+
+.command-invocation-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 5px;
+  color: #555a63;
+  font-size: 8.5px;
+}
+
+.terminal-command {
+  color: #aeb1ba;
+  font-family: 'SFMono-Regular', monospace;
+  font-size: 10px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.terminal-command span {
+  color: #9ea4ce;
+}
+
+.command-output pre {
+  margin: 9px 0 0;
+  color: #777c85;
+  font-size: 9.5px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.terminal-empty {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #555961;
+  font-size: 10px;
+}
+
+@media (max-width: 900px) {
+  .audit-body {
+    grid-template-columns: 42% 1fr;
+  }
+}

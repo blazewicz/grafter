@@ -1,8 +1,10 @@
 import { FolderOpen, Plus, Settings } from 'lucide-react';
 import { useState } from 'react';
 import type { GrafterApi, ProjectTreeItem, Worktree } from '../../../shared/contracts';
+import controls from '../../styles/controls.module.css';
 import { EmptyTree } from './EmptyTree';
 import { ProjectNode } from './ProjectNode';
+import styles from './sidebar.module.css';
 
 export function ProjectSidebar({
   projects,
@@ -38,20 +40,20 @@ export function ProjectSidebar({
   const [addingTo, setAddingTo] = useState<string>();
 
   return (
-    <aside className="sidebar">
-      <div className="sidebar-heading">
+    <aside className={styles.sidebar}>
+      <div className={styles.sidebarHeading}>
         <span>Projects</span>
         <button
-          className="icon-button"
+          className={`${controls.iconButton} ${styles.headingAction}`}
           aria-label="Add Git project"
           title="Add Git project"
           onClick={onChooseProject}
         >
           <FolderOpen size={16} />
-          <Plus className="corner-plus" size={9} />
+          <Plus className={styles.cornerPlus} size={9} />
         </button>
       </div>
-      <div className="project-tree">
+      <div className={styles.projectTree}>
         {projects.map((project) => (
           <ProjectNode
             key={project.id}
@@ -77,7 +79,7 @@ export function ProjectSidebar({
         ))}
         {!projects.length && <EmptyTree onAdd={onChooseProject} />}
       </div>
-      <button className="sidebar-settings" onClick={onOpenSettings}>
+      <button className={styles.sidebarSettings} onClick={onOpenSettings}>
         <Settings size={15} /> Settings
       </button>
     </aside>

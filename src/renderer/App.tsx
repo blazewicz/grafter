@@ -11,6 +11,7 @@ import { AppTitlebar } from './components/shell/AppTitlebar';
 import { Splash } from './components/shell/Splash';
 import { ProjectSidebar } from './components/sidebar/ProjectSidebar';
 import { api, friendlyError } from './grafter-api';
+import styles from './App.module.css';
 
 type DialogName = 'settings' | null;
 
@@ -134,7 +135,7 @@ export function App(): React.JSX.Element {
   if (!snapshot) return <Splash />;
 
   return (
-    <div className="app-shell">
+    <div className={styles.appShell}>
       <AppTitlebar
         projectName={activeProject?.name ?? snapshot.projects[0]?.name ?? 'Worktrees'}
         branchName={selectedWorktree?.branch}
@@ -143,7 +144,7 @@ export function App(): React.JSX.Element {
         onOpenSettings={() => setDialog('settings')}
       />
 
-      <div className="workspace">
+      <div className={styles.workspace}>
         <ProjectSidebar
           projects={snapshot.projects}
           selectedId={selectedId}

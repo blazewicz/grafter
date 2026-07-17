@@ -11,6 +11,7 @@ import {
 import { useEffect, useState } from 'react';
 import type { GrafterApi, ProjectTreeItem, Worktree } from '../../../shared/contracts';
 import { NewWorktreeForm } from './NewWorktreeForm';
+import styles from './sidebar.module.css';
 
 export function ProjectNode({
   project,
@@ -57,27 +58,28 @@ export function ProjectNode({
 
   return (
     <div
-      className="project-node"
       onContextMenu={(event) => {
         event.preventDefault();
         setMenuOpen(true);
       }}
     >
       <div
-        className={`tree-row project-row ${selectedId === project.id ? 'selected' : ''}`}
+        className={`${styles.treeRow} ${styles.projectRow} ${
+          selectedId === project.id ? styles.selected : ''
+        }`}
       >
         <button
-          className="tree-toggle"
+          className={styles.treeToggle}
           aria-label={expanded ? `Collapse ${project.name}` : `Expand ${project.name}`}
           onClick={onToggle}
         >
           {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
         </button>
-        <button className="tree-label" onClick={() => onSelect(project.id)}>
+        <button className={styles.treeLabel} onClick={() => onSelect(project.id)}>
           <FolderGit2 size={15} />
           <span>{project.name}</span>
         </button>
-        <div className="row-actions">
+        <div className={styles.rowActions}>
           <button
             aria-label={`Add worktree to ${project.name}`}
             title="New worktree"
@@ -96,7 +98,7 @@ export function ProjectNode({
           </button>
         </div>
         {menuOpen && (
-          <div className="context-menu">
+          <div className={styles.contextMenu}>
             <button
               onClick={() => {
                 setMenuOpen(false);
@@ -109,19 +111,21 @@ export function ProjectNode({
         )}
       </div>
       {expanded && (
-        <div className="tree-children">
+        <div>
           {project.worktrees.map((worktree) => (
             <div
-              className={`tree-row worktree-row ${selectedId === worktree.id ? 'selected' : ''}`}
+              className={`${styles.treeRow} ${styles.worktreeRow} ${
+                selectedId === worktree.id ? styles.selected : ''
+              }`}
               key={worktree.id}
             >
-              <button className="tree-label" onClick={() => onSelect(worktree.id)}>
+              <button className={styles.treeLabel} onClick={() => onSelect(worktree.id)}>
                 <GitBranch size={13} />
                 <span>{worktree.branch}</span>
-                {worktree.isMain && <span className="main-pill">main clone</span>}
+                {worktree.isMain && <span className={styles.mainPill}>main clone</span>}
               </button>
               {!worktree.isMain && (
-                <div className="row-actions">
+                <div className={styles.rowActions}>
                   <button
                     aria-label={`Remove ${worktree.branch} worktree`}
                     title="Remove worktree"

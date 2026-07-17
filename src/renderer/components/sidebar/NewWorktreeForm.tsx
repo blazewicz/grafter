@@ -2,6 +2,8 @@ import { Check, GitBranch, LoaderCircle, Plus, Search } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { GrafterApi, ProjectTreeItem } from '../../../shared/contracts';
 import { api, friendlyError } from '../../grafter-api';
+import controls from '../../styles/controls.module.css';
+import styles from './sidebar.module.css';
 
 export function NewWorktreeForm({
   project,
@@ -72,8 +74,8 @@ export function NewWorktreeForm({
   };
 
   return (
-    <div className="new-worktree-card">
-      <div className="input-with-icon">
+    <div className={styles.newWorktreeCard}>
+      <div className={styles.inputWithIcon}>
         <Search size={13} />
         <input
           ref={inputRef}
@@ -85,22 +87,22 @@ export function NewWorktreeForm({
           placeholder="Filter branches…"
         />
       </div>
-      <div className="branch-results">
+      <div className={styles.branchResults}>
         {filtered.map((branch) => (
           <button
             key={branch}
             onClick={() => choose(branch)}
-            className={chosen === branch ? 'chosen' : ''}
+            className={chosen === branch ? styles.chosen : ''}
           >
             <GitBranch size={12} />
             <span>{branch}</span>
             {chosen === branch && <Check size={12} />}
           </button>
         ))}
-        {!filtered.length && <div className="no-results">No matching branches</div>}
+        {!filtered.length && <div className={styles.noResults}>No matching branches</div>}
       </div>
       {chosen && (
-        <label className="path-input">
+        <label className={styles.pathInput}>
           <span>Path</span>
           <input
             value={worktreePath}
@@ -108,12 +110,12 @@ export function NewWorktreeForm({
           />
         </label>
       )}
-      <div className="form-actions">
-        <button className="button ghost" onClick={onCancel}>
+      <div className={styles.formActions}>
+        <button className={`${controls.button} ${controls.ghost}`} onClick={onCancel}>
           Cancel
         </button>
         <button
-          className="button primary"
+          className={`${controls.button} ${controls.primary}`}
           disabled={!chosen || creating}
           onClick={() => void create()}
         >
