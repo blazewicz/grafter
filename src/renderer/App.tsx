@@ -510,14 +510,22 @@ function NewWorktreeForm(props: {
   const [worktreePath, setWorktreePath] = useState('');
   const [creating, setCreating] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const onErrorRef = useRef(onError);
+
+  useEffect(() => {
+    onErrorRef.current = onError;
+  }, [onError]);
 
   useEffect(() => {
     inputRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
     void api
       .listBranches(project.id)
       .then(setBranches)
-      .catch((error: unknown) => onError(friendlyError(error)));
-  }, [project.id, onError]);
+      .catch((error: unknown) => onErrorRef.current(friendlyError(error)));
+  }, [project.id]);
 
   const filtered = useMemo(() => {
     const needle = query.toLowerCase();
