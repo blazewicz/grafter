@@ -1,9 +1,15 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
 import path from 'node:path';
-import type { CommandRecord, CreateWorktreeRequest, Settings } from '../shared/contracts';
+import type {
+  CommandRecord,
+  CreateWorktreeRequest,
+  EditorTool,
+  Settings,
+} from '../shared/contracts';
 import { ipc } from '../shared/ipc';
 import { AppService } from './app-service';
 import { CommandRunner } from './commands';
+import { launchEditor } from './editors';
 import { StateStore } from './store';
 
 let mainWindow: BrowserWindow | undefined;
@@ -93,9 +99,16 @@ function registerIpc(): void {
   ipcMain.handle(ipc.updateProjectSetup, (_event, projectId: string, script: string) =>
     service.updateProjectSetup(projectId, script),
   );
-  ipcMain.handle(ipc.revealPath, (_event, itemPath: string) => {
-    shell.showItemInFolder(path.resolve(itemPath));
+  ipcMain.handle(ipc.openWorktreeDirectory, async (_event, worktreeId: string) => {
+    const error = await shell.openPath(path.resolve(service.worktreePath(worktreeId)));
+    if (error) throw new Error(error);
   });
+  ipcMain.handle(
+    ipc.openWorktreeInEditor,
+    async (_event, worktreeId: string, editor: EditorTool) => {
+      await launchEditor(editor, service.worktreePath(worktreeId));
+    },
+  );
   ipcMain.handle(ipc.openExternal, async (_event, url: string) => {
     const parsed = new URL(url);
     if (parsed.protocol !== 'https:') throw new Error('Only HTTPS links can be opened.');

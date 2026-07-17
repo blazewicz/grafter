@@ -27,7 +27,10 @@ const api: GrafterApi = {
     ipcRenderer.invoke(ipc.updateSettings, settings),
   updateProjectSetup: (projectId, script) =>
     ipcRenderer.invoke(ipc.updateProjectSetup, projectId, script),
-  revealPath: (path) => ipcRenderer.invoke(ipc.revealPath, path),
+  openWorktreeDirectory: (worktreeId) =>
+    ipcRenderer.invoke(ipc.openWorktreeDirectory, worktreeId),
+  openWorktreeInEditor: (worktreeId, editor) =>
+    ipcRenderer.invoke(ipc.openWorktreeInEditor, worktreeId, editor),
   openExternal: (url) => ipcRenderer.invoke(ipc.openExternal, url),
   onCommandUpdate: (listener) => {
     const handler = (_event: Electron.IpcRendererEvent, command: CommandRecord): void =>

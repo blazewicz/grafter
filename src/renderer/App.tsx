@@ -30,6 +30,7 @@ import type {
   AppSnapshot,
   ApprovalRequest,
   CommandRecord,
+  EditorTool,
   GrafterApi,
   ProjectTreeItem,
   ToolName,
@@ -49,6 +50,11 @@ import { previewApi } from './preview-api';
 const api: GrafterApi = window.grafter ?? previewApi;
 const worktreeStatusRefreshMs = 15_000;
 type DialogName = 'settings' | null;
+
+const editorOptions: readonly {
+  id: EditorTool;
+  label: string;
+}[] = [{ id: 'vscode', label: 'Visual Studio Code' }];
 
 function friendlyError(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
@@ -325,7 +331,7 @@ export function App(): React.JSX.Element {
 
         <main className="main-view">
           {details && details.id === selectedId ? (
-            <Details details={details} status={worktreeStatus} />
+            <Details details={details} status={worktreeStatus} onError={setError} />
           ) : selectedId ? (
             <DetailsLoading />
           ) : (
@@ -615,10 +621,48 @@ function NewWorktreeForm(props: {
 function Details({
   details,
   status,
+  onError,
 }: {
   details: WorktreeDetails;
   status: WorktreeStatus | undefined;
+  onError: (message: string) => void;
 }): React.JSX.Element {
+  const [editor, setEditor] = useState<EditorTool>('vscode');
+  const [editorMenuOpen, setEditorMenuOpen] = useState(false);
+  const editorMenuRef = useRef<HTMLDivElement>(null);
+  const selectedEditorLabel =
+    editorOptions.find((option) => option.id === editor)?.label ?? 'IDE';
+
+  useEffect(() => {
+    if (!editorMenuOpen) return;
+
+    const closeOnOutsideClick = (event: PointerEvent): void => {
+      if (!editorMenuRef.current?.contains(event.target as Node)) {
+        setEditorMenuOpen(false);
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') setEditorMenuOpen(false);
+    };
+
+    document.addEventListener('pointerdown', closeOnOutsideClick);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsideClick);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [editorMenuOpen]);
+
+  const reportActionError = (action: Promise<void>): void => {
+    void action.catch((caught: unknown) => onError(friendlyError(caught)));
+  };
+
+  const openInEditor = (nextEditor: EditorTool): void => {
+    setEditor(nextEditor);
+    setEditorMenuOpen(false);
+    reportActionError(api.openWorktreeInEditor(details.id, nextEditor));
+  };
+
   return (
     <div className="details-wrap">
       <div className="details-eyebrow">
@@ -644,17 +688,57 @@ function Details({
         </span>
       </div>
       <section className="path-card">
-        <div>
+        <div className="path-copy">
           <span className="section-label">LOCAL PATH</span>
           <code>{details.path}</code>
         </div>
-        <button
-          title="Show in file manager"
-          aria-label="Show worktree in file manager"
-          onClick={() => void api.revealPath(details.path)}
-        >
-          <FolderOpen size={16} />
-        </button>
+        <div className="path-actions">
+          <button
+            className="path-action-button"
+            title="Open directory"
+            aria-label="Open worktree directory"
+            onClick={() => reportActionError(api.openWorktreeDirectory(details.id))}
+          >
+            <FolderOpen size={16} />
+          </button>
+          <div className="editor-picker" ref={editorMenuRef}>
+            <div className="editor-split-button">
+              <button
+                className="editor-open-button"
+                title={`Open in ${selectedEditorLabel}`}
+                aria-label={`Open worktree in ${selectedEditorLabel}`}
+                onClick={() => openInEditor(editor)}
+              >
+                <VisualStudioCodeMark />
+              </button>
+              <button
+                className="editor-menu-button"
+                title="Choose IDE"
+                aria-label="Choose IDE"
+                aria-haspopup="menu"
+                aria-expanded={editorMenuOpen}
+                onClick={() => setEditorMenuOpen((open) => !open)}
+              >
+                <ChevronDown size={13} />
+              </button>
+            </div>
+            {editorMenuOpen && (
+              <div className="editor-menu" role="menu">
+                {editorOptions.map((option) => (
+                  <button
+                    key={option.id}
+                    role="menuitem"
+                    onClick={() => openInEditor(option.id)}
+                  >
+                    <VisualStudioCodeMark />
+                    <span>{option.label}</span>
+                    {option.id === editor && <Check size={13} />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       </section>
       <div className="section-heading">
         <div>
@@ -1044,6 +1128,25 @@ function BranchMark(): React.JSX.Element {
       <circle cx="4" cy="3" r="2" fill="currentColor" />
       <circle cx="12.2" cy="5.5" r="2" fill="currentColor" />
       <circle cx="4" cy="15.5" r="2" fill="currentColor" />
+    </svg>
+  );
+}
+
+function VisualStudioCodeMark(): React.JSX.Element {
+  return (
+    <svg
+      className="vscode-mark"
+      width="17"
+      height="17"
+      viewBox="0 0 20 20"
+      fill="none"
+      aria-hidden="true"
+    >
+      <rect width="20" height="20" rx="4" fill="#f7f7f8" />
+      <path
+        d="M14.4 2.9 8.1 8.5 5 6.2 2.8 8.2l3.1 2.8-3.1 2.8L5 15.9l3.1-2.3 6.3 5.5 2.8-1.35V4.25L14.4 2.9Zm0 4.15v7.9L10 11l4.4-3.95Z"
+        fill="#168bd2"
+      />
     </svg>
   );
 }

@@ -13,7 +13,8 @@ export const ipc = {
   worktreeStatus: 'grafter:worktree-status',
   updateSettings: 'grafter:update-settings',
   updateProjectSetup: 'grafter:update-project-setup',
-  revealPath: 'grafter:reveal-path',
+  openWorktreeDirectory: 'grafter:open-worktree-directory',
+  openWorktreeInEditor: 'grafter:open-worktree-in-editor',
   openExternal: 'grafter:open-external',
   commandUpdate: 'grafter:command-update',
 } as const;

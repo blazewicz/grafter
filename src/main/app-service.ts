@@ -138,6 +138,10 @@ export class AppService {
     return this.git.status(this.#worktree(worktreeId));
   }
 
+  worktreePath(worktreeId: string): string {
+    return this.#worktree(worktreeId).path;
+  }
+
   async updateSettings(settings: Settings): Promise<AppSnapshot> {
     if (!settings.defaultWorktreePath.trim())
       throw new Error('The default path cannot be empty.');

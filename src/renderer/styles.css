@@ -575,7 +575,7 @@ select {
   border-radius: 8px;
   background: var(--surface);
 }
-.path-card > div {
+.path-copy {
   min-width: 0;
   flex: 1;
 }
@@ -595,20 +595,112 @@ select {
   font-size: 11.5px;
   white-space: nowrap;
 }
-.path-card button {
-  width: 28px;
-  height: 28px;
+.path-actions {
+  flex: 0 0 auto;
   display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-left: 13px;
+}
+.path-action-button,
+.editor-split-button {
+  height: 30px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.025);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.025);
+}
+.path-action-button {
+  width: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+}
+.path-action-button:hover,
+.editor-split-button:hover {
+  background: var(--surface-strong);
+  border-color: rgba(255, 255, 255, 0.14);
+  color: var(--text);
+}
+.editor-picker {
+  position: relative;
+}
+.editor-split-button {
+  display: flex;
+  overflow: hidden;
+  color: var(--muted);
+}
+.editor-split-button:focus-within {
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+}
+.editor-split-button button {
+  height: 100%;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   border: 0;
-  border-radius: 6px;
   background: transparent;
+}
+.editor-split-button button:focus-visible {
+  outline: 0;
+}
+.editor-open-button {
+  width: 31px;
+}
+.editor-menu-button {
+  width: 25px;
+  position: relative;
   color: var(--muted);
 }
-.path-card button:hover {
-  background: var(--surface-strong);
+.editor-menu-button::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 1px;
+  background: var(--line-strong);
+}
+.editor-split-button button:hover {
+  background: rgba(255, 255, 255, 0.055);
   color: var(--text);
+}
+.editor-menu {
+  z-index: 20;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 178px;
+  padding: 5px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: rgba(38, 39, 44, 0.98);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.38);
+}
+.editor-menu button {
+  width: 100%;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 7px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #d6d6d8;
+  font-size: 11.5px;
+  text-align: left;
+}
+.editor-menu button:hover {
+  background: rgba(255, 255, 255, 0.065);
+}
+.editor-menu button span {
+  flex: 1;
+}
+.vscode-mark {
+  flex: 0 0 auto;
 }
 .section-heading {
   margin: 25px 2px 9px;

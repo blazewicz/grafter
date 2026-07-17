@@ -1,5 +1,6 @@
 export type ToolName = 'git' | 'github' | 'shell';
 export type CommandStatus = 'running' | 'succeeded' | 'failed' | 'awaiting-approval';
+export type EditorTool = 'vscode';
 
 export interface CommandOutput {
   stream: 'stdout' | 'stderr' | 'system';
@@ -108,7 +109,8 @@ export interface GrafterApi {
   getWorktreeStatus(worktreeId: string): Promise<WorktreeStatus>;
   updateSettings(settings: Settings): Promise<AppSnapshot>;
   updateProjectSetup(projectId: string, script: string): Promise<AppSnapshot>;
-  revealPath(path: string): Promise<void>;
+  openWorktreeDirectory(worktreeId: string): Promise<void>;
+  openWorktreeInEditor(worktreeId: string, editor: EditorTool): Promise<void>;
   openExternal(url: string): Promise<void>;
   onCommandUpdate(listener: (command: CommandRecord) => void): () => void;
 }

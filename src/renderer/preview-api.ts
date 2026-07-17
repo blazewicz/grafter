@@ -216,7 +216,8 @@ export const previewApi: GrafterApi = {
     };
     return Promise.resolve(structuredClone(snapshot));
   },
-  revealPath: () => Promise.resolve(),
+  openWorktreeDirectory: () => Promise.resolve(),
+  openWorktreeInEditor: () => Promise.resolve(),
   openExternal: () => Promise.resolve(),
   onCommandUpdate: (listener) => {
     void listener;
