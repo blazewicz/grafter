@@ -40,7 +40,7 @@ export function WorktreeDetails({
 }): React.JSX.Element {
   const [editor, setEditor] = useState<EditorTool>('vscode');
   const [editorMenuOpen, setEditorMenuOpen] = useState(false);
-  const [copiedBranch, setCopiedBranch] = useState<string>();
+  const [copiedText, setCopiedText] = useState<string>();
   const editorMenuRef = useRef<HTMLDivElement>(null);
   const copyResetTimer = useRef<number | undefined>(undefined);
   const selectedEditorLabel =
@@ -88,18 +88,15 @@ export function WorktreeDetails({
     reportActionError(api.openWorktreeInEditor(details.id, nextEditor));
   };
 
-  const copyBranchName = (): void => {
+  const copyText = (text: string): void => {
     void api
-      .copyText(details.branch)
+      .copyText(text)
       .then(() => {
-        setCopiedBranch(details.branch);
+        setCopiedText(text);
         if (copyResetTimer.current !== undefined) {
           window.clearTimeout(copyResetTimer.current);
         }
-        copyResetTimer.current = window.setTimeout(
-          () => setCopiedBranch(undefined),
-          1600,
-        );
+        copyResetTimer.current = window.setTimeout(() => setCopiedText(undefined), 1600);
       })
       .catch((caught: unknown) => onError(friendlyError(caught)));
   };
@@ -114,20 +111,18 @@ export function WorktreeDetails({
           <div className={styles.branchTitle}>
             <h1>{details.branch}</h1>
             <button
-              className={styles.copyBranchButton}
+              className={styles.copyTextButton}
               aria-label={
-                copiedBranch === details.branch
+                copiedText === details.branch
                   ? 'Branch name copied'
                   : `Copy ${details.branch} branch name`
               }
               title={
-                copiedBranch === details.branch
-                  ? 'Branch name copied'
-                  : 'Copy branch name'
+                copiedText === details.branch ? 'Branch name copied' : 'Copy branch name'
               }
-              onClick={copyBranchName}
+              onClick={() => copyText(details.branch)}
             >
-              {copiedBranch === details.branch ? <Check size={13} /> : <Copy size={13} />}
+              {copiedText === details.branch ? <Check size={13} /> : <Copy size={13} />}
             </button>
           </div>
           <p>
@@ -152,7 +147,25 @@ export function WorktreeDetails({
       <section className={styles.pathCard}>
         <div className={styles.pathCopy}>
           <span className={styles.sectionLabel}>WORKTREE PATH</span>
-          <code>{details.path}</code>
+          <div className={styles.pathValue}>
+            <code>{details.path}</code>
+            <button
+              className={styles.copyTextButton}
+              aria-label={
+                copiedText === details.path
+                  ? 'Worktree path copied'
+                  : 'Copy worktree path'
+              }
+              title={
+                copiedText === details.path
+                  ? 'Worktree path copied'
+                  : 'Copy worktree path'
+              }
+              onClick={() => copyText(details.path)}
+            >
+              {copiedText === details.path ? <Check size={13} /> : <Copy size={13} />}
+            </button>
+          </div>
         </div>
         <div className={styles.pathActions}>
           <button
