@@ -331,7 +331,15 @@ export function App(): React.JSX.Element {
 
         <main className="main-view">
           {details && details.id === selectedId ? (
-            <Details details={details} status={worktreeStatus} onError={setError} />
+            <Details
+              details={details}
+              projectWorktrees={
+                snapshot.projects.find((project) => project.id === details.projectId)
+                  ?.worktrees ?? [details]
+              }
+              status={worktreeStatus}
+              onError={setError}
+            />
           ) : selectedId ? (
             <DetailsLoading />
           ) : (
@@ -620,10 +628,12 @@ function NewWorktreeForm(props: {
 
 function Details({
   details,
+  projectWorktrees,
   status,
   onError,
 }: {
   details: WorktreeDetails;
+  projectWorktrees: Worktree[];
   status: WorktreeStatus | undefined;
   onError: (message: string) => void;
 }): React.JSX.Element {
@@ -740,59 +750,104 @@ function Details({
           </div>
         </div>
       </section>
-      {details.pullRequest ? (
-        <section className="pr-card">
-          <div className="pr-icon">
-            <GitPullRequest size={20} />
-          </div>
-          <div className="pr-content">
-            <div className="pr-meta">
-              <span className="open-pill">{details.pullRequest.state}</span>
-              <span>Pull request #{details.pullRequest.number}</span>
-            </div>
-            <strong>{details.pullRequest.title}</strong>
-            <span>Base branch: {details.pullRequest.baseBranch}</span>
-          </div>
-          <button
-            aria-label="Open pull request"
-            onClick={() => void api.openExternal(details.pullRequest!.url)}
-          >
-            <ArrowUpRight size={17} />
-          </button>
-        </section>
+      {details.branch === details.targetBranch ? (
+        <WorktreeSummary worktrees={projectWorktrees} selectedId={details.id} />
       ) : (
-        <section className="quiet-card">
-          <GitBranch size={17} />
-          <div>
-            <strong>No pull request found</strong>
-            <span>Grafter checked this branch using the GitHub CLI.</span>
+        <>
+          {details.pullRequest ? (
+            <section className="pr-card">
+              <div className="pr-icon">
+                <GitPullRequest size={20} />
+              </div>
+              <div className="pr-content">
+                <div className="pr-meta">
+                  <span className="open-pill">{details.pullRequest.state}</span>
+                  <span>Pull request #{details.pullRequest.number}</span>
+                </div>
+                <strong>{details.pullRequest.title}</strong>
+                <span>Base branch: {details.pullRequest.baseBranch}</span>
+              </div>
+              <button
+                aria-label="Open pull request"
+                onClick={() => void api.openExternal(details.pullRequest!.url)}
+              >
+                <ArrowUpRight size={17} />
+              </button>
+            </section>
+          ) : (
+            <section className="quiet-card">
+              <GitBranch size={17} />
+              <div>
+                <strong>No pull request found</strong>
+                <span>Grafter checked this branch using the GitHub CLI.</span>
+              </div>
+            </section>
+          )}
+          <div className="section-heading">
+            <div>
+              <GitCompareArrows size={16} />
+              <span>
+                Changes against <strong>{details.targetBranch}</strong>
+              </span>
+            </div>
+            <span className="commit-id">{details.head.slice(0, 8)}</span>
           </div>
-        </section>
+          <section className="stats-grid">
+            <div>
+              <span>FILES CHANGED</span>
+              <strong>{details.diff.files}</strong>
+            </div>
+            <div className="positive">
+              <span>ADDITIONS</span>
+              <strong>+{details.diff.additions}</strong>
+            </div>
+            <div className="negative">
+              <span>DELETIONS</span>
+              <strong>−{details.diff.deletions}</strong>
+            </div>
+          </section>
+        </>
       )}
+    </div>
+  );
+}
+
+function WorktreeSummary({
+  worktrees,
+  selectedId,
+}: {
+  worktrees: Worktree[];
+  selectedId: string;
+}): React.JSX.Element {
+  return (
+    <>
       <div className="section-heading">
         <div>
-          <GitCompareArrows size={16} />
-          <span>
-            Changes against <strong>{details.targetBranch}</strong>
-          </span>
+          <FolderGit2 size={16} />
+          <span>Project worktrees</span>
         </div>
-        <span className="commit-id">{details.head.slice(0, 8)}</span>
+        <span className="worktree-count">
+          {worktrees.length} {worktrees.length === 1 ? 'worktree' : 'worktrees'}
+        </span>
       </div>
-      <section className="stats-grid">
-        <div>
-          <span>FILES CHANGED</span>
-          <strong>{details.diff.files}</strong>
-        </div>
-        <div className="positive">
-          <span>ADDITIONS</span>
-          <strong>+{details.diff.additions}</strong>
-        </div>
-        <div className="negative">
-          <span>DELETIONS</span>
-          <strong>−{details.diff.deletions}</strong>
-        </div>
+      <section className="worktree-summary" aria-label="Project worktrees">
+        {worktrees.map((worktree) => (
+          <div
+            className={`worktree-summary-row ${worktree.id === selectedId ? 'current' : ''}`}
+            key={worktree.id}
+          >
+            <div className="worktree-summary-path">
+              <span>{worktree.isMain ? 'Main working tree' : 'Linked worktree'}</span>
+              <code title={worktree.path}>{worktree.path}</code>
+            </div>
+            <div className="worktree-summary-branch">
+              <GitBranch size={13} />
+              <span>{worktree.branch}</span>
+            </div>
+          </div>
+        ))}
       </section>
-    </div>
+    </>
   );
 }
 

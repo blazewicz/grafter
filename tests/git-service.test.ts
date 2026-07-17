@@ -2,7 +2,7 @@ import { mkdtemp, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import type { Worktree } from '../src/shared/contracts';
+import type { Project, Worktree } from '../src/shared/contracts';
 import { CommandRunner } from '../src/main/commands';
 import { GitService } from '../src/main/git-service';
 
@@ -45,5 +45,45 @@ describe('GitService worktree status', () => {
       '--porcelain=v1',
       '--untracked-files=normal',
     ]);
+  });
+});
+
+describe('GitService worktree details', () => {
+  it('does not compare a worktree with the branch it already targets', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-details-'));
+    const runner = new CommandRunner(() => undefined);
+    const initialized = await runner.run({
+      tool: 'git',
+      executable: 'git',
+      args: ['init', '--initial-branch=main'],
+      cwd: directory,
+      purpose: 'Initialize test repository',
+      isReadOnly: false,
+    });
+    expect(initialized.record.exitCode).toBe(0);
+
+    const project: Project = {
+      id: 'project',
+      name: 'project',
+      path: directory,
+    };
+    const worktree: Worktree = {
+      id: `project:${directory}`,
+      projectId: project.id,
+      path: directory,
+      branch: 'main',
+      head: '',
+      isMain: true,
+      locked: false,
+    };
+    const service = new GitService(runner);
+
+    await expect(service.details(project, worktree)).resolves.toMatchObject({
+      targetBranch: 'main',
+      diff: { files: 0, additions: 0, deletions: 0 },
+    });
+    expect(runner.records.some((record) => record.purpose === 'Compare with main')).toBe(
+      false,
+    );
   });
 });

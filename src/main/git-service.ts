@@ -106,7 +106,10 @@ export class GitService {
   async details(project: Project, worktree: Worktree): Promise<WorktreeDetails> {
     const pullRequest = await this.#pullRequest(worktree);
     const targetBranch = pullRequest?.baseBranch ?? (await this.#defaultBranch(project));
-    const diff = await this.#diffStats(worktree.path, targetBranch);
+    const diff =
+      worktree.branch === targetBranch
+        ? { files: 0, additions: 0, deletions: 0 }
+        : await this.#diffStats(worktree.path, targetBranch);
     return {
       ...worktree,
       projectName: project.name,

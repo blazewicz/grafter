@@ -723,6 +723,69 @@ select {
   font-family: 'SFMono-Regular', monospace;
   font-size: 10px;
 }
+.worktree-count {
+  color: var(--faint);
+  font-size: 10px;
+}
+.worktree-summary {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface);
+}
+.worktree-summary-row {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+}
+.worktree-summary-row:last-child {
+  border-bottom: 0;
+}
+.worktree-summary-row.current {
+  background: rgba(169, 173, 215, 0.035);
+}
+.worktree-summary-path {
+  min-width: 0;
+  flex: 1;
+}
+.worktree-summary-path > span {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--faint);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+.worktree-summary-path code {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #bfc1c8;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.worktree-summary-branch {
+  min-width: 0;
+  max-width: 42%;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #d5d6dc;
+  font-size: 11.5px;
+}
+.worktree-summary-branch svg {
+  flex: 0 0 auto;
+  color: var(--muted);
+}
+.worktree-summary-branch span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
