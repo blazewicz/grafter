@@ -35,6 +35,7 @@ export function parseWorktreePorcelain(output: string, projectId: string): Workt
       {
         id: `${projectId}:${block.worktree}`,
         projectId,
+        name: worktreeName(block.worktree),
         path: block.worktree,
         branch,
         head: block.HEAD ?? '',
@@ -43,6 +44,11 @@ export function parseWorktreePorcelain(output: string, projectId: string): Workt
       },
     ];
   });
+}
+
+function worktreeName(worktreePath: string): string {
+  const normalized = worktreePath.replace(/\/+$/, '');
+  return normalized.slice(normalized.lastIndexOf('/') + 1) || worktreePath;
 }
 
 export function parseNumStat(output: string): DiffStats {

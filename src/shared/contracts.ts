@@ -71,8 +71,10 @@ export interface DiffStats {
 export interface Worktree {
   id: string;
   projectId: string;
+  name: string;
   path: string;
   branch: string;
+  baseBranch?: string;
   head: string;
   isMain: boolean;
   locked: boolean;

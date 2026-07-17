@@ -19,6 +19,9 @@ import {
 } from '../shared/git-parsers';
 import type { CommandResult, CommandSpec } from './commands';
 import type { CommandRunner } from './commands';
+import { mapWithConcurrency } from './concurrency';
+
+const baseBranchLookupConcurrency = 5;
 
 export class GitService {
   constructor(private readonly runner: CommandRunner) {}
@@ -65,6 +68,20 @@ export class GitService {
       )
     ).stdout;
     return parseWorktreePorcelain(output, project.id);
+  }
+
+  async listBranchWorkspaces(project: Project): Promise<Worktree[]> {
+    const worktrees = await this.listWorktrees(project);
+    const baseBranches = await mapWithConcurrency(
+      worktrees,
+      baseBranchLookupConcurrency,
+      (worktree) => this.#pullRequestBase(worktree),
+    );
+
+    return worktrees.map((worktree, index) => {
+      const baseBranch = baseBranches[index];
+      return baseBranch ? { ...worktree, baseBranch } : worktree;
+    });
   }
 
   async listBranches(project: Project): Promise<string[]> {
@@ -120,7 +137,9 @@ export class GitService {
     const context = worktreeCommandContext(worktree);
     const pullRequest = await this.#pullRequest(worktree, context);
     const targetBranch =
-      pullRequest?.baseBranch ?? (await this.#defaultBranch(project, context));
+      pullRequest?.baseBranch ??
+      worktree.baseBranch ??
+      (await this.#defaultBranch(project, context));
     const diff =
       worktree.branch === targetBranch
         ? { files: 0, additions: 0, deletions: 0 }
@@ -269,6 +288,35 @@ export class GitService {
         state,
         baseBranch: parsed.baseRefName,
       };
+    } catch {
+      return undefined;
+    }
+  }
+
+  async #pullRequestBase(worktree: Worktree): Promise<string | undefined> {
+    if (worktree.branch === '(detached)') return undefined;
+    try {
+      const result = await this.runner.run({
+        context: worktreeCommandContext(worktree),
+        tool: 'github',
+        executable: 'gh',
+        args: ['pr', 'view', worktree.branch, '--json', 'baseRefName'],
+        cwd: worktree.path,
+        purpose: `Find the base branch for ${worktree.branch}`,
+        isReadOnly: true,
+      });
+      if (result.record.exitCode !== 0) return undefined;
+      const parsed: unknown = JSON.parse(result.stdout);
+      if (
+        typeof parsed !== 'object' ||
+        parsed === null ||
+        !('baseRefName' in parsed) ||
+        typeof parsed.baseRefName !== 'string' ||
+        !parsed.baseRefName
+      ) {
+        return undefined;
+      }
+      return parsed.baseRefName;
     } catch {
       return undefined;
     }

@@ -84,7 +84,10 @@ export function WorktreeDetails({
       <div className={styles.detailsTitleRow}>
         <div>
           <h1>{details.branch}</h1>
-          <p>{details.isMain ? 'Main working tree' : 'Linked worktree'}</p>
+          <p>
+            Checked out in <strong>{details.name}</strong>
+            {details.isMain ? ' · main clone' : ''}
+          </p>
         </div>
         <span
           className={`${styles.cleanBadge} ${statusClass}`}
@@ -102,7 +105,7 @@ export function WorktreeDetails({
       </div>
       <section className={styles.pathCard}>
         <div className={styles.pathCopy}>
-          <span className={styles.sectionLabel}>LOCAL PATH</span>
+          <span className={styles.sectionLabel}>WORKTREE PATH</span>
           <code>{details.path}</code>
         </div>
         <div className={styles.pathActions}>

@@ -28,6 +28,7 @@ describe('GitService worktree status', () => {
     const worktree: Worktree = {
       id: `project:${directory}`,
       projectId: 'project',
+      name: path.basename(directory),
       path: directory,
       branch: 'main',
       head: '',
@@ -76,6 +77,7 @@ describe('GitService worktree details', () => {
     const worktree: Worktree = {
       id: `project:${directory}`,
       projectId: project.id,
+      name: path.basename(directory),
       path: directory,
       branch: 'main',
       head: '',
@@ -111,6 +113,7 @@ describe('GitService worktree details', () => {
     const worktree: Worktree = {
       id: 'project:/repo.worktrees/feature',
       projectId: project.id,
+      name: 'feature',
       path: '/repo.worktrees/feature',
       branch: 'feature',
       head: '',

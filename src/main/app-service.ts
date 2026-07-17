@@ -69,7 +69,10 @@ export class AppService {
     const trees: ProjectTreeItem[] = [];
     for (const project of this.store.state.projects) {
       try {
-        trees.push({ ...project, worktrees: await this.git.listWorktrees(project) });
+        trees.push({
+          ...project,
+          worktrees: await this.git.listBranchWorkspaces(project),
+        });
       } catch {
         trees.push({ ...project, worktrees: [] });
       }

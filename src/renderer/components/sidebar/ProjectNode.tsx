@@ -8,7 +8,11 @@ import {
   Plus,
   Trash2,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  buildBranchHierarchy,
+  type BranchHierarchyNode,
+} from '../../../shared/branch-hierarchy';
 import type { GrafterApi, ProjectTreeItem, Worktree } from '../../../shared/contracts';
 import { NewWorktreeForm } from './NewWorktreeForm';
 import styles from './sidebar.module.css';
@@ -44,6 +48,10 @@ export function ProjectNode({
   onError: (message: string) => void;
 }): React.JSX.Element {
   const [menuOpen, setMenuOpen] = useState(false);
+  const branchHierarchy = useMemo(
+    () => buildBranchHierarchy(project.worktrees),
+    [project.worktrees],
+  );
 
   useEffect(() => {
     if (!menuOpen) {
@@ -112,31 +120,14 @@ export function ProjectNode({
       </div>
       {expanded && (
         <div>
-          {project.worktrees.map((worktree) => (
-            <div
-              className={`${styles.treeRow} ${styles.worktreeRow} ${
-                selectedId === worktree.id ? styles.selected : ''
-              }`}
-              key={worktree.id}
-            >
-              <button className={styles.treeLabel} onClick={() => onSelect(worktree.id)}>
-                <GitBranch size={13} />
-                <span>{worktree.branch}</span>
-                {worktree.isMain && <span className={styles.mainPill}>main clone</span>}
-              </button>
-              {!worktree.isMain && (
-                <div className={styles.rowActions}>
-                  <button
-                    aria-label={`Remove ${worktree.branch} worktree`}
-                    title="Remove worktree"
-                    onClick={() => onRemoveWorktree(worktree)}
-                  >
-                    <Minus size={14} />
-                  </button>
-                </div>
-              )}
-            </div>
-          ))}
+          <div className={styles.branchList}>
+            <BranchRows
+              nodes={branchHierarchy}
+              selectedId={selectedId}
+              onSelect={onSelect}
+              onRemoveWorktree={onRemoveWorktree}
+            />
+          </div>
           {adding && (
             <NewWorktreeForm
               project={project}
@@ -148,5 +139,81 @@ export function ProjectNode({
         </div>
       )}
     </div>
+  );
+}
+
+function BranchRows({
+  nodes,
+  selectedId,
+  onSelect,
+  onRemoveWorktree,
+}: {
+  nodes: BranchHierarchyNode[];
+  selectedId: string | undefined;
+  onSelect: (id: string) => void;
+  onRemoveWorktree: (worktree: Worktree) => void;
+}): React.JSX.Element {
+  return (
+    <>
+      {nodes.map((node) => (
+        <div className={styles.branchNode} key={node.id}>
+          {node.worktree ? (
+            <div
+              className={`${styles.treeRow} ${styles.branchRow} ${
+                selectedId === node.worktree.id ? styles.selected : ''
+              }`}
+            >
+              <button
+                className={styles.treeLabel}
+                onClick={() => {
+                  if (node.worktree) onSelect(node.worktree.id);
+                }}
+              >
+                <GitBranch size={13} />
+                <span className={styles.branchName} title={node.branch}>
+                  {node.branch}
+                </span>
+                <span className={styles.worktreePill} title={node.worktree.path}>
+                  {node.worktree.name}
+                </span>
+              </button>
+              {!node.worktree.isMain && (
+                <div className={styles.rowActions}>
+                  <button
+                    aria-label={`Remove ${node.branch} worktree`}
+                    title="Remove worktree"
+                    onClick={() => {
+                      if (node.worktree) onRemoveWorktree(node.worktree);
+                    }}
+                  >
+                    <Minus size={14} />
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className={`${styles.treeRow} ${styles.branchRow} ${styles.ghostRow}`}>
+              <div className={styles.ghostLabel}>
+                <GitBranch size={13} />
+                <span className={styles.branchName} title={node.branch}>
+                  {node.branch}
+                </span>
+                <span className={styles.ghostPill}>no workspace</span>
+              </div>
+            </div>
+          )}
+          {node.children.length > 0 && (
+            <div className={styles.branchChildren}>
+              <BranchRows
+                nodes={node.children}
+                selectedId={selectedId}
+                onSelect={onSelect}
+                onRemoveWorktree={onRemoveWorktree}
+              />
+            </div>
+          )}
+        </div>
+      ))}
+    </>
   );
 }

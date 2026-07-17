@@ -42,6 +42,11 @@
   font-size: 12px;
 }
 
+.details-title-row p strong {
+  color: #b7b8be;
+  font-weight: 560;
+}
+
 .clean-badge {
   display: inline-flex;
   align-items: center;
@@ -278,16 +283,7 @@
 .worktree-summary-path {
   min-width: 0;
   flex: 1;
-}
-
-.worktree-summary-path > span {
-  display: block;
-  margin-bottom: 5px;
-  color: var(--faint);
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
+  text-align: right;
 }
 
 .worktree-summary-path code {
@@ -301,7 +297,7 @@
 
 .worktree-summary-branch {
   min-width: 0;
-  max-width: 42%;
+  flex: 1;
   display: flex;
   align-items: center;
   gap: 7px;
@@ -314,8 +310,24 @@
   color: var(--muted);
 }
 
-.worktree-summary-branch span {
+.worktree-summary-branch > span:not(.summary-worktree-pill) {
+  min-width: 24px;
+  flex: 1;
   overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.summary-worktree-pill {
+  min-width: 0;
+  max-width: 48%;
+  flex: 0 0 auto;
+  padding: 2px 5px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--faint);
+  font-size: 9px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

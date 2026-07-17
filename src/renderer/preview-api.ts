@@ -23,6 +23,7 @@ let snapshot: AppSnapshot = {
         {
           id: 'grafter:main',
           projectId: 'grafter',
+          name: 'grafter',
           path: '/Users/kasia/Code/grafter',
           branch: 'main',
           head: '3e7cb81',
@@ -32,8 +33,10 @@ let snapshot: AppSnapshot = {
         {
           id: 'grafter:glass',
           projectId: 'grafter',
+          name: 'feature-glass-sidebar',
           path: '/Users/kasia/Code/grafter.worktrees/feature-glass-sidebar',
           branch: 'feature/glass-sidebar',
+          baseBranch: 'main',
           head: 'cf91e24',
           isMain: false,
           locked: false,
@@ -41,8 +44,10 @@ let snapshot: AppSnapshot = {
         {
           id: 'grafter:audit',
           projectId: 'grafter',
+          name: 'audit-console',
           path: '/Users/kasia/Code/grafter.worktrees/audit-console',
           branch: 'audit-console',
+          baseBranch: 'feature/worktree-picker',
           head: '81ca492',
           isMain: false,
           locked: false,
@@ -57,6 +62,7 @@ let snapshot: AppSnapshot = {
         {
           id: 'garden:main',
           projectId: 'garden',
+          name: 'garden-api',
           path: '/Users/kasia/Code/garden-api',
           branch: 'main',
           head: '051dce3',
@@ -226,8 +232,15 @@ const details: Record<string, WorktreeDetails> = {
   'grafter:audit': {
     ...snapshot.projects[0]!.worktrees[2]!,
     projectName: 'grafter',
-    targetBranch: 'main',
+    targetBranch: 'feature/worktree-picker',
     diff: { files: 3, additions: 121, deletions: 9 },
+    pullRequest: {
+      number: 47,
+      title: 'Add the audit console',
+      url: 'https://github.com/example/grafter/pull/47',
+      state: 'OPEN',
+      baseBranch: 'feature/worktree-picker',
+    },
   },
   'garden:main': {
     ...snapshot.projects[1]!.worktrees[0]!,
