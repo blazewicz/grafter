@@ -740,29 +740,6 @@ function Details({
           </div>
         </div>
       </section>
-      <div className="section-heading">
-        <div>
-          <GitCompareArrows size={16} />
-          <span>
-            Changes against <strong>{details.targetBranch}</strong>
-          </span>
-        </div>
-        <span className="commit-id">{details.head.slice(0, 8)}</span>
-      </div>
-      <section className="stats-grid">
-        <div>
-          <span>FILES CHANGED</span>
-          <strong>{details.diff.files}</strong>
-        </div>
-        <div className="positive">
-          <span>ADDITIONS</span>
-          <strong>+{details.diff.additions}</strong>
-        </div>
-        <div className="negative">
-          <span>DELETIONS</span>
-          <strong>−{details.diff.deletions}</strong>
-        </div>
-      </section>
       {details.pullRequest ? (
         <section className="pr-card">
           <div className="pr-icon">
@@ -792,14 +769,27 @@ function Details({
           </div>
         </section>
       )}
-      <section className="about-card">
-        <ShieldCheck size={18} />
+      <div className="section-heading">
         <div>
-          <strong>Every command stays visible</strong>
-          <p>
-            Git and GitHub operations for this worktree appear in the audit panel below.
-            Scripts and destructive actions always wait for your approval.
-          </p>
+          <GitCompareArrows size={16} />
+          <span>
+            Changes against <strong>{details.targetBranch}</strong>
+          </span>
+        </div>
+        <span className="commit-id">{details.head.slice(0, 8)}</span>
+      </div>
+      <section className="stats-grid">
+        <div>
+          <span>FILES CHANGED</span>
+          <strong>{details.diff.files}</strong>
+        </div>
+        <div className="positive">
+          <span>ADDITIONS</span>
+          <strong>+{details.diff.additions}</strong>
+        </div>
+        <div className="negative">
+          <span>DELETIONS</span>
+          <strong>−{details.diff.deletions}</strong>
         </div>
       </section>
     </div>
