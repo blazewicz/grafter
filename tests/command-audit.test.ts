@@ -87,8 +87,46 @@ describe('command audit grouping', () => {
     });
 
     expect(groupConsecutiveReadOnlyCommands([latest, older])).toEqual([
-      { id: latest.id, latest, calls: [latest, older] },
+      { id: older.id, latest, calls: [latest, older] },
     ]);
+  });
+
+  it('keeps group identity stable while a new read-only call runs and succeeds', () => {
+    const oldest = command('oldest');
+    const previous = command('previous', {
+      startedAt: '2026-07-17T10:00:01.000Z',
+    });
+    const running = command('running', {
+      status: 'running',
+      startedAt: '2026-07-17T10:00:02.000Z',
+    });
+    const succeeded = { ...running, status: 'succeeded' as const };
+
+    const before = groupConsecutiveReadOnlyCommands([previous, oldest]);
+    const during = groupConsecutiveReadOnlyCommands([running, previous, oldest]);
+    const after = groupConsecutiveReadOnlyCommands([succeeded, previous, oldest]);
+
+    expect(before[0]?.id).toBe(oldest.id);
+    expect(during).toEqual([
+      { id: oldest.id, latest: running, calls: [running, previous, oldest] },
+    ]);
+    expect(after).toEqual([
+      { id: oldest.id, latest: succeeded, calls: [succeeded, previous, oldest] },
+    ]);
+  });
+
+  it('splits a provisionally grouped call out if it fails', () => {
+    const older = command('older');
+    const failed = command('failed', {
+      status: 'failed',
+      startedAt: '2026-07-17T10:00:01.000Z',
+    });
+
+    expect(
+      groupConsecutiveReadOnlyCommands([failed, older]).map((group) =>
+        group.calls.map(({ id }) => id),
+      ),
+    ).toEqual([['failed'], ['older']]);
   });
 
   it('does not group identical commands across an intervening entry', () => {

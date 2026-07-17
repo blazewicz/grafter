@@ -70,6 +70,7 @@ export function groupConsecutiveReadOnlyCommands(
       isSameCommand(previous.latest, command)
     ) {
       previous.calls.push(command);
+      previous.id = command.id;
       continue;
     }
 
@@ -121,7 +122,7 @@ export function transitionRunningCommandDisplay(
 function isGroupableReadOnlyCommand(command: CommandRecord): boolean {
   return (
     command.isReadOnly &&
-    command.status === 'succeeded' &&
+    (command.status === 'running' || command.status === 'succeeded') &&
     command.requiresApproval === false
   );
 }

@@ -61,6 +61,10 @@ These constraints are architectural invariants:
 - Give icon-only controls accessible names and use semantic labels for dialogs and inputs.
 - Preserve unrelated working-tree changes. Do not stage, commit, push, or release unless the
   user explicitly asks.
+- Keep renderer components grouped by feature area under `src/renderer/components/`,
+  and co-locate feature-specific hooks with their components.
+- Keep `App.tsx` focused on cross-feature composition and shared orchestration; keep
+  feature-local state and behavior in the component that owns it.
 
 ## Testing
 
