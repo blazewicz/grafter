@@ -1,5 +1,9 @@
 import { useEffect, useState } from 'react';
-import type { WorktreeDetails, WorktreeStatus } from '../../../shared/contracts';
+import type {
+  PullRequest,
+  WorktreeDetails,
+  WorktreeStatus,
+} from '../../../shared/contracts';
 import { api, friendlyError } from '../../grafter-api';
 
 const worktreeStatusRefreshMs = 15_000;
@@ -7,6 +11,7 @@ const worktreeStatusRefreshMs = 15_000;
 export function useWorktreeInspection(
   worktreeId: string | undefined,
   onError: (message: string) => void,
+  onPullRequestUpdated: (worktreeId: string, pullRequest: PullRequest) => void,
 ): {
   details: WorktreeDetails | undefined;
   status: WorktreeStatus | undefined;
@@ -20,18 +25,40 @@ export function useWorktreeInspection(
   useEffect(() => {
     if (!worktreeId) return;
     let active = true;
-    void api
-      .getWorktreeDetails(worktreeId)
-      .then((next) => {
-        if (active) setDetails(next);
-      })
-      .catch((caught: unknown) => {
+
+    const inspect = async (): Promise<void> => {
+      const pullRequestRefresh = api.refreshPullRequest(worktreeId).then(
+        (pullRequest) => ({ ok: true as const, pullRequest }),
+        (error: unknown) => ({ ok: false as const, error }),
+      );
+      try {
+        const cached = await api.getWorktreeDetails(worktreeId);
+        if (!active) return;
+        setDetails(cached);
+
+        const refreshResult = await pullRequestRefresh;
+        if (!refreshResult.ok) throw refreshResult.error;
+        const { pullRequest } = refreshResult;
+        if (!active || !pullRequest) return;
+        onPullRequestUpdated(worktreeId, pullRequest);
+        setDetails((current) =>
+          current?.id === worktreeId ? { ...current, pullRequest } : current,
+        );
+
+        if (cached.targetBranch !== pullRequest.baseBranch) {
+          const refreshed = await api.getWorktreeDetails(worktreeId);
+          if (active) setDetails(refreshed);
+        }
+      } catch (caught) {
         if (active) onError(friendlyError(caught));
-      });
+      }
+    };
+
+    void inspect();
     return () => {
       active = false;
     };
-  }, [onError, worktreeId]);
+  }, [onError, onPullRequestUpdated, worktreeId]);
 
   useEffect(() => {
     if (!worktreeId) return;

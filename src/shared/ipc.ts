@@ -11,6 +11,7 @@ export const ipc = {
   approveCommand: 'grafter:approve-command',
   rejectCommand: 'grafter:reject-command',
   worktreeDetails: 'grafter:worktree-details',
+  refreshPullRequest: 'grafter:refresh-pull-request',
   worktreeStatus: 'grafter:worktree-status',
   updateSettings: 'grafter:update-settings',
   updateProjectSetup: 'grafter:update-project-setup',

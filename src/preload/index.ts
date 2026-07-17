@@ -24,6 +24,8 @@ const api: GrafterApi = {
   approveCommand: (approvalId) => ipcRenderer.invoke(ipc.approveCommand, approvalId),
   rejectCommand: (approvalId) => ipcRenderer.invoke(ipc.rejectCommand, approvalId),
   getWorktreeDetails: (worktreeId) => ipcRenderer.invoke(ipc.worktreeDetails, worktreeId),
+  refreshPullRequest: (worktreeId) =>
+    ipcRenderer.invoke(ipc.refreshPullRequest, worktreeId),
   getWorktreeStatus: (worktreeId) => ipcRenderer.invoke(ipc.worktreeStatus, worktreeId),
   updateSettings: (settings: Settings) =>
     ipcRenderer.invoke(ipc.updateSettings, settings),

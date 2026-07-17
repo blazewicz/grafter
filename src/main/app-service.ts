@@ -7,6 +7,7 @@ import type {
   CreateWorktreeRequest,
   Project,
   ProjectTreeItem,
+  PullRequest,
   Settings,
   Worktree,
   WorktreeDetails,
@@ -147,6 +148,20 @@ export class AppService {
   async details(worktreeId: string): Promise<WorktreeDetails> {
     const worktree = this.#worktree(worktreeId);
     return this.git.details(this.#project(worktree.projectId), worktree);
+  }
+
+  async refreshPullRequest(worktreeId: string): Promise<PullRequest | undefined> {
+    const worktree = this.#worktree(worktreeId);
+    const pullRequest = await this.git.pullRequest(worktree);
+    if (!pullRequest) return worktree.pullRequest;
+
+    this.#trees = this.#trees.map((project) => ({
+      ...project,
+      worktrees: project.worktrees.map((item) =>
+        item.id === worktreeId ? { ...item, pullRequest } : item,
+      ),
+    }));
+    return structuredClone(pullRequest);
   }
 
   async worktreeStatus(worktreeId: string): Promise<WorktreeStatus> {

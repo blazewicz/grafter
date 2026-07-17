@@ -26,7 +26,7 @@ export function buildBranchHierarchy(
   const parentById = new Map<string, BranchHierarchyNode>();
 
   for (const node of realNodes) {
-    const baseBranch = node.worktree?.baseBranch;
+    const baseBranch = node.worktree?.pullRequest?.baseBranch;
     if (!baseBranch || baseBranch === node.branch || baseBranch === defaultBranch) {
       continue;
     }

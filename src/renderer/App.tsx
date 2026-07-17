@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
-import type { AppSnapshot, ApprovalRequest, CommandContext } from '../shared/contracts';
+import type {
+  AppSnapshot,
+  ApprovalRequest,
+  CommandContext,
+  PullRequest,
+} from '../shared/contracts';
 import { AuditPanel } from './components/audit/AuditPanel';
 import { useCommandLogs } from './components/audit/useCommandLogs';
 import { MainView } from './components/details/MainView';
@@ -59,9 +64,28 @@ export function App(): React.JSX.Element {
     selectedContext,
     setError,
   );
+  const updateCachedPullRequest = useCallback(
+    (worktreeId: string, pullRequest: PullRequest): void => {
+      setSnapshot((current) =>
+        current
+          ? {
+              ...current,
+              projects: current.projects.map((project) => ({
+                ...project,
+                worktrees: project.worktrees.map((worktree) =>
+                  worktree.id === worktreeId ? { ...worktree, pullRequest } : worktree,
+                ),
+              })),
+            }
+          : current,
+      );
+    },
+    [],
+  );
   const { details, status: worktreeStatus } = useWorktreeInspection(
     selectedWorktreeId,
     setError,
+    updateCachedPullRequest,
   );
   const projectWorktrees = details
     ? (snapshot?.projects.find((project) => project.id === details.projectId)

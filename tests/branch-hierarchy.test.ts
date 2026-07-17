@@ -13,7 +13,17 @@ function worktree(branch: string, baseBranch?: string, isMain = false): Worktree
     name,
     path: `/worktrees/${name}`,
     branch,
-    ...(baseBranch ? { baseBranch } : {}),
+    ...(baseBranch
+      ? {
+          pullRequest: {
+            number: 1,
+            title: branch,
+            url: `https://github.com/example/repo/pull/${name}`,
+            state: 'OPEN' as const,
+            baseBranch,
+          },
+        }
+      : {}),
     head: branch,
     isMain,
     locked: false,

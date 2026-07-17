@@ -94,6 +94,9 @@ function registerIpc(): void {
   ipcMain.handle(ipc.worktreeDetails, (_event, worktreeId: string) =>
     service.details(worktreeId),
   );
+  ipcMain.handle(ipc.refreshPullRequest, (_event, worktreeId: string) =>
+    service.refreshPullRequest(worktreeId),
+  );
   ipcMain.handle(ipc.worktreeStatus, (_event, worktreeId: string) =>
     service.worktreeStatus(worktreeId),
   );
