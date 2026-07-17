@@ -13,6 +13,8 @@ export interface AuditCommandGroup {
   calls: CommandRecord[];
 }
 
+export type AuditToolFilter = ToolName | 'all';
+
 export type RunningCommandLabel = Pick<CommandRecord, 'id' | 'purpose'>;
 
 export interface RunningCommandDisplay {
@@ -47,12 +49,13 @@ export function combineCommandRecords(
 
 export function filterAuditCommandGroups(
   groups: AuditCommandGroup[],
-  tool: ToolName,
+  tool: AuditToolFilter,
   hideReadOnly: boolean,
 ): AuditCommandGroup[] {
   return groups.filter(
     (group) =>
-      group.latest.tool === tool && (!hideReadOnly || group.latest.isReadOnly === false),
+      (tool === 'all' || group.latest.tool === tool) &&
+      (!hideReadOnly || group.latest.isReadOnly === false),
   );
 }
 

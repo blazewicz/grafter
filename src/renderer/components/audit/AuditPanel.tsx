@@ -9,12 +9,13 @@ import {
   X,
 } from 'lucide-react';
 import { useState } from 'react';
-import type { CommandRecord, ToolName } from '../../../shared/contracts';
+import type { CommandRecord } from '../../../shared/contracts';
 import {
   filterAuditCommandGroups,
   groupConsecutiveReadOnlyCommands,
   summarizeRunningCommands,
 } from '../../command-audit';
+import type { AuditToolFilter } from '../../command-audit';
 import { useRunningCommandDisplay } from './useRunningCommandDisplay';
 import styles from './AuditPanel.module.css';
 
@@ -29,7 +30,7 @@ export function AuditPanel({
   contextLabel: string | undefined;
   onToggle: () => void;
 }): React.JSX.Element {
-  const [tool, setTool] = useState<ToolName>('git');
+  const [tool, setTool] = useState<AuditToolFilter>('all');
   const [hideReadOnly, setHideReadOnly] = useState(false);
   const filtered = filterAuditCommandGroups(
     groupConsecutiveReadOnlyCommands(commands),
@@ -83,10 +84,11 @@ export function AuditPanel({
               aria-label="Select command tool"
               value={tool}
               onChange={(event) => {
-                setTool(event.target.value as ToolName);
+                setTool(event.target.value as AuditToolFilter);
                 setSelectedId(undefined);
               }}
             >
+              <option value="all">All</option>
               <option value="git">Git</option>
               <option value="github">GitHub CLI</option>
               <option value="shell">Setup scripts</option>

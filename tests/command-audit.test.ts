@@ -51,6 +51,25 @@ describe('command audit filtering', () => {
     ]);
   });
 
+  it('shows commands from every tool when all tools are selected', () => {
+    const commands = [
+      command('git'),
+      command('github', { tool: 'github' }),
+      command('shell', { tool: 'shell', isReadOnly: false }),
+    ];
+
+    const groups = groupConsecutiveReadOnlyCommands(commands);
+
+    expect(filterAuditCommandGroups(groups, 'all', false).map(({ id }) => id)).toEqual([
+      'git',
+      'github',
+      'shell',
+    ]);
+    expect(filterAuditCommandGroups(groups, 'all', true).map(({ id }) => id)).toEqual([
+      'shell',
+    ]);
+  });
+
   it('replaces live updates without changing command start order', () => {
     const original = command('first', { status: 'running' });
     const newer = command('newer', {
