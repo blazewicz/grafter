@@ -3,6 +3,7 @@ import {
   ChevronsDownUp,
   ChevronsUpDown,
   Code2,
+  Copy,
   LoaderCircle,
   ShieldCheck,
   TerminalSquare,
@@ -16,6 +17,7 @@ import {
   summarizeRunningCommands,
 } from '../../command-audit';
 import type { AuditToolFilter } from '../../command-audit';
+import { api, friendlyError } from '../../grafter-api';
 import { useRunningCommandDisplay } from './useRunningCommandDisplay';
 import styles from './AuditPanel.module.css';
 
@@ -24,12 +26,15 @@ export function AuditPanel({
   commands,
   contextLabel,
   onToggle,
+  onError,
 }: {
   open: boolean;
   commands: CommandRecord[];
   contextLabel: string | undefined;
   onToggle: () => void;
+  onError: (message: string) => void;
 }): React.JSX.Element {
+  const [copiedCommandId, setCopiedCommandId] = useState<string>();
   const [tool, setTool] = useState<AuditToolFilter>('all');
   const [hideReadOnly, setHideReadOnly] = useState(false);
   const filtered = filterAuditCommandGroups(
@@ -47,6 +52,21 @@ export function AuditPanel({
       : contextLabel
         ? `Command log · ${contextLabel}`
         : 'Command log';
+  const copyCommand = (command: CommandRecord): void => {
+    void api
+      .copyCommand(command.displayCommand)
+      .then(() => {
+        setCopiedCommandId(command.id);
+        window.setTimeout(
+          () =>
+            setCopiedCommandId((currentId) =>
+              currentId === command.id ? undefined : currentId,
+            ),
+          1600,
+        );
+      })
+      .catch((caught: unknown) => onError(friendlyError(caught)));
+  };
 
   return (
     <section className={styles.auditPanel}>
@@ -141,7 +161,29 @@ export function AuditPanel({
                     <span>{statusLabel(command.status)}</span>
                   </div>
                   <div className={styles.terminalCommand}>
-                    <span>$</span> {command.displayCommand}
+                    <span>$</span>
+                    <span className={styles.commandText}>{command.displayCommand}</span>
+                    <button
+                      type="button"
+                      className={styles.copyCommandButton}
+                      aria-label={
+                        copiedCommandId === command.id
+                          ? 'Command copied'
+                          : 'Copy full command'
+                      }
+                      title={
+                        copiedCommandId === command.id
+                          ? 'Command copied'
+                          : 'Copy full command'
+                      }
+                      onClick={() => copyCommand(command)}
+                    >
+                      {copiedCommandId === command.id ? (
+                        <Check size={16} />
+                      ) : (
+                        <Copy size={17} />
+                      )}
+                    </button>
                   </div>
                   <pre>
                     {command.output.map((line) => line.text).join('') ||

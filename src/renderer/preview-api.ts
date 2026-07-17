@@ -235,6 +235,23 @@ function updateCommand(record: CommandRecord): void {
   commands = [record, ...commands.filter((item) => item.id !== record.id)];
 }
 
+async function copyPreviewCommand(command: string): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(command);
+    return;
+  } catch {
+    const input = document.createElement('textarea');
+    input.value = command;
+    input.style.position = 'fixed';
+    input.style.opacity = '0';
+    document.body.append(input);
+    input.select();
+    const copied = document.execCommand('copy');
+    input.remove();
+    if (!copied) throw new Error('Could not copy the command.');
+  }
+}
+
 export const previewApi: GrafterApi = {
   getSnapshot: () => Promise.resolve(structuredClone(snapshot)),
   getCommandLog: (context: CommandContext) =>
@@ -319,6 +336,7 @@ export const previewApi: GrafterApi = {
   openWorktreeDirectory: () => Promise.resolve(),
   openWorktreeInEditor: () => Promise.resolve(),
   openExternal: () => Promise.resolve(),
+  copyCommand: copyPreviewCommand,
   onCommandUpdate: (listener) => {
     void listener;
     void updateCommand;

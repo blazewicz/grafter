@@ -17,5 +17,6 @@ export const ipc = {
   openWorktreeDirectory: 'grafter:open-worktree-directory',
   openWorktreeInEditor: 'grafter:open-worktree-in-editor',
   openExternal: 'grafter:open-external',
+  copyCommand: 'grafter:copy-command',
   commandUpdate: 'grafter:command-update',
 } as const;

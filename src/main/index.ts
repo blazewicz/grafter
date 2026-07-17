@@ -1,5 +1,6 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, clipboard, dialog, ipcMain, shell } from 'electron';
 import path from 'node:path';
+import { validateCommandForClipboard } from '../shared/clipboard';
 import type {
   CommandRecord,
   CreateWorktreeRequest,
@@ -116,6 +117,9 @@ function registerIpc(): void {
     const parsed = new URL(url);
     if (parsed.protocol !== 'https:') throw new Error('Only HTTPS links can be opened.');
     await shell.openExternal(parsed.toString());
+  });
+  ipcMain.handle(ipc.copyCommand, (_event, command: unknown) => {
+    clipboard.writeText(validateCommandForClipboard(command));
   });
 }
 

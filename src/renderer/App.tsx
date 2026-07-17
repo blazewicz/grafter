@@ -190,6 +190,7 @@ export function App(): React.JSX.Element {
         commands={commands}
         contextLabel={selectedWorktree?.branch ?? selectedProject?.name}
         onToggle={() => setLogsOpen((value) => !value)}
+        onError={setError}
       />
 
       {approval && (

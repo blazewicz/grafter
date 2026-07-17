@@ -207,15 +207,42 @@
   font-size: 8.5px;
 }
 
+.copy-command-button {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: -5px 0 -5px 1px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #989ca6;
+}
+
+.copy-command-button:hover {
+  background: rgba(255, 255, 255, 0.055);
+  color: #b6b9c2;
+}
+
 .terminal-command {
+  max-width: 100%;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   color: #aeb1ba;
   font-family: 'SFMono-Regular', monospace;
   font-size: 10px;
+}
+
+.command-text {
+  min-width: 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
-.terminal-command span {
+.terminal-command > span:first-child {
   color: #9ea4ce;
 }
 
