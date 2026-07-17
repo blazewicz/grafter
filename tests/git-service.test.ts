@@ -2,7 +2,10 @@ import { mkdtemp, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { worktreeCommandContext } from '../src/shared/command-context';
+import {
+  projectCommandContext,
+  worktreeCommandContext,
+} from '../src/shared/command-context';
 import type { Project, Worktree } from '../src/shared/contracts';
 import { CommandRunner } from '../src/main/commands';
 import { GitService } from '../src/main/git-service';
@@ -97,12 +100,17 @@ describe('GitService worktree details', () => {
     ).toBe(true);
   });
 
-  it('attributes removal to the target worktree even when it runs in the main clone', () => {
+  it('retains removal in the project log after the target worktree disappears', () => {
     const runner = new CommandRunner(() => undefined);
     const service = new GitService(runner);
+    const project: Project = {
+      id: 'project',
+      name: 'project',
+      path: '/repo',
+    };
     const worktree: Worktree = {
       id: 'project:/repo.worktrees/feature',
-      projectId: 'project',
+      projectId: project.id,
       path: '/repo.worktrees/feature',
       branch: 'feature',
       head: '',
@@ -110,9 +118,12 @@ describe('GitService worktree details', () => {
       locked: false,
     };
 
-    const spec = service.removeSpec(worktree, '/repo');
+    const spec = service.removeSpec(project, worktree);
+    const record = runner.createPending(spec);
 
-    expect(spec.cwd).toBe('/repo');
-    expect(spec.context).toEqual(worktreeCommandContext(worktree));
+    expect(spec.cwd).toBe(project.path);
+    expect(spec.context).toEqual(projectCommandContext(project));
+    expect(runner.recordsFor(projectCommandContext(project))).toEqual([record]);
+    expect(runner.recordsFor(worktreeCommandContext(worktree))).toEqual([]);
   });
 });

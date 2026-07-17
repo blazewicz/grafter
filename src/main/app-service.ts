@@ -123,7 +123,7 @@ export class AppService {
     if (worktree.locked) throw new Error('Unlock this worktree before removing it.');
     const project = this.#project(worktree.projectId);
     return this.approvals.prepare(
-      this.git.removeSpec(worktree, project.path),
+      this.git.removeSpec(project, worktree),
       `This permanently removes the ${worktree.branch} worktree directory. Dirty worktrees are refused by Git.`,
       async () => {
         await this.git.listWorktrees(project);

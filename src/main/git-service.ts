@@ -102,13 +102,13 @@ export class GitService {
     await this.#git(project.path, args, `Create worktree for ${branch}`, false, context);
   }
 
-  removeSpec(worktree: Worktree, mainClonePath: string): CommandSpec {
+  removeSpec(project: Project, worktree: Worktree): CommandSpec {
     return {
-      context: worktreeCommandContext(worktree),
+      context: projectCommandContext(project),
       tool: 'git',
       executable: 'git',
       args: ['worktree', 'remove', worktree.path],
-      cwd: mainClonePath,
+      cwd: project.path,
       purpose: `Remove the ${worktree.branch} worktree`,
       isReadOnly: false,
       requiresApproval: true,

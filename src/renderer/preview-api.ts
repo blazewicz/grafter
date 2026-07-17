@@ -236,9 +236,8 @@ export const previewApi: GrafterApi = {
       id: 'preview-remove',
       context: worktree
         ? {
-            kind: 'worktree',
+            kind: 'project',
             projectId: worktree.projectId,
-            worktreeId: worktree.id,
           }
         : { kind: 'application' },
       tool: 'git',
