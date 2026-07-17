@@ -90,7 +90,11 @@ let commands: CommandRecord[] = [
     exitCode: 0,
     output: [
       { stream: 'stdout', text: '124\t18\tsrc/renderer/App.tsx\n', timestamp: now },
-      { stream: 'stdout', text: '296\t0\tsrc/renderer/styles.css\n', timestamp: now },
+      {
+        stream: 'stdout',
+        text: '296\t0\tsrc/renderer/components/details/details.module.css\n',
+        timestamp: now,
+      },
     ],
   },
   {
@@ -120,7 +124,7 @@ let commands: CommandRecord[] = [
       },
       {
         stream: 'stdout',
-        text: '281\t0\tsrc/renderer/styles.css\n',
+        text: '281\t0\tsrc/renderer/components/details/details.module.css\n',
         timestamp: twoMinutesAgo,
       },
     ],

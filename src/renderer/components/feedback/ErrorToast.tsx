@@ -1,4 +1,5 @@
 import { AlertTriangle, X } from 'lucide-react';
+import styles from './ErrorToast.module.css';
 
 export function ErrorToast({
   message,
@@ -8,7 +9,7 @@ export function ErrorToast({
   onDismiss: () => void;
 }): React.JSX.Element {
   return (
-    <div className="toast">
+    <div className={styles.toast}>
       <AlertTriangle size={15} />
       <span>{message}</span>
       <button aria-label="Dismiss error" onClick={onDismiss}>

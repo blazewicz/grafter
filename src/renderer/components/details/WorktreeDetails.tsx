@@ -19,6 +19,7 @@ import type {
 import { api, friendlyError } from '../../grafter-api';
 import { VisualStudioCodeMark } from '../ui/BrandMarks';
 import { WorktreeSummary } from './WorktreeSummary';
+import styles from './details.module.css';
 
 const editorOptions: readonly {
   id: EditorTool;
@@ -42,6 +43,8 @@ export function WorktreeDetails({
   const selectedEditorLabel =
     editorOptions.find((option) => option.id === editor)?.label ?? 'IDE';
   const pullRequest = details.pullRequest;
+  const statusClass =
+    status === 'dirty' ? styles.dirty : status === undefined ? styles.checking : '';
 
   useEffect(() => {
     if (!editorMenuOpen) return;
@@ -74,17 +77,17 @@ export function WorktreeDetails({
   };
 
   return (
-    <div className="details-wrap">
-      <div className="details-eyebrow">
+    <div className={styles.detailsWrap}>
+      <div className={styles.detailsEyebrow}>
         <FolderGit2 size={14} /> {details.projectName}
       </div>
-      <div className="details-title-row">
+      <div className={styles.detailsTitleRow}>
         <div>
           <h1>{details.branch}</h1>
           <p>{details.isMain ? 'Main working tree' : 'Linked worktree'}</p>
         </div>
         <span
-          className={`clean-badge ${status ?? 'checking'}`}
+          className={`${styles.cleanBadge} ${statusClass}`}
           aria-live="polite"
           title={
             status === 'clean'
@@ -97,24 +100,24 @@ export function WorktreeDetails({
           <Circle size={7} fill="currentColor" /> {status ?? 'checking'}
         </span>
       </div>
-      <section className="path-card">
-        <div className="path-copy">
-          <span className="section-label">LOCAL PATH</span>
+      <section className={styles.pathCard}>
+        <div className={styles.pathCopy}>
+          <span className={styles.sectionLabel}>LOCAL PATH</span>
           <code>{details.path}</code>
         </div>
-        <div className="path-actions">
+        <div className={styles.pathActions}>
           <button
-            className="path-action-button"
+            className={styles.pathActionButton}
             title="Open directory"
             aria-label="Open worktree directory"
             onClick={() => reportActionError(api.openWorktreeDirectory(details.id))}
           >
             <FolderOpen size={16} />
           </button>
-          <div className="editor-picker" ref={editorMenuRef}>
-            <div className="editor-split-button">
+          <div className={styles.editorPicker} ref={editorMenuRef}>
+            <div className={styles.editorSplitButton}>
               <button
-                className="editor-open-button"
+                className={styles.editorOpenButton}
                 title={`Open in ${selectedEditorLabel}`}
                 aria-label={`Open worktree in ${selectedEditorLabel}`}
                 onClick={() => openInEditor(editor)}
@@ -122,7 +125,7 @@ export function WorktreeDetails({
                 <VisualStudioCodeMark />
               </button>
               <button
-                className="editor-menu-button"
+                className={styles.editorMenuButton}
                 title="Choose IDE"
                 aria-label="Choose IDE"
                 aria-haspopup="menu"
@@ -133,7 +136,7 @@ export function WorktreeDetails({
               </button>
             </div>
             {editorMenuOpen && (
-              <div className="editor-menu" role="menu">
+              <div className={styles.editorMenu} role="menu">
                 {editorOptions.map((option) => (
                   <button
                     key={option.id}
@@ -155,13 +158,13 @@ export function WorktreeDetails({
       ) : (
         <>
           {pullRequest ? (
-            <section className="pr-card">
-              <div className="pr-icon">
+            <section className={styles.prCard}>
+              <div className={styles.prIcon}>
                 <GitPullRequest size={20} />
               </div>
-              <div className="pr-content">
-                <div className="pr-meta">
-                  <span className="open-pill">{pullRequest.state}</span>
+              <div className={styles.prContent}>
+                <div className={styles.prMeta}>
+                  <span className={styles.openPill}>{pullRequest.state}</span>
                   <span>Pull request #{pullRequest.number}</span>
                 </div>
                 <strong>{pullRequest.title}</strong>
@@ -175,7 +178,7 @@ export function WorktreeDetails({
               </button>
             </section>
           ) : (
-            <section className="quiet-card">
+            <section className={styles.quietCard}>
               <GitBranch size={17} />
               <div>
                 <strong>No pull request found</strong>
@@ -183,25 +186,25 @@ export function WorktreeDetails({
               </div>
             </section>
           )}
-          <div className="section-heading">
+          <div className={styles.sectionHeading}>
             <div>
               <GitCompareArrows size={16} />
               <span>
                 Changes against <strong>{details.targetBranch}</strong>
               </span>
             </div>
-            <span className="commit-id">{details.head.slice(0, 8)}</span>
+            <span className={styles.commitId}>{details.head.slice(0, 8)}</span>
           </div>
-          <section className="stats-grid">
+          <section className={styles.statsGrid}>
             <div>
               <span>FILES CHANGED</span>
               <strong>{details.diff.files}</strong>
             </div>
-            <div className="positive">
+            <div className={styles.positive}>
               <span>ADDITIONS</span>
               <strong>+{details.diff.additions}</strong>
             </div>
-            <div className="negative">
+            <div className={styles.negative}>
               <span>DELETIONS</span>
               <strong>−{details.diff.deletions}</strong>
             </div>

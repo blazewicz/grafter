@@ -1,6 +1,8 @@
 import { X } from 'lucide-react';
 import { useState } from 'react';
 import type { AppSnapshot } from '../../../shared/contracts';
+import controls from '../../styles/controls.module.css';
+import styles from './dialogs.module.css';
 
 export function SettingsDialog({
   snapshot,
@@ -21,23 +23,27 @@ export function SettingsDialog({
   );
 
   return (
-    <div className="modal-backdrop">
+    <div className={styles.modalBackdrop}>
       <div
-        className="modal settings-modal"
+        className={`${styles.modal} ${styles.settingsModal}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="settings-title"
       >
-        <div className="settings-title">
+        <div className={styles.settingsTitle}>
           <div>
             <span>PREFERENCES</span>
             <h2 id="settings-title">Settings</h2>
           </div>
-          <button className="icon-button" aria-label="Close settings" onClick={onClose}>
+          <button
+            className={controls.iconButton}
+            aria-label="Close settings"
+            onClick={onClose}
+          >
             <X size={17} />
           </button>
         </div>
-        <div className="settings-section">
+        <div className={styles.settingsSection}>
           <h3>Worktree location</h3>
           <p>
             Relative paths are resolved from the main clone. Use{' '}
@@ -51,7 +57,7 @@ export function SettingsDialog({
             />
           </label>
         </div>
-        <div className="settings-section">
+        <div className={styles.settingsSection}>
           <h3>Local setup overrides</h3>
           <p>
             These stay in Grafter’s app data and override a repository’s{' '}
@@ -61,7 +67,7 @@ export function SettingsDialog({
             snapshot.projects.map((project) => (
               <label key={project.id}>
                 <span>{project.name}</span>
-                <div className="inline-save">
+                <div className={styles.inlineSave}>
                   <input
                     placeholder="e.g. npm install"
                     value={scripts[project.id] ?? ''}
@@ -73,7 +79,7 @@ export function SettingsDialog({
                     }
                   />
                   <button
-                    className="button ghost"
+                    className={`${controls.button} ${controls.ghost}`}
                     onClick={() => onProjectSetup(project.id, scripts[project.id] ?? '')}
                   >
                     Save
@@ -82,17 +88,17 @@ export function SettingsDialog({
               </label>
             ))
           ) : (
-            <div className="settings-empty">
+            <div className={styles.settingsEmpty}>
               Add a project to configure its setup command.
             </div>
           )}
         </div>
-        <div className="modal-actions">
-          <button className="button ghost" onClick={onClose}>
+        <div className={styles.modalActions}>
+          <button className={`${controls.button} ${controls.ghost}`} onClick={onClose}>
             Cancel
           </button>
           <button
-            className="button primary"
+            className={`${controls.button} ${controls.primary}`}
             onClick={() => onSave({ defaultWorktreePath: pathTemplate })}
           >
             Save settings

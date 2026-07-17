@@ -1,0 +1,35 @@
+:root {
+  font-family:
+    Inter,
+    ui-sans-serif,
+    -apple-system,
+    BlinkMacSystemFont,
+    'SF Pro Text',
+    'Segoe UI',
+    sans-serif;
+  color: #e8e8e8;
+  background: #171717;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  --bg: rgba(23, 23, 23, 0.97);
+  --sidebar: rgba(42, 42, 42, 0.78);
+  --surface: rgba(255, 255, 255, 0.025);
+  --surface-strong: rgba(255, 255, 255, 0.055);
+  --line: rgba(255, 255, 255, 0.065);
+  --line-strong: rgba(255, 255, 255, 0.105);
+  --text: #e7e7e7;
+  --muted: #9a9a9f;
+  --faint: #707076;
+  --accent: #a9add7;
+  --accent-bg: rgba(120, 119, 148, 0.2);
+  --green: #5ac88b;
+  --red: #ee6b67;
+  --amber: #d8ad68;
+  --sidebar-width: 252px;
+}
+
+@media (max-width: 900px) {
+  :root {
+    --sidebar-width: 230px;
+  }
+}

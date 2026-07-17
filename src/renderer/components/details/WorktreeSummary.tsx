@@ -1,5 +1,6 @@
 import { FolderGit2, GitBranch } from 'lucide-react';
 import type { Worktree } from '../../../shared/contracts';
+import styles from './details.module.css';
 
 export function WorktreeSummary({
   worktrees,
@@ -10,26 +11,28 @@ export function WorktreeSummary({
 }): React.JSX.Element {
   return (
     <>
-      <div className="section-heading">
+      <div className={styles.sectionHeading}>
         <div>
           <FolderGit2 size={16} />
           <span>Project worktrees</span>
         </div>
-        <span className="worktree-count">
+        <span className={styles.worktreeCount}>
           {worktrees.length} {worktrees.length === 1 ? 'worktree' : 'worktrees'}
         </span>
       </div>
-      <section className="worktree-summary" aria-label="Project worktrees">
+      <section className={styles.worktreeSummary} aria-label="Project worktrees">
         {worktrees.map((worktree) => (
           <div
-            className={`worktree-summary-row ${worktree.id === selectedId ? 'current' : ''}`}
+            className={`${styles.worktreeSummaryRow} ${
+              worktree.id === selectedId ? styles.current : ''
+            }`}
             key={worktree.id}
           >
-            <div className="worktree-summary-path">
+            <div className={styles.worktreeSummaryPath}>
               <span>{worktree.isMain ? 'Main working tree' : 'Linked worktree'}</span>
               <code title={worktree.path}>{worktree.path}</code>
             </div>
-            <div className="worktree-summary-branch">
+            <div className={styles.worktreeSummaryBranch}>
               <GitBranch size={13} />
               <span>{worktree.branch}</span>
             </div>

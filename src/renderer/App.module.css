@@ -1,0 +1,12 @@
+.app-shell {
+  height: 100%;
+  display: grid;
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+  grid-template-rows: 44px minmax(0, 1fr) auto;
+  background: var(--bg);
+  backdrop-filter: blur(40px) saturate(1.08);
+}
+
+.workspace {
+  display: contents;
+}
