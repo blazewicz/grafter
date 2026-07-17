@@ -10,7 +10,11 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import type { CommandRecord, ToolName } from '../../../shared/contracts';
-import { filterAuditCommands, summarizeRunningCommands } from '../../command-audit';
+import {
+  filterAuditCommandGroups,
+  groupConsecutiveReadOnlyCommands,
+  summarizeRunningCommands,
+} from '../../command-audit';
 import { useRunningCommandDisplay } from './useRunningCommandDisplay';
 
 export function AuditPanel({
@@ -26,9 +30,13 @@ export function AuditPanel({
 }): React.JSX.Element {
   const [tool, setTool] = useState<ToolName>('git');
   const [hideReadOnly, setHideReadOnly] = useState(false);
-  const filtered = filterAuditCommands(commands, tool, hideReadOnly);
+  const filtered = filterAuditCommandGroups(
+    groupConsecutiveReadOnlyCommands(commands),
+    tool,
+    hideReadOnly,
+  );
   const [selectedId, setSelectedId] = useState<string>();
-  const selected = filtered.find((command) => command.id === selectedId) ?? filtered[0];
+  const selected = filtered.find((group) => group.id === selectedId) ?? filtered[0];
   const running = summarizeRunningCommands(commands);
   const displayedRunningCommand = useRunningCommandDisplay(running.latest);
   const title =
@@ -88,19 +96,29 @@ export function AuditPanel({
       {open && (
         <div className="audit-body">
           <div className="command-list">
-            {filtered.map((command) => (
+            {filtered.map((group) => (
               <button
-                key={command.id}
-                className={selected?.id === command.id ? 'active' : ''}
-                onClick={() => setSelectedId(command.id)}
+                key={group.id}
+                className={selected?.id === group.id ? 'active' : ''}
+                onClick={() => setSelectedId(group.id)}
               >
-                <StatusIcon status={command.status} />
+                <StatusIcon status={group.latest.status} />
                 <div>
-                  <span>{command.purpose}</span>
-                  <code>{command.displayCommand}</code>
+                  <div className="command-list-title">
+                    <span>{group.latest.purpose}</span>
+                    {group.calls.length > 1 && (
+                      <span
+                        className="command-call-count"
+                        aria-label={`${group.calls.length} calls`}
+                      >
+                        ×{group.calls.length}
+                      </span>
+                    )}
+                  </div>
+                  <code>{group.latest.displayCommand}</code>
                 </div>
                 <time>
-                  {new Date(command.startedAt).toLocaleTimeString([], {
+                  {new Date(group.latest.startedAt).toLocaleTimeString([], {
                     hour: '2-digit',
                     minute: '2-digit',
                   })}
@@ -111,17 +129,23 @@ export function AuditPanel({
           </div>
           <div className="command-output">
             {selected ? (
-              <>
-                <div className="terminal-command">
-                  <span>$</span> {selected.displayCommand}
-                </div>
-                <pre>
-                  {selected.output.map((line) => line.text).join('') ||
-                    (selected.status === 'running'
-                      ? 'Running…'
-                      : 'Command completed without output.')}
-                </pre>
-              </>
+              selected.calls.map((command) => (
+                <section className="command-invocation" key={command.id}>
+                  <div className="command-invocation-meta">
+                    <time>{new Date(command.startedAt).toLocaleString()}</time>
+                    <span>{statusLabel(command.status)}</span>
+                  </div>
+                  <div className="terminal-command">
+                    <span>$</span> {command.displayCommand}
+                  </div>
+                  <pre>
+                    {command.output.map((line) => line.text).join('') ||
+                      (command.status === 'running'
+                        ? 'Running…'
+                        : 'Command completed without output.')}
+                  </pre>
+                </section>
+              ))
             ) : (
               <div className="terminal-empty">
                 <Code2 size={18} />
@@ -142,4 +166,9 @@ function StatusIcon({ status }: { status: CommandRecord['status'] }): React.JSX.
   if (status === 'awaiting-approval')
     return <ShieldCheck className="status-waiting" size={13} />;
   return <X className="status-error" size={13} />;
+}
+
+function statusLabel(status: CommandRecord['status']): string {
+  if (status === 'awaiting-approval') return 'Awaiting approval';
+  return `${status.charAt(0).toUpperCase()}${status.slice(1)}`;
 }

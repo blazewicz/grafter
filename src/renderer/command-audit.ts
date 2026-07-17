@@ -7,6 +7,12 @@ export interface RunningCommandSummary {
   count: number;
 }
 
+export interface AuditCommandGroup {
+  id: string;
+  latest: CommandRecord;
+  calls: CommandRecord[];
+}
+
 export type RunningCommandLabel = Pick<CommandRecord, 'id' | 'purpose'>;
 
 export interface RunningCommandDisplay {
@@ -39,14 +45,38 @@ export function combineCommandRecords(
   );
 }
 
-export function filterAuditCommands(
-  commands: CommandRecord[],
+export function filterAuditCommandGroups(
+  groups: AuditCommandGroup[],
   tool: ToolName,
   hideReadOnly: boolean,
-): CommandRecord[] {
-  return commands.filter(
-    (command) => command.tool === tool && (!hideReadOnly || command.isReadOnly === false),
+): AuditCommandGroup[] {
+  return groups.filter(
+    (group) =>
+      group.latest.tool === tool && (!hideReadOnly || group.latest.isReadOnly === false),
   );
+}
+
+export function groupConsecutiveReadOnlyCommands(
+  commands: CommandRecord[],
+): AuditCommandGroup[] {
+  const groups: AuditCommandGroup[] = [];
+
+  for (const command of commands) {
+    const previous = groups.at(-1);
+    if (
+      previous &&
+      isGroupableReadOnlyCommand(previous.latest) &&
+      isGroupableReadOnlyCommand(command) &&
+      isSameCommand(previous.latest, command)
+    ) {
+      previous.calls.push(command);
+      continue;
+    }
+
+    groups.push({ id: command.id, latest: command, calls: [command] });
+  }
+
+  return groups;
 }
 
 export function summarizeRunningCommands(
@@ -86,4 +116,22 @@ export function transitionRunningCommandDisplay(
       ? { command: latest, shownAt: now }
       : { command: undefined, shownAt: undefined },
   };
+}
+
+function isGroupableReadOnlyCommand(command: CommandRecord): boolean {
+  return (
+    command.isReadOnly &&
+    command.status === 'succeeded' &&
+    command.requiresApproval === false
+  );
+}
+
+function isSameCommand(left: CommandRecord, right: CommandRecord): boolean {
+  return (
+    left.tool === right.tool &&
+    left.executable === right.executable &&
+    left.cwd === right.cwd &&
+    left.args.length === right.args.length &&
+    left.args.every((argument, index) => argument === right.args[index])
+  );
 }

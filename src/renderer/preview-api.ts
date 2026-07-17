@@ -8,6 +8,8 @@ import type {
 import { commandContextKey } from '../shared/command-context';
 
 const now = new Date().toISOString();
+const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString();
+const fourMinutesAgo = new Date(Date.now() - 4 * 60 * 1000).toISOString();
 
 let snapshot: AppSnapshot = {
   settings: { defaultWorktreePath: '../<repo_name>.worktrees' },
@@ -98,6 +100,38 @@ let commands: CommandRecord[] = [
       projectId: 'grafter',
       worktreeId: 'grafter:glass',
     },
+    tool: 'git',
+    executable: 'git',
+    args: ['diff', '--numstat', 'main...HEAD'],
+    cwd: '/Users/kasia/Code/grafter.worktrees/feature-glass-sidebar',
+    displayCommand: 'git diff --numstat main...HEAD',
+    purpose: 'Compare with main',
+    isReadOnly: true,
+    status: 'succeeded',
+    requiresApproval: false,
+    startedAt: twoMinutesAgo,
+    finishedAt: twoMinutesAgo,
+    exitCode: 0,
+    output: [
+      {
+        stream: 'stdout',
+        text: '118\t18\tsrc/renderer/App.tsx\n',
+        timestamp: twoMinutesAgo,
+      },
+      {
+        stream: 'stdout',
+        text: '281\t0\tsrc/renderer/styles.css\n',
+        timestamp: twoMinutesAgo,
+      },
+    ],
+  },
+  {
+    id: 'cmd-3',
+    context: {
+      kind: 'worktree',
+      projectId: 'grafter',
+      worktreeId: 'grafter:glass',
+    },
     tool: 'github',
     executable: 'gh',
     args: ['pr', 'view', 'feature/glass-sidebar', '--json', 'number,title,url'],
@@ -108,19 +142,19 @@ let commands: CommandRecord[] = [
     isReadOnly: true,
     status: 'succeeded',
     requiresApproval: false,
-    startedAt: now,
-    finishedAt: now,
+    startedAt: fourMinutesAgo,
+    finishedAt: fourMinutesAgo,
     exitCode: 0,
     output: [
       {
         stream: 'stdout',
         text: '{"number":42,"title":"Build translucent sidebar"}\n',
-        timestamp: now,
+        timestamp: fourMinutesAgo,
       },
     ],
   },
   {
-    id: 'cmd-3',
+    id: 'cmd-4',
     context: {
       kind: 'worktree',
       projectId: 'grafter',
@@ -141,7 +175,7 @@ let commands: CommandRecord[] = [
     output: [],
   },
   {
-    id: 'cmd-4',
+    id: 'cmd-5',
     context: { kind: 'project', projectId: 'grafter' },
     tool: 'git',
     executable: 'git',

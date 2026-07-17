@@ -1100,6 +1100,27 @@ select {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.command-list button .command-list-title {
+  min-width: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 5px;
+}
+.command-list-title > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.command-list button .command-call-count {
+  flex: 0 0 auto;
+  padding: 1px 5px;
+  border-radius: 8px;
+  background: rgba(142, 147, 196, 0.13);
+  color: #898ea9;
+  font-size: 8px;
+  font-variant-numeric: tabular-nums;
+}
 .command-list time {
   color: #585b63;
   font-size: 8.5px;
@@ -1127,6 +1148,19 @@ select {
   overflow: auto;
   padding: 11px 13px;
   background: rgba(0, 0, 0, 0.11);
+}
+.command-invocation + .command-invocation {
+  margin-top: 13px;
+  padding-top: 11px;
+  border-top: 1px solid rgba(255, 255, 255, 0.055);
+}
+.command-invocation-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 5px;
+  color: #555a63;
+  font-size: 8.5px;
 }
 .terminal-command {
   color: #aeb1ba;

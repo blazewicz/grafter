@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { CommandRecord } from '../src/shared/contracts';
 import {
   combineCommandRecords,
-  filterAuditCommands,
+  filterAuditCommandGroups,
+  groupConsecutiveReadOnlyCommands,
   mergeCommandRecord,
   summarizeRunningCommands,
   transitionRunningCommandDisplay,
@@ -39,11 +40,13 @@ describe('command audit filtering', () => {
       command('github', { tool: 'github' }),
     ];
 
-    expect(filterAuditCommands(commands, 'git', false).map(({ id }) => id)).toEqual([
+    const groups = groupConsecutiveReadOnlyCommands(commands);
+
+    expect(filterAuditCommandGroups(groups, 'git', false).map(({ id }) => id)).toEqual([
       'read',
       'write',
     ]);
-    expect(filterAuditCommands(commands, 'git', true).map(({ id }) => id)).toEqual([
+    expect(filterAuditCommandGroups(groups, 'git', true).map(({ id }) => id)).toEqual([
       'write',
     ]);
   });
@@ -65,6 +68,70 @@ describe('command audit filtering', () => {
     const live = [command('new', { startedAt: '2026-07-17T10:00:02.000Z' }), updated];
 
     expect(combineCommandRecords(fetched, live)).toEqual([live[0], updated, fetched[1]]);
+  });
+});
+
+describe('command audit grouping', () => {
+  it('groups consecutive identical successful read-only commands newest first', () => {
+    const latest = command('latest', {
+      startedAt: '2026-07-17T10:00:02.000Z',
+      output: [
+        { stream: 'stdout', text: 'latest', timestamp: '2026-07-17T10:00:02.100Z' },
+      ],
+    });
+    const older = command('older', {
+      startedAt: '2026-07-17T10:00:01.000Z',
+      output: [
+        { stream: 'stdout', text: 'older', timestamp: '2026-07-17T10:00:01.100Z' },
+      ],
+    });
+
+    expect(groupConsecutiveReadOnlyCommands([latest, older])).toEqual([
+      { id: latest.id, latest, calls: [latest, older] },
+    ]);
+  });
+
+  it('does not group identical commands across an intervening entry', () => {
+    const latest = command('latest');
+    const intervening = command('intervening', { args: ['branch'] });
+    const older = command('older');
+
+    expect(
+      groupConsecutiveReadOnlyCommands([latest, intervening, older]).map((group) =>
+        group.calls.map(({ id }) => id),
+      ),
+    ).toEqual([['latest'], ['intervening'], ['older']]);
+  });
+
+  it.each([
+    ['mutating', { isReadOnly: false }],
+    ['failed', { status: 'failed' as const }],
+    ['approval-bound', { requiresApproval: true }],
+  ])('keeps %s command attempts separate', (_label, overrides) => {
+    const latest = command('latest', overrides);
+    const older = command('older', overrides);
+
+    expect(
+      groupConsecutiveReadOnlyCommands([latest, older]).map((group) =>
+        group.calls.map(({ id }) => id),
+      ),
+    ).toEqual([['latest'], ['older']]);
+  });
+
+  it('uses executable, arguments, working directory, and tool as command identity', () => {
+    const baseline = command('baseline');
+    const changedArgument = command('argument', { args: ['status', '--short'] });
+    const changedDirectory = command('directory', { cwd: '/other-repo' });
+    const changedTool = command('tool', { tool: 'github' });
+
+    expect(
+      groupConsecutiveReadOnlyCommands([
+        baseline,
+        changedArgument,
+        changedDirectory,
+        changedTool,
+      ]),
+    ).toHaveLength(4);
   });
 });
 
