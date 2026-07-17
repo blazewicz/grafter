@@ -90,6 +90,7 @@ export interface WorktreeDetails extends Worktree {
 }
 
 export interface ProjectTreeItem extends Project {
+  defaultBranch?: string;
   worktrees: Worktree[];
 }
 
@@ -132,6 +133,6 @@ export interface GrafterApi {
   openWorktreeDirectory(worktreeId: string): Promise<void>;
   openWorktreeInEditor(worktreeId: string, editor: EditorTool): Promise<void>;
   openExternal(url: string): Promise<void>;
-  copyCommand(command: string): Promise<void>;
+  copyText(text: string): Promise<void>;
   onCommandUpdate(listener: (command: CommandRecord) => void): () => void;
 }

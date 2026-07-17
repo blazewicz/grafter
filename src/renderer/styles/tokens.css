@@ -25,11 +25,11 @@
   --green: #5ac88b;
   --red: #ee6b67;
   --amber: #d8ad68;
-  --sidebar-width: 252px;
+  --sidebar-width: 292px;
 }
 
 @media (max-width: 900px) {
   :root {
-    --sidebar-width: 230px;
+    --sidebar-width: 260px;
   }
 }

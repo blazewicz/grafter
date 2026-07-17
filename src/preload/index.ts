@@ -34,7 +34,7 @@ const api: GrafterApi = {
   openWorktreeInEditor: (worktreeId, editor) =>
     ipcRenderer.invoke(ipc.openWorktreeInEditor, worktreeId, editor),
   openExternal: (url) => ipcRenderer.invoke(ipc.openExternal, url),
-  copyCommand: (command) => ipcRenderer.invoke(ipc.copyCommand, command),
+  copyText: (text) => ipcRenderer.invoke(ipc.copyText, text),
   onCommandUpdate: (listener) => {
     const handler = (_event: Electron.IpcRendererEvent, command: CommandRecord): void =>
       listener(command);

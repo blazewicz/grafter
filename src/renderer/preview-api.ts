@@ -18,6 +18,7 @@ let snapshot: AppSnapshot = {
       id: 'grafter',
       name: 'grafter',
       path: '/Users/kasia/Code/grafter',
+      defaultBranch: 'main',
       setupScript: 'npm install',
       worktrees: [
         {
@@ -58,6 +59,7 @@ let snapshot: AppSnapshot = {
       id: 'garden',
       name: 'garden-api',
       path: '/Users/kasia/Code/garden-api',
+      defaultBranch: 'main',
       worktrees: [
         {
           id: 'garden:main',
@@ -254,20 +256,19 @@ function updateCommand(record: CommandRecord): void {
   commands = [record, ...commands.filter((item) => item.id !== record.id)];
 }
 
-async function copyPreviewCommand(command: string): Promise<void> {
+async function copyPreviewText(text: string): Promise<void> {
   try {
-    await navigator.clipboard.writeText(command);
+    await navigator.clipboard.writeText(text);
     return;
   } catch {
     const input = document.createElement('textarea');
-    input.value = command;
+    input.value = text;
     input.style.position = 'fixed';
     input.style.opacity = '0';
     document.body.append(input);
     input.select();
-    const copied = document.execCommand('copy');
+    document.execCommand('copy');
     input.remove();
-    if (!copied) throw new Error('Could not copy the command.');
   }
 }
 
@@ -355,7 +356,7 @@ export const previewApi: GrafterApi = {
   openWorktreeDirectory: () => Promise.resolve(),
   openWorktreeInEditor: () => Promise.resolve(),
   openExternal: () => Promise.resolve(),
-  copyCommand: copyPreviewCommand,
+  copyText: copyPreviewText,
   onCommandUpdate: (listener) => {
     void listener;
     void updateCommand;

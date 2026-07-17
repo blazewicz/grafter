@@ -71,7 +71,7 @@ export class AppService {
       try {
         trees.push({
           ...project,
-          worktrees: await this.git.listBranchWorkspaces(project),
+          ...(await this.git.listBranchWorkspaces(project)),
         });
       } catch {
         trees.push({ ...project, worktrees: [] });

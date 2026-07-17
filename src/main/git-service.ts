@@ -70,18 +70,26 @@ export class GitService {
     return parseWorktreePorcelain(output, project.id);
   }
 
-  async listBranchWorkspaces(project: Project): Promise<Worktree[]> {
-    const worktrees = await this.listWorktrees(project);
+  async listBranchWorkspaces(
+    project: Project,
+  ): Promise<{ defaultBranch: string; worktrees: Worktree[] }> {
+    const [worktrees, defaultBranch] = await Promise.all([
+      this.listWorktrees(project),
+      this.#defaultBranch(project, projectCommandContext(project)),
+    ]);
     const baseBranches = await mapWithConcurrency(
       worktrees,
       baseBranchLookupConcurrency,
       (worktree) => this.#pullRequestBase(worktree),
     );
 
-    return worktrees.map((worktree, index) => {
-      const baseBranch = baseBranches[index];
-      return baseBranch ? { ...worktree, baseBranch } : worktree;
-    });
+    return {
+      defaultBranch,
+      worktrees: worktrees.map((worktree, index) => {
+        const baseBranch = baseBranches[index];
+        return baseBranch ? { ...worktree, baseBranch } : worktree;
+      }),
+    };
   }
 
   async listBranches(project: Project): Promise<string[]> {

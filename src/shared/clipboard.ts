@@ -1,12 +1,12 @@
-const maximumCommandLength = 100_000;
+const maximumClipboardTextLength = 100_000;
 
-export function validateCommandForClipboard(value: unknown): string {
+export function validateClipboardText(value: unknown): string {
   if (
     typeof value !== 'string' ||
     value.length === 0 ||
-    value.length > maximumCommandLength
+    value.length > maximumClipboardTextLength
   ) {
-    throw new Error('Invalid command text.');
+    throw new Error('Invalid clipboard text.');
   }
   return value;
 }

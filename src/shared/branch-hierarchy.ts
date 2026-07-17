@@ -9,6 +9,7 @@ export interface BranchHierarchyNode {
 
 export function buildBranchHierarchy(
   worktrees: readonly Worktree[],
+  defaultBranch?: string,
 ): BranchHierarchyNode[] {
   const realNodes = worktrees.map((worktree): BranchHierarchyNode => ({
     id: worktree.id,
@@ -26,7 +27,9 @@ export function buildBranchHierarchy(
 
   for (const node of realNodes) {
     const baseBranch = node.worktree?.baseBranch;
-    if (!baseBranch || baseBranch === node.branch) continue;
+    if (!baseBranch || baseBranch === node.branch || baseBranch === defaultBranch) {
+      continue;
+    }
 
     const parent =
       firstNodeByBranch.get(baseBranch) ?? getOrCreateGhostNode(baseBranch, ghostNodes);

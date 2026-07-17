@@ -3,6 +3,7 @@ import {
   Check,
   ChevronDown,
   Circle,
+  Copy,
   FolderGit2,
   FolderOpen,
   GitBranch,
@@ -39,7 +40,9 @@ export function WorktreeDetails({
 }): React.JSX.Element {
   const [editor, setEditor] = useState<EditorTool>('vscode');
   const [editorMenuOpen, setEditorMenuOpen] = useState(false);
+  const [copiedBranch, setCopiedBranch] = useState<string>();
   const editorMenuRef = useRef<HTMLDivElement>(null);
+  const copyResetTimer = useRef<number | undefined>(undefined);
   const selectedEditorLabel =
     editorOptions.find((option) => option.id === editor)?.label ?? 'IDE';
   const pullRequest = details.pullRequest;
@@ -66,6 +69,15 @@ export function WorktreeDetails({
     };
   }, [editorMenuOpen]);
 
+  useEffect(
+    () => () => {
+      if (copyResetTimer.current !== undefined) {
+        window.clearTimeout(copyResetTimer.current);
+      }
+    },
+    [],
+  );
+
   const reportActionError = (action: Promise<void>): void => {
     void action.catch((caught: unknown) => onError(friendlyError(caught)));
   };
@@ -76,6 +88,22 @@ export function WorktreeDetails({
     reportActionError(api.openWorktreeInEditor(details.id, nextEditor));
   };
 
+  const copyBranchName = (): void => {
+    void api
+      .copyText(details.branch)
+      .then(() => {
+        setCopiedBranch(details.branch);
+        if (copyResetTimer.current !== undefined) {
+          window.clearTimeout(copyResetTimer.current);
+        }
+        copyResetTimer.current = window.setTimeout(
+          () => setCopiedBranch(undefined),
+          1600,
+        );
+      })
+      .catch((caught: unknown) => onError(friendlyError(caught)));
+  };
+
   return (
     <div className={styles.detailsWrap}>
       <div className={styles.detailsEyebrow}>
@@ -83,7 +111,25 @@ export function WorktreeDetails({
       </div>
       <div className={styles.detailsTitleRow}>
         <div>
-          <h1>{details.branch}</h1>
+          <div className={styles.branchTitle}>
+            <h1>{details.branch}</h1>
+            <button
+              className={styles.copyBranchButton}
+              aria-label={
+                copiedBranch === details.branch
+                  ? 'Branch name copied'
+                  : `Copy ${details.branch} branch name`
+              }
+              title={
+                copiedBranch === details.branch
+                  ? 'Branch name copied'
+                  : 'Copy branch name'
+              }
+              onClick={copyBranchName}
+            >
+              {copiedBranch === details.branch ? <Check size={13} /> : <Copy size={13} />}
+            </button>
+          </div>
           <p>
             Checked out in <strong>{details.name}</strong>
             {details.isMain ? ' · main clone' : ''}

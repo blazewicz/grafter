@@ -29,11 +29,45 @@
   justify-content: space-between;
 }
 
+.details-title-row > div:first-child {
+  min-width: 0;
+}
+
 .details-title-row h1 {
+  min-width: 0;
   margin: 0;
+  overflow: hidden;
   font-size: 22px;
   letter-spacing: -0.025em;
   font-weight: 630;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.branch-title {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.copy-branch-button {
+  width: 25px;
+  height: 25px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--faint);
+}
+
+.copy-branch-button:hover,
+.copy-branch-button:focus-visible {
+  background: rgba(255, 255, 255, 0.055);
+  color: #d7d7da;
 }
 
 .details-title-row p {

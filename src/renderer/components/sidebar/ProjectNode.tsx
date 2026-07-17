@@ -49,8 +49,8 @@ export function ProjectNode({
 }): React.JSX.Element {
   const [menuOpen, setMenuOpen] = useState(false);
   const branchHierarchy = useMemo(
-    () => buildBranchHierarchy(project.worktrees),
-    [project.worktrees],
+    () => buildBranchHierarchy(project.worktrees, project.defaultBranch),
+    [project.defaultBranch, project.worktrees],
   );
 
   useEffect(() => {
@@ -170,9 +170,7 @@ function BranchRows({
                 }}
               >
                 <GitBranch size={13} />
-                <span className={styles.branchName} title={node.branch}>
-                  {node.branch}
-                </span>
+                <BranchName branch={node.branch} />
                 <span className={styles.worktreePill} title={node.worktree.path}>
                   {node.worktree.name}
                 </span>
@@ -195,9 +193,7 @@ function BranchRows({
             <div className={`${styles.treeRow} ${styles.branchRow} ${styles.ghostRow}`}>
               <div className={styles.ghostLabel}>
                 <GitBranch size={13} />
-                <span className={styles.branchName} title={node.branch}>
-                  {node.branch}
-                </span>
+                <BranchName branch={node.branch} />
                 <span className={styles.ghostPill}>no workspace</span>
               </div>
             </div>
@@ -215,5 +211,16 @@ function BranchRows({
         </div>
       ))}
     </>
+  );
+}
+
+function BranchName({ branch }: { branch: string }): React.JSX.Element {
+  return (
+    <span className={styles.branchNameWrap} data-branch-name={branch} title={branch}>
+      <span className={styles.branchName}>{branch}</span>
+      <span className={styles.branchNameTooltip} role="tooltip">
+        {branch}
+      </span>
+    </span>
   );
 }

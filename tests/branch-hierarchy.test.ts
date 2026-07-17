@@ -44,23 +44,22 @@ describe('buildBranchHierarchy', () => {
       worktree('feature/payment-tests', 'feature/payments'),
     ];
 
-    const hierarchy = buildBranchHierarchy(worktrees);
+    const hierarchy = buildBranchHierarchy(worktrees, 'main');
 
     expect(describeNodes(hierarchy)).toEqual([
       {
         branch: 'main',
         workspace: 'main',
+        children: [],
+      },
+      {
+        branch: 'feature/auth',
+        workspace: 'feature-auth',
         children: [
           {
-            branch: 'feature/auth',
-            workspace: 'feature-auth',
-            children: [
-              {
-                branch: 'feature/auth-ui',
-                workspace: 'feature-auth-ui',
-                children: [],
-              },
-            ],
+            branch: 'feature/auth-ui',
+            workspace: 'feature-auth-ui',
+            children: [],
           },
         ],
       },
@@ -99,6 +98,18 @@ describe('buildBranchHierarchy', () => {
             children: [],
           },
         ],
+      },
+    ]);
+  });
+
+  it('does not create a ghost node for an unchecked-out default branch', () => {
+    const worktrees = [worktree('feature/auth', 'main')];
+
+    expect(describeNodes(buildBranchHierarchy(worktrees, 'main'))).toEqual([
+      {
+        branch: 'feature/auth',
+        workspace: 'feature-auth',
+        children: [],
       },
     ]);
   });
