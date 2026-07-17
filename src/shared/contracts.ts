@@ -2,6 +2,11 @@ export type ToolName = 'git' | 'github' | 'shell';
 export type CommandStatus = 'running' | 'succeeded' | 'failed' | 'awaiting-approval';
 export type EditorTool = 'vscode';
 
+export type CommandContext =
+  | { kind: 'application' }
+  | { kind: 'project'; projectId: string }
+  | { kind: 'worktree'; projectId: string; worktreeId: string };
+
 export interface CommandOutput {
   stream: 'stdout' | 'stderr' | 'system';
   text: string;
@@ -10,6 +15,7 @@ export interface CommandOutput {
 
 export interface CommandRecord {
   id: string;
+  context: CommandContext;
   tool: ToolName;
   executable: string;
   args: string[];
@@ -76,7 +82,6 @@ export interface ProjectTreeItem extends Project {
 export interface AppSnapshot {
   projects: ProjectTreeItem[];
   settings: Settings;
-  commands: CommandRecord[];
 }
 
 export interface ApprovalRequest {
@@ -93,6 +98,7 @@ export interface CreateWorktreeRequest {
 
 export interface GrafterApi {
   getSnapshot(): Promise<AppSnapshot>;
+  getCommandLog(context: CommandContext): Promise<CommandRecord[]>;
   chooseProject(): Promise<AppSnapshot | null>;
   removeProject(projectId: string): Promise<AppSnapshot>;
   refresh(): Promise<AppSnapshot>;

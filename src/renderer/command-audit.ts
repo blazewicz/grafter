@@ -28,6 +28,17 @@ export function mergeCommandRecord(
   return commands.map((command, index) => (index === existingIndex ? record : command));
 }
 
+export function combineCommandRecords(
+  fetched: CommandRecord[],
+  live: CommandRecord[],
+): CommandRecord[] {
+  const records = new Map(fetched.map((record) => [record.id, record]));
+  for (const record of live) records.set(record.id, record);
+  return [...records.values()].sort((left, right) =>
+    right.startedAt.localeCompare(left.startedAt),
+  );
+}
+
 export function filterAuditCommands(
   commands: CommandRecord[],
   tool: ToolName,

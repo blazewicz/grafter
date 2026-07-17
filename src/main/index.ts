@@ -56,6 +56,9 @@ async function createWindow(): Promise<void> {
 
 function registerIpc(): void {
   ipcMain.handle(ipc.snapshot, () => service.snapshot());
+  ipcMain.handle(ipc.commandLog, (_event, context: unknown) =>
+    service.commandLog(context),
+  );
   ipcMain.handle(ipc.chooseProject, async () => {
     const result = await dialog.showOpenDialog(mainWindow!, {
       title: 'Choose the main Git clone',

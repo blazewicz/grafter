@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CommandRecord } from '../src/shared/contracts';
 import {
+  combineCommandRecords,
   filterAuditCommands,
   mergeCommandRecord,
   summarizeRunningCommands,
@@ -10,6 +11,11 @@ import {
 function command(id: string, overrides: Partial<CommandRecord> = {}): CommandRecord {
   return {
     id,
+    context: {
+      kind: 'worktree',
+      projectId: 'project',
+      worktreeId: 'worktree',
+    },
     tool: 'git',
     executable: 'git',
     args: ['status'],
@@ -51,6 +57,14 @@ describe('command audit filtering', () => {
     const updated = { ...original, output: [] };
 
     expect(mergeCommandRecord([newer, original], updated)).toEqual([newer, updated]);
+  });
+
+  it('combines a fetched log with newer live updates without losing either', () => {
+    const fetched = [command('existing'), command('older')];
+    const updated = command('existing', { status: 'running' });
+    const live = [command('new', { startedAt: '2026-07-17T10:00:02.000Z' }), updated];
+
+    expect(combineCommandRecords(fetched, live)).toEqual([live[0], updated, fetched[1]]);
   });
 });
 

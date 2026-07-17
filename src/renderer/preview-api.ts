@@ -1,9 +1,11 @@
 import type {
   AppSnapshot,
+  CommandContext,
   CommandRecord,
   GrafterApi,
   WorktreeDetails,
 } from '../shared/contracts';
+import { commandContextKey } from '../shared/command-context';
 
 const now = new Date().toISOString();
 
@@ -62,51 +64,100 @@ let snapshot: AppSnapshot = {
       ],
     },
   ],
-  commands: [
-    {
-      id: 'cmd-1',
-      tool: 'git',
-      executable: 'git',
-      args: ['diff', '--numstat', 'main...HEAD'],
-      cwd: '/Users/kasia/Code/grafter.worktrees/feature-glass-sidebar',
-      displayCommand: 'git diff --numstat main...HEAD',
-      purpose: 'Compare with main',
-      isReadOnly: true,
-      status: 'succeeded',
-      requiresApproval: false,
-      startedAt: now,
-      finishedAt: now,
-      exitCode: 0,
-      output: [
-        { stream: 'stdout', text: '124\t18\tsrc/renderer/App.tsx\n', timestamp: now },
-        { stream: 'stdout', text: '296\t0\tsrc/renderer/styles.css\n', timestamp: now },
-      ],
-    },
-    {
-      id: 'cmd-2',
-      tool: 'github',
-      executable: 'gh',
-      args: ['pr', 'view', 'feature/glass-sidebar', '--json', 'number,title,url'],
-      cwd: '/Users/kasia/Code/grafter.worktrees/feature-glass-sidebar',
-      displayCommand:
-        "gh pr view feature/glass-sidebar --json 'number,title,url,state,baseRefName'",
-      purpose: 'Find pull request',
-      isReadOnly: true,
-      status: 'succeeded',
-      requiresApproval: false,
-      startedAt: now,
-      finishedAt: now,
-      exitCode: 0,
-      output: [
-        {
-          stream: 'stdout',
-          text: '{"number":42,"title":"Build translucent sidebar"}\n',
-          timestamp: now,
-        },
-      ],
-    },
-  ],
 };
+
+let commands: CommandRecord[] = [
+  {
+    id: 'cmd-1',
+    context: {
+      kind: 'worktree',
+      projectId: 'grafter',
+      worktreeId: 'grafter:glass',
+    },
+    tool: 'git',
+    executable: 'git',
+    args: ['diff', '--numstat', 'main...HEAD'],
+    cwd: '/Users/kasia/Code/grafter.worktrees/feature-glass-sidebar',
+    displayCommand: 'git diff --numstat main...HEAD',
+    purpose: 'Compare with main',
+    isReadOnly: true,
+    status: 'succeeded',
+    requiresApproval: false,
+    startedAt: now,
+    finishedAt: now,
+    exitCode: 0,
+    output: [
+      { stream: 'stdout', text: '124\t18\tsrc/renderer/App.tsx\n', timestamp: now },
+      { stream: 'stdout', text: '296\t0\tsrc/renderer/styles.css\n', timestamp: now },
+    ],
+  },
+  {
+    id: 'cmd-2',
+    context: {
+      kind: 'worktree',
+      projectId: 'grafter',
+      worktreeId: 'grafter:glass',
+    },
+    tool: 'github',
+    executable: 'gh',
+    args: ['pr', 'view', 'feature/glass-sidebar', '--json', 'number,title,url'],
+    cwd: '/Users/kasia/Code/grafter.worktrees/feature-glass-sidebar',
+    displayCommand:
+      "gh pr view feature/glass-sidebar --json 'number,title,url,state,baseRefName'",
+    purpose: 'Find pull request',
+    isReadOnly: true,
+    status: 'succeeded',
+    requiresApproval: false,
+    startedAt: now,
+    finishedAt: now,
+    exitCode: 0,
+    output: [
+      {
+        stream: 'stdout',
+        text: '{"number":42,"title":"Build translucent sidebar"}\n',
+        timestamp: now,
+      },
+    ],
+  },
+  {
+    id: 'cmd-3',
+    context: {
+      kind: 'worktree',
+      projectId: 'grafter',
+      worktreeId: 'grafter:audit',
+    },
+    tool: 'git',
+    executable: 'git',
+    args: ['status', '--porcelain=v1'],
+    cwd: '/Users/kasia/Code/grafter.worktrees/audit-console',
+    displayCommand: 'git status --porcelain=v1',
+    purpose: 'Check audit-console worktree status',
+    isReadOnly: true,
+    status: 'succeeded',
+    requiresApproval: false,
+    startedAt: now,
+    finishedAt: now,
+    exitCode: 0,
+    output: [],
+  },
+  {
+    id: 'cmd-4',
+    context: { kind: 'project', projectId: 'grafter' },
+    tool: 'git',
+    executable: 'git',
+    args: ['worktree', 'list', '--porcelain'],
+    cwd: '/Users/kasia/Code/grafter',
+    displayCommand: 'git worktree list --porcelain',
+    purpose: 'Discover grafter worktrees',
+    isReadOnly: true,
+    status: 'succeeded',
+    requiresApproval: false,
+    startedAt: now,
+    finishedAt: now,
+    exitCode: 0,
+    output: [],
+  },
+];
 
 const details: Record<string, WorktreeDetails> = {
   'grafter:main': {
@@ -143,14 +194,19 @@ const details: Record<string, WorktreeDetails> = {
 };
 
 function updateCommand(record: CommandRecord): void {
-  snapshot = {
-    ...snapshot,
-    commands: [record, ...snapshot.commands.filter((item) => item.id !== record.id)],
-  };
+  commands = [record, ...commands.filter((item) => item.id !== record.id)];
 }
 
 export const previewApi: GrafterApi = {
   getSnapshot: () => Promise.resolve(structuredClone(snapshot)),
+  getCommandLog: (context: CommandContext) =>
+    Promise.resolve(
+      structuredClone(
+        commands.filter(
+          (command) => commandContextKey(command.context) === commandContextKey(context),
+        ),
+      ),
+    ),
   chooseProject: () => Promise.resolve(null),
   removeProject: (projectId) => {
     snapshot = {
@@ -178,6 +234,13 @@ export const previewApi: GrafterApi = {
       .find((item) => item.id === worktreeId);
     const command: CommandRecord = {
       id: 'preview-remove',
+      context: worktree
+        ? {
+            kind: 'worktree',
+            projectId: worktree.projectId,
+            worktreeId: worktree.id,
+          }
+        : { kind: 'application' },
       tool: 'git',
       executable: 'git',
       args: ['worktree', 'remove', worktree?.path ?? '/path/to/worktree'],

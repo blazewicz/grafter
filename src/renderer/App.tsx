@@ -29,6 +29,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   AppSnapshot,
   ApprovalRequest,
+  CommandContext,
   CommandRecord,
   EditorTool,
   GrafterApi,
@@ -38,7 +39,9 @@ import type {
   WorktreeDetails,
   WorktreeStatus,
 } from '../shared/contracts';
+import { commandContextKey } from '../shared/command-context';
 import {
+  combineCommandRecords,
   filterAuditCommands,
   mergeCommandRecord,
   summarizeRunningCommands,
@@ -63,6 +66,7 @@ function friendlyError(error: unknown): string {
 
 export function App(): React.JSX.Element {
   const [snapshot, setSnapshot] = useState<AppSnapshot | null>(null);
+  const [commandLogs, setCommandLogs] = useState<Record<string, CommandRecord[]>>({});
   const [selectedId, setSelectedId] = useState<string>();
   const [details, setDetails] = useState<WorktreeDetails>();
   const [worktreeStatusResult, setWorktreeStatusResult] = useState<{
@@ -76,8 +80,32 @@ export function App(): React.JSX.Element {
   const [logsOpen, setLogsOpen] = useState(true);
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
+  const selectedProject = snapshot?.projects.find((project) => project.id === selectedId);
+  const selectedWorktree = snapshot?.projects
+    .flatMap((project) => project.worktrees)
+    .find((worktree) => worktree.id === selectedId);
+  const activeProject =
+    selectedProject ??
+    snapshot?.projects.find((project) => project.id === selectedWorktree?.projectId);
+  const selectedProjectId = selectedProject?.id;
+  const selectedWorktreeId = selectedWorktree?.id;
+  const selectedWorktreeProjectId = selectedWorktree?.projectId;
+  const selectedContext = useMemo<CommandContext | undefined>(() => {
+    if (selectedWorktreeId && selectedWorktreeProjectId) {
+      return {
+        kind: 'worktree',
+        projectId: selectedWorktreeProjectId,
+        worktreeId: selectedWorktreeId,
+      };
+    }
+    if (selectedProjectId) return { kind: 'project', projectId: selectedProjectId };
+    return undefined;
+  }, [selectedProjectId, selectedWorktreeId, selectedWorktreeProjectId]);
+  const selectedContextKey = selectedContext
+    ? commandContextKey(selectedContext)
+    : undefined;
   const worktreeStatus =
-    worktreeStatusResult && worktreeStatusResult.worktreeId === selectedId
+    worktreeStatusResult && worktreeStatusResult.worktreeId === selectedWorktreeId
       ? worktreeStatusResult.status
       : undefined;
 
@@ -88,7 +116,13 @@ export function App(): React.JSX.Element {
       return new Set(next.projects.map((project) => project.id));
     });
     setSelectedId((current) => {
-      if (current) return current;
+      const available = new Set([
+        ...next.projects.map((project) => project.id),
+        ...next.projects.flatMap((project) =>
+          project.worktrees.map((worktree) => worktree.id),
+        ),
+      ]);
+      if (current && available.has(current)) return current;
       return (
         next.projects.flatMap((project) => project.worktrees)[1]?.id ??
         next.projects.flatMap((project) => project.worktrees)[0]?.id
@@ -127,14 +161,11 @@ export function App(): React.JSX.Element {
       });
     const unsubscribe = api.onCommandUpdate((record) => {
       if (!active) return;
-      setSnapshot((current) =>
-        current
-          ? {
-              ...current,
-              commands: mergeCommandRecord(current.commands, record),
-            }
-          : current,
-      );
+      const contextKey = commandContextKey(record.context);
+      setCommandLogs((current) => ({
+        ...current,
+        [contextKey]: mergeCommandRecord(current[contextKey] ?? [], record),
+      }));
     });
     return () => {
       active = false;
@@ -143,10 +174,34 @@ export function App(): React.JSX.Element {
   }, [applySnapshot]);
 
   useEffect(() => {
-    if (!selectedId) return;
+    if (!selectedContext || !selectedContextKey) return;
+
     let active = true;
     void api
-      .getWorktreeDetails(selectedId)
+      .getCommandLog(selectedContext)
+      .then((commands) => {
+        if (!active) return;
+        setCommandLogs((current) => ({
+          ...current,
+          [selectedContextKey]: combineCommandRecords(
+            commands,
+            current[selectedContextKey] ?? [],
+          ),
+        }));
+      })
+      .catch((caught: unknown) => {
+        if (active) setError(friendlyError(caught));
+      });
+    return () => {
+      active = false;
+    };
+  }, [selectedContext, selectedContextKey]);
+
+  useEffect(() => {
+    if (!selectedWorktreeId) return;
+    let active = true;
+    void api
+      .getWorktreeDetails(selectedWorktreeId)
       .then((next) => {
         if (active) setDetails(next);
       })
@@ -156,10 +211,10 @@ export function App(): React.JSX.Element {
     return () => {
       active = false;
     };
-  }, [selectedId]);
+  }, [selectedWorktreeId]);
 
   useEffect(() => {
-    if (!selectedId) return;
+    if (!selectedWorktreeId) return;
 
     let active = true;
     let refreshInFlight = false;
@@ -184,12 +239,13 @@ export function App(): React.JSX.Element {
       if (!active || refreshInFlight || document.visibilityState !== 'visible') return;
       refreshInFlight = true;
       try {
-        const next = await api.getWorktreeStatus(selectedId);
-        if (active) setWorktreeStatusResult({ worktreeId: selectedId, status: next });
+        const next = await api.getWorktreeStatus(selectedWorktreeId);
+        if (active)
+          setWorktreeStatusResult({ worktreeId: selectedWorktreeId, status: next });
       } catch (caught) {
         if (active) {
           setWorktreeStatusResult((current) =>
-            current?.worktreeId === selectedId ? undefined : current,
+            current?.worktreeId === selectedWorktreeId ? undefined : current,
           );
           if (!reportedError) {
             reportedError = true;
@@ -215,7 +271,7 @@ export function App(): React.JSX.Element {
       clearScheduledRefresh();
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, [selectedId]);
+  }, [selectedWorktreeId]);
 
   const chooseProject = (): void => {
     void run(
@@ -247,12 +303,12 @@ export function App(): React.JSX.Element {
         <div className="title-context">
           <FolderGit2 size={14} />
           <span className="title-project">
-            {details?.projectName ?? snapshot.projects[0]?.name ?? 'Worktrees'}
+            {activeProject?.name ?? snapshot.projects[0]?.name ?? 'Worktrees'}
           </span>
-          {details && (
+          {selectedWorktree && (
             <>
               <ChevronRight size={13} />
-              <span className="title-branch">{details.branch}</span>
+              <span className="title-branch">{selectedWorktree.branch}</span>
             </>
           )}
         </div>
@@ -330,7 +386,7 @@ export function App(): React.JSX.Element {
         </aside>
 
         <main className="main-view">
-          {details && details.id === selectedId ? (
+          {selectedWorktree && details?.id === selectedWorktree.id ? (
             <Details
               details={details}
               projectWorktrees={
@@ -340,8 +396,10 @@ export function App(): React.JSX.Element {
               status={worktreeStatus}
               onError={setError}
             />
-          ) : selectedId ? (
+          ) : selectedWorktree ? (
             <DetailsLoading />
+          ) : selectedProject ? (
+            <ProjectDetails project={selectedProject} />
           ) : (
             <Welcome onAdd={chooseProject} />
           )}
@@ -349,8 +407,10 @@ export function App(): React.JSX.Element {
       </div>
 
       <AuditPanel
+        key={selectedContextKey ?? 'no-command-context'}
         open={logsOpen}
-        commands={snapshot.commands}
+        commands={selectedContextKey ? (commandLogs[selectedContextKey] ?? []) : []}
+        contextLabel={selectedWorktree?.branch ?? selectedProject?.name}
         onToggle={() => setLogsOpen((value) => !value)}
       />
 
@@ -435,9 +495,21 @@ function ProjectNode(props: {
         setMenuOpen(true);
       }}
     >
-      <div className="tree-row project-row">
-        <button className="tree-label" onClick={props.onToggle}>
+      <div
+        className={`tree-row project-row ${props.selectedId === props.project.id ? 'selected' : ''}`}
+      >
+        <button
+          className="tree-toggle"
+          aria-label={
+            props.expanded
+              ? `Collapse ${props.project.name}`
+              : `Expand ${props.project.name}`
+          }
+          onClick={props.onToggle}
+        >
           {props.expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+        </button>
+        <button className="tree-label" onClick={() => props.onSelect(props.project.id)}>
           <FolderGit2 size={15} />
           <span>{props.project.name}</span>
         </button>
@@ -622,6 +694,32 @@ function NewWorktreeForm(props: {
           Create
         </button>
       </div>
+    </div>
+  );
+}
+
+function ProjectDetails({ project }: { project: ProjectTreeItem }): React.JSX.Element {
+  return (
+    <div className="details-wrap">
+      <div className="details-eyebrow">
+        <FolderGit2 size={14} /> Git project
+      </div>
+      <div className="details-title-row">
+        <div>
+          <h1>{project.name}</h1>
+          <p>
+            {project.worktrees.length}{' '}
+            {project.worktrees.length === 1 ? 'worktree' : 'worktrees'}
+          </p>
+        </div>
+      </div>
+      <section className="path-card">
+        <div className="path-copy">
+          <span className="section-label">MAIN CLONE</span>
+          <code>{project.path}</code>
+        </div>
+      </section>
+      <WorktreeSummary worktrees={project.worktrees} />
     </div>
   );
 }
@@ -817,7 +915,7 @@ function WorktreeSummary({
   selectedId,
 }: {
   worktrees: Worktree[];
-  selectedId: string;
+  selectedId?: string;
 }): React.JSX.Element {
   return (
     <>
@@ -854,10 +952,12 @@ function WorktreeSummary({
 function AuditPanel({
   open,
   commands,
+  contextLabel,
   onToggle,
 }: {
   open: boolean;
   commands: CommandRecord[];
+  contextLabel: string | undefined;
   onToggle: () => void;
 }): React.JSX.Element {
   const [tool, setTool] = useState<ToolName>('git');
@@ -868,7 +968,11 @@ function AuditPanel({
   const running = summarizeRunningCommands(commands);
   const displayedRunningCommand = useRunningCommandDisplay(running.latest);
   const title =
-    !open && displayedRunningCommand ? displayedRunningCommand.purpose : 'Command log';
+    !open && displayedRunningCommand
+      ? displayedRunningCommand.purpose
+      : contextLabel
+        ? `Command log · ${contextLabel}`
+        : 'Command log';
 
   return (
     <section className={`audit-panel ${open ? 'open' : ''}`}>

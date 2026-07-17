@@ -1,7 +1,9 @@
 import path from 'node:path';
+import { isCommandContext } from '../shared/command-context';
 import type {
   AppSnapshot,
   ApprovalRequest,
+  CommandRecord,
   CreateWorktreeRequest,
   Project,
   ProjectTreeItem,
@@ -38,8 +40,12 @@ export class AppService {
     return {
       projects: structuredClone(this.#trees),
       settings: this.store.state.settings,
-      commands: this.runner.records,
     };
+  }
+
+  commandLog(context: unknown): CommandRecord[] {
+    if (!isCommandContext(context)) throw new Error('Invalid command log context.');
+    return this.runner.recordsFor(context);
   }
 
   async addProject(selectedPath: string): Promise<AppSnapshot> {
@@ -98,8 +104,14 @@ export class AppService {
     const snapshot = await this.refresh();
     const script = await this.git.setupScript(project);
     if (!script) return { snapshot };
+    const createdWorktree = this.#trees
+      .find((item) => item.id === project.id)
+      ?.worktrees.find((item) => item.path === request.path);
+    if (!createdWorktree) {
+      throw new Error('The new worktree could not be found after creation.');
+    }
     const setupApproval = this.approvals.prepare(
-      this.git.setupSpec(request.path, script),
+      this.git.setupSpec(createdWorktree, script),
       'This project requested a setup script. Review the exact shell command before running it.',
     );
     return { snapshot: this.snapshot(), setupApproval };

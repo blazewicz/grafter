@@ -241,6 +241,21 @@ select {
   text-align: left;
   cursor: default;
 }
+.tree-toggle {
+  width: 25px;
+  height: 100%;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 2px 0 7px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+.project-row .tree-label {
+  padding-left: 4px;
+}
 .tree-label span:not(.main-pill) {
   overflow: hidden;
   text-overflow: ellipsis;

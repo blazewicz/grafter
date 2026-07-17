@@ -2,6 +2,7 @@ import { mkdtemp, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { worktreeCommandContext } from '../src/shared/command-context';
 import type { Project, Worktree } from '../src/shared/contracts';
 import { CommandRunner } from '../src/main/commands';
 import { GitService } from '../src/main/git-service';
@@ -11,6 +12,7 @@ describe('GitService worktree status', () => {
     const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-status-'));
     const runner = new CommandRunner(() => undefined);
     const initialized = await runner.run({
+      context: { kind: 'application' },
       tool: 'git',
       executable: 'git',
       args: ['init'],
@@ -35,9 +37,9 @@ describe('GitService worktree status', () => {
     await writeFile(path.join(directory, 'untracked.txt'), 'local change\n');
     await expect(service.status(worktree)).resolves.toBe('dirty');
 
-    const statusCommands = runner.records.filter((record) =>
-      record.purpose.endsWith('worktree status'),
-    );
+    const statusCommands = runner
+      .recordsFor(worktreeCommandContext(worktree))
+      .filter((record) => record.purpose.endsWith('worktree status'));
     expect(statusCommands).toHaveLength(2);
     expect(statusCommands.every((record) => record.isReadOnly)).toBe(true);
     expect(statusCommands[0]?.args).toEqual([
@@ -53,6 +55,7 @@ describe('GitService worktree details', () => {
     const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-details-'));
     const runner = new CommandRunner(() => undefined);
     const initialized = await runner.run({
+      context: { kind: 'application' },
       tool: 'git',
       executable: 'git',
       args: ['init', '--initial-branch=main'],
@@ -82,8 +85,34 @@ describe('GitService worktree details', () => {
       targetBranch: 'main',
       diff: { files: 0, additions: 0, deletions: 0 },
     });
-    expect(runner.records.some((record) => record.purpose === 'Compare with main')).toBe(
-      false,
-    );
+    const worktreeCommands = runner.recordsFor(worktreeCommandContext(worktree));
+    expect(
+      worktreeCommands.some((record) => record.purpose === 'Compare with main'),
+    ).toBe(false);
+    expect(
+      worktreeCommands.every(
+        (record) =>
+          record.context.kind === 'worktree' && record.context.worktreeId === worktree.id,
+      ),
+    ).toBe(true);
+  });
+
+  it('attributes removal to the target worktree even when it runs in the main clone', () => {
+    const runner = new CommandRunner(() => undefined);
+    const service = new GitService(runner);
+    const worktree: Worktree = {
+      id: 'project:/repo.worktrees/feature',
+      projectId: 'project',
+      path: '/repo.worktrees/feature',
+      branch: 'feature',
+      head: '',
+      isMain: false,
+      locked: false,
+    };
+
+    const spec = service.removeSpec(worktree, '/repo');
+
+    expect(spec.cwd).toBe('/repo');
+    expect(spec.context).toEqual(worktreeCommandContext(worktree));
   });
 });

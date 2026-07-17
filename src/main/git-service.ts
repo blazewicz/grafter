@@ -1,7 +1,9 @@
 import { readFile, realpath } from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { projectCommandContext, worktreeCommandContext } from '../shared/command-context';
 import type {
+  CommandContext,
   DiffStats,
   Project,
   PullRequest,
@@ -21,6 +23,7 @@ export class GitService {
   constructor(private readonly runner: CommandRunner) {}
 
   async inspectMainClone(selectedPath: string): Promise<Omit<Project, 'id'>> {
+    const context: CommandContext = { kind: 'application' };
     const chosen = await realpath(selectedPath);
     const topLevel = (
       await this.#git(
@@ -28,6 +31,7 @@ export class GitService {
         ['rev-parse', '--show-toplevel'],
         'Validate Git repository',
         true,
+        context,
       )
     ).stdout.trim();
     const worktreeOutput = (
@@ -36,6 +40,7 @@ export class GitService {
         ['worktree', 'list', '--porcelain'],
         'Find main clone',
         true,
+        context,
       )
     ).stdout;
     const firstPath = /^worktree (.+)$/m.exec(worktreeOutput)?.[1];
@@ -48,23 +53,27 @@ export class GitService {
   }
 
   async listWorktrees(project: Project): Promise<Worktree[]> {
+    const context = projectCommandContext(project);
     const output = (
       await this.#git(
         project.path,
         ['worktree', 'list', '--porcelain'],
         `Discover ${project.name} worktrees`,
         true,
+        context,
       )
     ).stdout;
     return parseWorktreePorcelain(output, project.id);
   }
 
   async listBranches(project: Project): Promise<string[]> {
+    const context = projectCommandContext(project);
     const result = await this.#git(
       project.path,
       ['for-each-ref', '--format=%(refname:short)', 'refs/heads', 'refs/remotes/origin'],
       `List branches in ${project.name}`,
       true,
+      context,
     );
     const branches = result.stdout
       .split('\n')
@@ -78,21 +87,24 @@ export class GitService {
     worktreePath: string,
     branch: string,
   ): Promise<void> {
+    const context = projectCommandContext(project);
     const localBranch = await this.#gitAllowFailure(
       project.path,
       ['show-ref', '--verify', '--quiet', `refs/heads/${branch}`],
       `Check local branch ${branch}`,
       true,
+      context,
     );
     const args =
       localBranch.record.exitCode === 0
         ? ['worktree', 'add', worktreePath, branch]
         : ['worktree', 'add', '--track', '-b', branch, worktreePath, `origin/${branch}`];
-    await this.#git(project.path, args, `Create worktree for ${branch}`, false);
+    await this.#git(project.path, args, `Create worktree for ${branch}`, false, context);
   }
 
   removeSpec(worktree: Worktree, mainClonePath: string): CommandSpec {
     return {
+      context: worktreeCommandContext(worktree),
       tool: 'git',
       executable: 'git',
       args: ['worktree', 'remove', worktree.path],
@@ -104,12 +116,14 @@ export class GitService {
   }
 
   async details(project: Project, worktree: Worktree): Promise<WorktreeDetails> {
-    const pullRequest = await this.#pullRequest(worktree);
-    const targetBranch = pullRequest?.baseBranch ?? (await this.#defaultBranch(project));
+    const context = worktreeCommandContext(worktree);
+    const pullRequest = await this.#pullRequest(worktree, context);
+    const targetBranch =
+      pullRequest?.baseBranch ?? (await this.#defaultBranch(project, context));
     const diff =
       worktree.branch === targetBranch
         ? { files: 0, additions: 0, deletions: 0 }
-        : await this.#diffStats(worktree.path, targetBranch);
+        : await this.#diffStats(worktree.path, targetBranch, context);
     return {
       ...worktree,
       projectName: project.name,
@@ -120,11 +134,13 @@ export class GitService {
   }
 
   async status(worktree: Worktree): Promise<WorktreeStatus> {
+    const context = worktreeCommandContext(worktree);
     const result = await this.#git(
       worktree.path,
       ['status', '--porcelain=v1', '--untracked-files=normal'],
       `Check ${worktree.branch} worktree status`,
       true,
+      context,
     );
     return parseWorktreeStatus(result.stdout);
   }
@@ -146,7 +162,7 @@ export class GitService {
     }
   }
 
-  setupSpec(worktreePath: string, script: string): CommandSpec {
+  setupSpec(worktree: Worktree, script: string): CommandSpec {
     const configuredShell = process.env.SHELL;
     const executable =
       configuredShell && ['bash', 'zsh'].includes(path.basename(configuredShell))
@@ -155,10 +171,11 @@ export class GitService {
           ? '/bin/zsh'
           : '/bin/bash';
     return {
+      context: worktreeCommandContext(worktree),
       tool: 'shell',
       executable,
       args: ['-lc', script],
-      cwd: worktreePath,
+      cwd: worktree.path,
       purpose: 'Run the project worktree setup script',
       isReadOnly: false,
       requiresApproval: true,
@@ -169,12 +186,13 @@ export class GitService {
     return { id: randomUUID(), ...details };
   }
 
-  async #defaultBranch(project: Project): Promise<string> {
+  async #defaultBranch(project: Project, context: CommandContext): Promise<string> {
     const remote = await this.#gitAllowFailure(
       project.path,
       ['symbolic-ref', '--short', 'refs/remotes/origin/HEAD'],
       'Resolve default branch',
       true,
+      context,
     );
     if (remote.record.exitCode === 0)
       return remote.stdout.trim().replace(/^origin\//, '');
@@ -183,16 +201,22 @@ export class GitService {
       ['branch', '--show-current'],
       'Resolve current branch',
       true,
+      context,
     );
     return current.stdout.trim() || 'main';
   }
 
-  async #diffStats(worktreePath: string, targetBranch: string): Promise<DiffStats> {
+  async #diffStats(
+    worktreePath: string,
+    targetBranch: string,
+    context: CommandContext,
+  ): Promise<DiffStats> {
     const result = await this.#gitAllowFailure(
       worktreePath,
       ['diff', '--numstat', `${targetBranch}...HEAD`],
       `Compare with ${targetBranch}`,
       true,
+      context,
     );
     if (result.record.exitCode === 0) return parseNumStat(result.stdout);
     const remoteResult = await this.#git(
@@ -200,14 +224,19 @@ export class GitService {
       ['diff', '--numstat', `origin/${targetBranch}...HEAD`],
       `Compare with origin/${targetBranch}`,
       true,
+      context,
     );
     return parseNumStat(remoteResult.stdout);
   }
 
-  async #pullRequest(worktree: Worktree): Promise<PullRequest | undefined> {
+  async #pullRequest(
+    worktree: Worktree,
+    context: CommandContext,
+  ): Promise<PullRequest | undefined> {
     if (worktree.branch === '(detached)') return undefined;
     try {
       const result = await this.runner.run({
+        context,
         tool: 'github',
         executable: 'gh',
         args: [
@@ -246,8 +275,9 @@ export class GitService {
     args: string[],
     purpose: string,
     isReadOnly: boolean,
+    context: CommandContext,
   ): Promise<CommandResult> {
-    const result = await this.#gitAllowFailure(cwd, args, purpose, isReadOnly);
+    const result = await this.#gitAllowFailure(cwd, args, purpose, isReadOnly, context);
     if (result.record.exitCode !== 0) {
       throw new Error(
         result.stderr.trim() || `Git command failed: ${result.record.displayCommand}`,
@@ -261,8 +291,10 @@ export class GitService {
     args: string[],
     purpose: string,
     isReadOnly: boolean,
+    context: CommandContext,
   ): Promise<CommandResult> {
     return this.runner.run({
+      context,
       tool: 'git',
       executable: 'git',
       args,

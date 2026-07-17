@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type {
+  CommandContext,
   CommandRecord,
   CreateWorktreeRequest,
   GrafterApi,
@@ -9,6 +10,7 @@ import { ipc } from '../shared/ipc';
 
 const api: GrafterApi = {
   getSnapshot: () => ipcRenderer.invoke(ipc.snapshot),
+  getCommandLog: (context: CommandContext) => ipcRenderer.invoke(ipc.commandLog, context),
   chooseProject: () => ipcRenderer.invoke(ipc.chooseProject),
   removeProject: (projectId) => ipcRenderer.invoke(ipc.removeProject, projectId),
   refresh: () => ipcRenderer.invoke(ipc.refresh),
