@@ -1,4 +1,5 @@
 import path from 'node:path';
+import pMap from 'p-map';
 import { isCommandContext } from '../shared/command-context';
 import type {
   AppSnapshot,
@@ -7,6 +8,7 @@ import type {
   CreateWorktreeRequest,
   Project,
   ProjectTreeItem,
+  PullRequest,
   Settings,
   Worktree,
   WorktreeDetails,
@@ -18,17 +20,32 @@ import type { CommandRunner } from './commands';
 import { GitService } from './git-service';
 import type { StateStore } from './store';
 
+const pullRequestLookupConcurrency = 5;
+const pullRequestFreshnessMs = 30_000;
+
+interface AppServiceOptions {
+  onSnapshotUpdate?: (snapshot: AppSnapshot) => void;
+  now?: () => number;
+}
+
 export class AppService {
   readonly git: GitService;
   readonly approvals: ApprovalManager;
   #trees: ProjectTreeItem[] = [];
+  readonly #onSnapshotUpdate: (snapshot: AppSnapshot) => void;
+  readonly #now: () => number;
+  readonly #pullRequestLookups = new Map<string, Promise<PullRequest | undefined>>();
+  readonly #pullRequestRefreshedAt = new Map<string, number>();
 
   constructor(
     readonly store: StateStore,
     readonly runner: CommandRunner,
+    options: AppServiceOptions = {},
   ) {
     this.git = new GitService(runner);
     this.approvals = new ApprovalManager(runner);
+    this.#onSnapshotUpdate = options.onSnapshotUpdate ?? (() => undefined);
+    this.#now = options.now ?? Date.now;
   }
 
   async initialize(): Promise<void> {
@@ -66,15 +83,33 @@ export class AppService {
   }
 
   async refresh(): Promise<AppSnapshot> {
+    const previousWorktrees = new Map(
+      this.#trees.flatMap((project) =>
+        project.worktrees.map((worktree) => [worktree.id, worktree] as const),
+      ),
+    );
     const trees: ProjectTreeItem[] = [];
     for (const project of this.store.state.projects) {
       try {
-        trees.push({ ...project, worktrees: await this.git.listWorktrees(project) });
+        const branchWorkspaces = await this.git.listBranchWorkspaces(project);
+        trees.push({
+          ...project,
+          ...branchWorkspaces,
+          worktrees: branchWorkspaces.worktrees.map((worktree) => {
+            const previous = previousWorktrees.get(worktree.id);
+            return previous?.branch === worktree.branch && previous.pullRequest
+              ? { ...worktree, pullRequest: previous.pullRequest }
+              : worktree;
+          }),
+        });
       } catch {
         trees.push({ ...project, worktrees: [] });
       }
     }
     this.#trees = trees;
+    const worktrees = trees.flatMap((project) => project.worktrees);
+    this.#prunePullRequestCache(worktrees);
+    void this.#hydratePullRequests(worktrees).catch(() => undefined);
     return this.snapshot();
   }
 
@@ -146,6 +181,10 @@ export class AppService {
     return this.git.details(this.#project(worktree.projectId), worktree);
   }
 
+  async refreshPullRequest(worktreeId: string): Promise<PullRequest | undefined> {
+    return this.#refreshPullRequest(this.#worktree(worktreeId));
+  }
+
   async worktreeStatus(worktreeId: string): Promise<WorktreeStatus> {
     return this.git.status(this.#worktree(worktreeId));
   }
@@ -187,4 +226,84 @@ export class AppService {
       throw new Error('Worktree not found. Refresh the project and try again.');
     return worktree;
   }
+
+  async #hydratePullRequests(worktrees: readonly Worktree[]): Promise<void> {
+    await pMap(worktrees, (worktree) => this.#refreshPullRequest(worktree), {
+      concurrency: pullRequestLookupConcurrency,
+    });
+  }
+
+  #refreshPullRequest(worktree: Worktree): Promise<PullRequest | undefined> {
+    const lookupKey = pullRequestLookupKey(worktree);
+    const refreshedAt = this.#pullRequestRefreshedAt.get(lookupKey);
+    if (refreshedAt !== undefined && this.#now() - refreshedAt < pullRequestFreshnessMs) {
+      return Promise.resolve(this.#cachedPullRequest(worktree));
+    }
+
+    const activeLookup = this.#pullRequestLookups.get(lookupKey);
+    if (activeLookup) return activeLookup;
+
+    const lookup = this.git
+      .pullRequest(worktree)
+      .then((pullRequest) => {
+        this.#pullRequestRefreshedAt.set(lookupKey, this.#now());
+        if (!pullRequest) return this.#cachedPullRequest(worktree);
+
+        const current = this.#trees
+          .flatMap((project) => project.worktrees)
+          .find((item) => item.id === worktree.id && item.branch === worktree.branch);
+        if (!current) return undefined;
+        if (pullRequestsEqual(current.pullRequest, pullRequest)) {
+          return structuredClone(pullRequest);
+        }
+
+        this.#trees = this.#trees.map((project) => ({
+          ...project,
+          worktrees: project.worktrees.map((item) =>
+            item.id === worktree.id && item.branch === worktree.branch
+              ? { ...item, pullRequest }
+              : item,
+          ),
+        }));
+        this.#onSnapshotUpdate(this.snapshot());
+        return structuredClone(pullRequest);
+      })
+      .finally(() => {
+        if (this.#pullRequestLookups.get(lookupKey) === lookup) {
+          this.#pullRequestLookups.delete(lookupKey);
+        }
+      });
+    this.#pullRequestLookups.set(lookupKey, lookup);
+    return lookup;
+  }
+
+  #cachedPullRequest(worktree: Worktree): PullRequest | undefined {
+    const pullRequest = this.#trees
+      .flatMap((project) => project.worktrees)
+      .find(
+        (item) => item.id === worktree.id && item.branch === worktree.branch,
+      )?.pullRequest;
+    return pullRequest ? structuredClone(pullRequest) : undefined;
+  }
+
+  #prunePullRequestCache(worktrees: readonly Worktree[]): void {
+    const currentKeys = new Set(worktrees.map(pullRequestLookupKey));
+    for (const key of this.#pullRequestRefreshedAt.keys()) {
+      if (!currentKeys.has(key)) this.#pullRequestRefreshedAt.delete(key);
+    }
+  }
+}
+
+function pullRequestLookupKey(worktree: Pick<Worktree, 'id' | 'branch'>): string {
+  return `${worktree.id}\0${worktree.branch}`;
+}
+
+function pullRequestsEqual(left: PullRequest | undefined, right: PullRequest): boolean {
+  return (
+    left?.number === right.number &&
+    left.title === right.title &&
+    left.url === right.url &&
+    left.state === right.state &&
+    left.baseBranch === right.baseBranch
+  );
 }

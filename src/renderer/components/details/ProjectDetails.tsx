@@ -18,7 +18,9 @@ export function ProjectDetails({
           <h1>{project.name}</h1>
           <p>
             {project.worktrees.length}{' '}
-            {project.worktrees.length === 1 ? 'worktree' : 'worktrees'}
+            {project.worktrees.length === 1
+              ? 'checked-out branch'
+              : 'checked-out branches'}
           </p>
         </div>
       </div>

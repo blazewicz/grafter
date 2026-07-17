@@ -29,17 +29,56 @@
   justify-content: space-between;
 }
 
+.details-title-row > div:first-child {
+  min-width: 0;
+}
+
 .details-title-row h1 {
+  min-width: 0;
   margin: 0;
+  overflow: hidden;
   font-size: 22px;
   letter-spacing: -0.025em;
   font-weight: 630;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.branch-title {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.copy-text-button {
+  width: 25px;
+  height: 25px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--faint);
+}
+
+.copy-text-button:hover,
+.copy-text-button:focus-visible {
+  background: rgba(255, 255, 255, 0.055);
+  color: #d7d7da;
 }
 
 .details-title-row p {
   margin: 5px 0 0;
   color: var(--faint);
   font-size: 12px;
+}
+
+.details-title-row p strong {
+  color: #b7b8be;
+  font-weight: 560;
 }
 
 .clean-badge {
@@ -92,12 +131,25 @@
 }
 
 .path-card code {
-  display: block;
+  min-width: 0;
+  flex: 0 1 auto;
   overflow: hidden;
   text-overflow: ellipsis;
   color: #bfc1c8;
   font-size: 11.5px;
   white-space: nowrap;
+}
+
+.path-value {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.path-value .copy-text-button {
+  width: 23px;
+  height: 23px;
 }
 
 .path-actions {
@@ -278,16 +330,7 @@
 .worktree-summary-path {
   min-width: 0;
   flex: 1;
-}
-
-.worktree-summary-path > span {
-  display: block;
-  margin-bottom: 5px;
-  color: var(--faint);
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
+  text-align: right;
 }
 
 .worktree-summary-path code {
@@ -301,7 +344,7 @@
 
 .worktree-summary-branch {
   min-width: 0;
-  max-width: 42%;
+  flex: 1;
   display: flex;
   align-items: center;
   gap: 7px;
@@ -314,8 +357,24 @@
   color: var(--muted);
 }
 
-.worktree-summary-branch span {
+.worktree-summary-branch > span:not(.summary-worktree-pill) {
+  min-width: 24px;
+  flex: 1;
   overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.summary-worktree-pill {
+  min-width: 0;
+  max-width: 48%;
+  flex: 0 0 auto;
+  padding: 2px 5px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--faint);
+  font-size: 9px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

@@ -14,13 +14,13 @@ export function WorktreeSummary({
       <div className={styles.sectionHeading}>
         <div>
           <FolderGit2 size={16} />
-          <span>Project worktrees</span>
+          <span>Checked-out branches</span>
         </div>
         <span className={styles.worktreeCount}>
-          {worktrees.length} {worktrees.length === 1 ? 'worktree' : 'worktrees'}
+          {worktrees.length} {worktrees.length === 1 ? 'workspace' : 'workspaces'}
         </span>
       </div>
-      <section className={styles.worktreeSummary} aria-label="Project worktrees">
+      <section className={styles.worktreeSummary} aria-label="Checked-out branches">
         {worktrees.map((worktree) => (
           <div
             className={`${styles.worktreeSummaryRow} ${
@@ -28,13 +28,13 @@ export function WorktreeSummary({
             }`}
             key={worktree.id}
           >
-            <div className={styles.worktreeSummaryPath}>
-              <span>{worktree.isMain ? 'Main working tree' : 'Linked worktree'}</span>
-              <code title={worktree.path}>{worktree.path}</code>
-            </div>
             <div className={styles.worktreeSummaryBranch}>
               <GitBranch size={13} />
               <span>{worktree.branch}</span>
+              <span className={styles.summaryWorktreePill}>{worktree.name}</span>
+            </div>
+            <div className={styles.worktreeSummaryPath}>
+              <code title={worktree.path}>{worktree.path}</code>
             </div>
           </div>
         ))}

@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type {
+  AppSnapshot,
   CommandContext,
   CommandRecord,
   CreateWorktreeRequest,
@@ -24,6 +25,8 @@ const api: GrafterApi = {
   approveCommand: (approvalId) => ipcRenderer.invoke(ipc.approveCommand, approvalId),
   rejectCommand: (approvalId) => ipcRenderer.invoke(ipc.rejectCommand, approvalId),
   getWorktreeDetails: (worktreeId) => ipcRenderer.invoke(ipc.worktreeDetails, worktreeId),
+  refreshPullRequest: (worktreeId) =>
+    ipcRenderer.invoke(ipc.refreshPullRequest, worktreeId),
   getWorktreeStatus: (worktreeId) => ipcRenderer.invoke(ipc.worktreeStatus, worktreeId),
   updateSettings: (settings: Settings) =>
     ipcRenderer.invoke(ipc.updateSettings, settings),
@@ -34,7 +37,13 @@ const api: GrafterApi = {
   openWorktreeInEditor: (worktreeId, editor) =>
     ipcRenderer.invoke(ipc.openWorktreeInEditor, worktreeId, editor),
   openExternal: (url) => ipcRenderer.invoke(ipc.openExternal, url),
-  copyCommand: (command) => ipcRenderer.invoke(ipc.copyCommand, command),
+  copyText: (text) => ipcRenderer.invoke(ipc.copyText, text),
+  onSnapshotUpdate: (listener) => {
+    const handler = (_event: Electron.IpcRendererEvent, snapshot: AppSnapshot): void =>
+      listener(snapshot);
+    ipcRenderer.on(ipc.snapshotUpdate, handler);
+    return () => ipcRenderer.removeListener(ipc.snapshotUpdate, handler);
+  },
   onCommandUpdate: (listener) => {
     const handler = (_event: Electron.IpcRendererEvent, command: CommandRecord): void =>
       listener(command);

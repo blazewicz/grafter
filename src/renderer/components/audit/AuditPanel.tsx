@@ -54,7 +54,7 @@ export function AuditPanel({
         : 'Command log';
   const copyCommand = (command: CommandRecord): void => {
     void api
-      .copyCommand(command.displayCommand)
+      .copyText(command.displayCommand)
       .then(() => {
         setCopiedCommandId(command.id);
         window.setTimeout(

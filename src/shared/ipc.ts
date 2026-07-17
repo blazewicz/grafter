@@ -1,5 +1,6 @@
 export const ipc = {
   snapshot: 'grafter:snapshot',
+  snapshotUpdate: 'grafter:snapshot-update',
   commandLog: 'grafter:command-log',
   chooseProject: 'grafter:choose-project',
   removeProject: 'grafter:remove-project',
@@ -11,12 +12,13 @@ export const ipc = {
   approveCommand: 'grafter:approve-command',
   rejectCommand: 'grafter:reject-command',
   worktreeDetails: 'grafter:worktree-details',
+  refreshPullRequest: 'grafter:refresh-pull-request',
   worktreeStatus: 'grafter:worktree-status',
   updateSettings: 'grafter:update-settings',
   updateProjectSetup: 'grafter:update-project-setup',
   openWorktreeDirectory: 'grafter:open-worktree-directory',
   openWorktreeInEditor: 'grafter:open-worktree-in-editor',
   openExternal: 'grafter:open-external',
-  copyCommand: 'grafter:copy-command',
+  copyText: 'grafter:copy-text',
   commandUpdate: 'grafter:command-update',
 } as const;

@@ -18,11 +18,13 @@ let snapshot: AppSnapshot = {
       id: 'grafter',
       name: 'grafter',
       path: '/Users/kasia/Code/grafter',
+      defaultBranch: 'main',
       setupScript: 'npm install',
       worktrees: [
         {
           id: 'grafter:main',
           projectId: 'grafter',
+          name: 'grafter',
           path: '/Users/kasia/Code/grafter',
           branch: 'main',
           head: '3e7cb81',
@@ -32,8 +34,16 @@ let snapshot: AppSnapshot = {
         {
           id: 'grafter:glass',
           projectId: 'grafter',
+          name: 'feature-glass-sidebar',
           path: '/Users/kasia/Code/grafter.worktrees/feature-glass-sidebar',
           branch: 'feature/glass-sidebar',
+          pullRequest: {
+            number: 42,
+            title: 'Build translucent sidebar',
+            url: 'https://github.com/example/grafter/pull/42',
+            state: 'DRAFT',
+            baseBranch: 'main',
+          },
           head: 'cf91e24',
           isMain: false,
           locked: false,
@@ -41,8 +51,16 @@ let snapshot: AppSnapshot = {
         {
           id: 'grafter:audit',
           projectId: 'grafter',
+          name: 'audit-console',
           path: '/Users/kasia/Code/grafter.worktrees/audit-console',
           branch: 'audit-console',
+          pullRequest: {
+            number: 47,
+            title: 'Add the audit console',
+            url: 'https://github.com/example/grafter/pull/47',
+            state: 'OPEN',
+            baseBranch: 'feature/worktree-picker',
+          },
           head: '81ca492',
           isMain: false,
           locked: false,
@@ -53,10 +71,12 @@ let snapshot: AppSnapshot = {
       id: 'garden',
       name: 'garden-api',
       path: '/Users/kasia/Code/garden-api',
+      defaultBranch: 'main',
       worktrees: [
         {
           id: 'garden:main',
           projectId: 'garden',
+          name: 'garden-api',
           path: '/Users/kasia/Code/garden-api',
           branch: 'main',
           head: '051dce3',
@@ -215,18 +235,11 @@ const details: Record<string, WorktreeDetails> = {
     projectName: 'grafter',
     targetBranch: 'main',
     diff: { files: 7, additions: 438, deletions: 41 },
-    pullRequest: {
-      number: 42,
-      title: 'Build translucent sidebar',
-      url: 'https://github.com/example/grafter/pull/42',
-      state: 'DRAFT',
-      baseBranch: 'main',
-    },
   },
   'grafter:audit': {
     ...snapshot.projects[0]!.worktrees[2]!,
     projectName: 'grafter',
-    targetBranch: 'main',
+    targetBranch: 'feature/worktree-picker',
     diff: { files: 3, additions: 121, deletions: 9 },
   },
   'garden:main': {
@@ -241,20 +254,20 @@ function updateCommand(record: CommandRecord): void {
   commands = [record, ...commands.filter((item) => item.id !== record.id)];
 }
 
-async function copyPreviewCommand(command: string): Promise<void> {
+async function copyPreviewText(text: string): Promise<void> {
   try {
-    await navigator.clipboard.writeText(command);
+    await navigator.clipboard.writeText(text);
     return;
   } catch {
     const input = document.createElement('textarea');
-    input.value = command;
+    input.value = text;
     input.style.position = 'fixed';
     input.style.opacity = '0';
     document.body.append(input);
     input.select();
     const copied = document.execCommand('copy');
     input.remove();
-    if (!copied) throw new Error('Could not copy the command.');
+    if (!copied) throw new Error('Could not copy the text.');
   }
 }
 
@@ -324,6 +337,12 @@ export const previewApi: GrafterApi = {
   rejectCommand: () => Promise.resolve(structuredClone(snapshot)),
   getWorktreeDetails: (worktreeId) =>
     Promise.resolve(structuredClone(details[worktreeId]!)),
+  refreshPullRequest: (worktreeId) => {
+    const pullRequest = snapshot.projects
+      .flatMap((project) => project.worktrees)
+      .find((worktree) => worktree.id === worktreeId)?.pullRequest;
+    return Promise.resolve(pullRequest ? structuredClone(pullRequest) : undefined);
+  },
   getWorktreeStatus: (worktreeId) =>
     Promise.resolve(worktreeId === 'grafter:audit' ? 'dirty' : 'clean'),
   updateSettings: (settings) => {
@@ -342,7 +361,8 @@ export const previewApi: GrafterApi = {
   openWorktreeDirectory: () => Promise.resolve(),
   openWorktreeInEditor: () => Promise.resolve(),
   openExternal: () => Promise.resolve(),
-  copyCommand: copyPreviewCommand,
+  copyText: copyPreviewText,
+  onSnapshotUpdate: () => () => undefined,
   onCommandUpdate: (listener) => {
     void listener;
     void updateCommand;

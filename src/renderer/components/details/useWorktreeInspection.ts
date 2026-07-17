@@ -20,14 +20,36 @@ export function useWorktreeInspection(
   useEffect(() => {
     if (!worktreeId) return;
     let active = true;
-    void api
-      .getWorktreeDetails(worktreeId)
-      .then((next) => {
-        if (active) setDetails(next);
-      })
-      .catch((caught: unknown) => {
+
+    const inspect = async (): Promise<void> => {
+      const pullRequestRefresh = api.refreshPullRequest(worktreeId).then(
+        (pullRequest) => ({ ok: true as const, pullRequest }),
+        (error: unknown) => ({ ok: false as const, error }),
+      );
+      try {
+        const cached = await api.getWorktreeDetails(worktreeId);
+        if (!active) return;
+        setDetails(cached);
+
+        const refreshResult = await pullRequestRefresh;
+        if (!refreshResult.ok) throw refreshResult.error;
+        const { pullRequest } = refreshResult;
+        if (!active || !pullRequest) return;
+
+        if (cached.targetBranch !== pullRequest.baseBranch) {
+          const refreshed = await api.getWorktreeDetails(worktreeId);
+          if (active) setDetails(refreshed);
+        } else {
+          setDetails((current) =>
+            current?.id === worktreeId ? { ...current, pullRequest } : current,
+          );
+        }
+      } catch (caught) {
         if (active) onError(friendlyError(caught));
-      });
+      }
+    };
+
+    void inspect();
     return () => {
       active = false;
     };

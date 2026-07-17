@@ -71,8 +71,10 @@ export interface DiffStats {
 export interface Worktree {
   id: string;
   projectId: string;
+  name: string;
   path: string;
   branch: string;
+  pullRequest?: PullRequest;
   head: string;
   isMain: boolean;
   locked: boolean;
@@ -84,10 +86,10 @@ export interface WorktreeDetails extends Worktree {
   projectName: string;
   targetBranch: string;
   diff: DiffStats;
-  pullRequest?: PullRequest;
 }
 
 export interface ProjectTreeItem extends Project {
+  defaultBranch?: string;
   worktrees: Worktree[];
 }
 
@@ -124,12 +126,14 @@ export interface GrafterApi {
   approveCommand(approvalId: string): Promise<AppSnapshot>;
   rejectCommand(approvalId: string): Promise<AppSnapshot>;
   getWorktreeDetails(worktreeId: string): Promise<WorktreeDetails>;
+  refreshPullRequest(worktreeId: string): Promise<PullRequest | undefined>;
   getWorktreeStatus(worktreeId: string): Promise<WorktreeStatus>;
   updateSettings(settings: Settings): Promise<AppSnapshot>;
   updateProjectSetup(projectId: string, script: string): Promise<AppSnapshot>;
   openWorktreeDirectory(worktreeId: string): Promise<void>;
   openWorktreeInEditor(worktreeId: string, editor: EditorTool): Promise<void>;
   openExternal(url: string): Promise<void>;
-  copyCommand(command: string): Promise<void>;
+  copyText(text: string): Promise<void>;
+  onSnapshotUpdate(listener: (snapshot: AppSnapshot) => void): () => void;
   onCommandUpdate(listener: (command: CommandRecord) => void): () => void;
 }

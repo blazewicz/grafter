@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { CSSProperties } from 'react';
 import type { AppSnapshot, ApprovalRequest, CommandContext } from '../shared/contracts';
 import { AuditPanel } from './components/audit/AuditPanel';
 import { useCommandLogs } from './components/audit/useCommandLogs';
@@ -9,11 +10,15 @@ import { SettingsDialog } from './components/dialogs/SettingsDialog';
 import { ErrorToast } from './components/feedback/ErrorToast';
 import { AppTitlebar } from './components/shell/AppTitlebar';
 import { Splash } from './components/shell/Splash';
-import { ProjectSidebar } from './components/sidebar/ProjectSidebar';
+import { defaultSidebarWidth, ProjectSidebar } from './components/sidebar/ProjectSidebar';
 import { api, friendlyError } from './grafter-api';
 import styles from './App.module.css';
 
 type DialogName = 'settings' | null;
+
+interface AppShellStyle extends CSSProperties {
+  '--sidebar-width': string;
+}
 
 export function App(): React.JSX.Element {
   const [snapshot, setSnapshot] = useState<AppSnapshot | null>(null);
@@ -24,6 +29,10 @@ export function App(): React.JSX.Element {
   const [logsOpen, setLogsOpen] = useState(true);
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(defaultSidebarWidth);
+  const appShellStyle: AppShellStyle = {
+    '--sidebar-width': `${sidebarWidth}px`,
+  };
 
   const selectedProject = snapshot?.projects.find((project) => project.id === selectedId);
   const selectedWorktree = snapshot?.projects
@@ -101,16 +110,24 @@ export function App(): React.JSX.Element {
 
   useEffect(() => {
     let active = true;
+    let receivedSnapshotUpdate = false;
+    const unsubscribe = api.onSnapshotUpdate((next) => {
+      if (active) {
+        receivedSnapshotUpdate = true;
+        applySnapshot(next);
+      }
+    });
     void api
       .getSnapshot()
       .then((next) => {
-        if (active) applySnapshot(next);
+        if (active && !receivedSnapshotUpdate) applySnapshot(next);
       })
       .catch((caught: unknown) => {
         if (active) setError(friendlyError(caught));
       });
     return () => {
       active = false;
+      unsubscribe();
     };
   }, [applySnapshot]);
 
@@ -135,7 +152,7 @@ export function App(): React.JSX.Element {
   if (!snapshot) return <Splash />;
 
   return (
-    <div className={styles.appShell}>
+    <div className={styles.appShell} style={appShellStyle}>
       <AppTitlebar
         projectName={activeProject?.name ?? snapshot.projects[0]?.name ?? 'Worktrees'}
         branchName={selectedWorktree?.branch}
@@ -147,6 +164,7 @@ export function App(): React.JSX.Element {
       <div className={styles.workspace}>
         <ProjectSidebar
           projects={snapshot.projects}
+          width={sidebarWidth}
           selectedId={selectedId}
           expanded={expanded}
           onSelect={setSelectedId}
@@ -171,6 +189,7 @@ export function App(): React.JSX.Element {
           }
           onOpenSettings={() => setDialog('settings')}
           onError={setError}
+          onResize={setSidebarWidth}
         />
 
         <MainView

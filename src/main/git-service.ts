@@ -67,6 +67,20 @@ export class GitService {
     return parseWorktreePorcelain(output, project.id);
   }
 
+  async listBranchWorkspaces(
+    project: Project,
+  ): Promise<{ defaultBranch: string; worktrees: Worktree[] }> {
+    const [worktrees, defaultBranch] = await Promise.all([
+      this.listWorktrees(project),
+      this.#defaultBranch(project, projectCommandContext(project)),
+    ]);
+
+    return {
+      defaultBranch,
+      worktrees,
+    };
+  }
+
   async listBranches(project: Project): Promise<string[]> {
     const context = projectCommandContext(project);
     const result = await this.#git(
@@ -118,9 +132,8 @@ export class GitService {
 
   async details(project: Project, worktree: Worktree): Promise<WorktreeDetails> {
     const context = worktreeCommandContext(worktree);
-    const pullRequest = await this.#pullRequest(worktree, context);
     const targetBranch =
-      pullRequest?.baseBranch ?? (await this.#defaultBranch(project, context));
+      worktree.pullRequest?.baseBranch ?? (await this.#defaultBranch(project, context));
     const diff =
       worktree.branch === targetBranch
         ? { files: 0, additions: 0, deletions: 0 }
@@ -130,8 +143,32 @@ export class GitService {
       projectName: project.name,
       targetBranch,
       diff,
-      ...(pullRequest ? { pullRequest } : {}),
     };
+  }
+
+  async pullRequest(worktree: Worktree): Promise<PullRequest | undefined> {
+    if (worktree.branch === '(detached)') return undefined;
+    try {
+      const result = await this.runner.run({
+        context: worktreeCommandContext(worktree),
+        tool: 'github',
+        executable: 'gh',
+        args: [
+          'pr',
+          'view',
+          worktree.branch,
+          '--json',
+          'number,title,url,state,isDraft,baseRefName',
+        ],
+        cwd: worktree.path,
+        purpose: `Find the pull request for ${worktree.branch}`,
+        isReadOnly: true,
+      });
+      if (result.record.exitCode !== 0) return undefined;
+      return parsePullRequest(result.stdout);
+    } catch {
+      return undefined;
+    }
   }
 
   async status(worktree: Worktree): Promise<WorktreeStatus> {
@@ -230,50 +267,6 @@ export class GitService {
     return parseNumStat(remoteResult.stdout);
   }
 
-  async #pullRequest(
-    worktree: Worktree,
-    context: CommandContext,
-  ): Promise<PullRequest | undefined> {
-    if (worktree.branch === '(detached)') return undefined;
-    try {
-      const result = await this.runner.run({
-        context,
-        tool: 'github',
-        executable: 'gh',
-        args: [
-          'pr',
-          'view',
-          worktree.branch,
-          '--json',
-          'number,title,url,state,isDraft,baseRefName',
-        ],
-        cwd: worktree.path,
-        purpose: `Find the pull request for ${worktree.branch}`,
-        isReadOnly: true,
-      });
-      if (result.record.exitCode !== 0) return undefined;
-      const parsed = JSON.parse(result.stdout) as {
-        number: number;
-        title: string;
-        url: string;
-        state: unknown;
-        isDraft: unknown;
-        baseRefName: string;
-      };
-      const state = pullRequestStateFromGitHub(parsed.state, parsed.isDraft);
-      if (!state) return undefined;
-      return {
-        number: parsed.number,
-        title: parsed.title,
-        url: parsed.url,
-        state,
-        baseBranch: parsed.baseRefName,
-      };
-    } catch {
-      return undefined;
-    }
-  }
-
   async #git(
     cwd: string,
     args: string[],
@@ -307,4 +300,33 @@ export class GitService {
       isReadOnly,
     });
   }
+}
+
+function parsePullRequest(output: string): PullRequest | undefined {
+  const parsed: unknown = JSON.parse(output);
+  if (typeof parsed !== 'object' || parsed === null) return undefined;
+  if (
+    !('number' in parsed) ||
+    typeof parsed.number !== 'number' ||
+    !('title' in parsed) ||
+    typeof parsed.title !== 'string' ||
+    !('url' in parsed) ||
+    typeof parsed.url !== 'string' ||
+    !('baseRefName' in parsed) ||
+    typeof parsed.baseRefName !== 'string' ||
+    !parsed.baseRefName ||
+    !('state' in parsed) ||
+    !('isDraft' in parsed)
+  ) {
+    return undefined;
+  }
+  const state = pullRequestStateFromGitHub(parsed.state, parsed.isDraft);
+  if (!state) return undefined;
+  return {
+    number: parsed.number,
+    title: parsed.title,
+    url: parsed.url,
+    state,
+    baseBranch: parsed.baseRefName,
+  };
 }

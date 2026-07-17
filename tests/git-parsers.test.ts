@@ -25,6 +25,7 @@ detached
       {
         id: 'project:/code/grafter',
         projectId: 'project',
+        name: 'grafter',
         path: '/code/grafter',
         branch: 'main',
         head: 'aaaaaaa',
@@ -34,6 +35,7 @@ detached
       {
         id: 'project:/code/grafter.worktrees/audit',
         projectId: 'project',
+        name: 'audit',
         path: '/code/grafter.worktrees/audit',
         branch: 'feature/audit',
         head: 'bbbbbbb',
@@ -43,6 +45,7 @@ detached
       {
         id: 'project:/code/grafter.worktrees/probe',
         projectId: 'project',
+        name: 'probe',
         path: '/code/grafter.worktrees/probe',
         branch: '(detached)',
         head: 'ccccccc',

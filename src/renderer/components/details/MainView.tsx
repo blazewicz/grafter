@@ -51,7 +51,7 @@ function DetailsLoading(): React.JSX.Element {
   return (
     <div className={styles.detailsLoading}>
       <LoaderCircle className="spin" size={20} />
-      <span>Inspecting worktree…</span>
+      <span>Inspecting branch workspace…</span>
     </div>
   );
 }
