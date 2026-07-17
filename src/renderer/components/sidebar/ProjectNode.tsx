@@ -8,7 +8,7 @@ import {
   Plus,
   Trash2,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { GrafterApi, ProjectTreeItem, Worktree } from '../../../shared/contracts';
 import { NewWorktreeForm } from './NewWorktreeForm';
 
@@ -44,6 +44,17 @@ export function ProjectNode({
 }): React.JSX.Element {
   const [menuOpen, setMenuOpen] = useState(false);
 
+  useEffect(() => {
+    if (!menuOpen) {
+      return;
+    }
+
+    const closeMenu = (): void => setMenuOpen(false);
+    document.addEventListener('click', closeMenu);
+
+    return () => document.removeEventListener('click', closeMenu);
+  }, [menuOpen]);
+
   return (
     <div
       className="project-node"
@@ -76,7 +87,10 @@ export function ProjectNode({
           </button>
           <button
             aria-label={`More options for ${project.name}`}
-            onClick={() => setMenuOpen((value) => !value)}
+            onClick={(event) => {
+              event.stopPropagation();
+              setMenuOpen((value) => !value);
+            }}
           >
             <MoreHorizontal size={14} />
           </button>
