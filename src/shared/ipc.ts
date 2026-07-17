@@ -1,5 +1,6 @@
 export const ipc = {
   snapshot: 'grafter:snapshot',
+  snapshotUpdate: 'grafter:snapshot-update',
   commandLog: 'grafter:command-log',
   chooseProject: 'grafter:choose-project',
   removeProject: 'grafter:remove-project',

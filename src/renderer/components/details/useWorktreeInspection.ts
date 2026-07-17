@@ -1,9 +1,5 @@
 import { useEffect, useState } from 'react';
-import type {
-  PullRequest,
-  WorktreeDetails,
-  WorktreeStatus,
-} from '../../../shared/contracts';
+import type { WorktreeDetails, WorktreeStatus } from '../../../shared/contracts';
 import { api, friendlyError } from '../../grafter-api';
 
 const worktreeStatusRefreshMs = 15_000;
@@ -11,7 +7,6 @@ const worktreeStatusRefreshMs = 15_000;
 export function useWorktreeInspection(
   worktreeId: string | undefined,
   onError: (message: string) => void,
-  onPullRequestUpdated: (worktreeId: string, pullRequest: PullRequest) => void,
 ): {
   details: WorktreeDetails | undefined;
   status: WorktreeStatus | undefined;
@@ -40,14 +35,14 @@ export function useWorktreeInspection(
         if (!refreshResult.ok) throw refreshResult.error;
         const { pullRequest } = refreshResult;
         if (!active || !pullRequest) return;
-        onPullRequestUpdated(worktreeId, pullRequest);
-        setDetails((current) =>
-          current?.id === worktreeId ? { ...current, pullRequest } : current,
-        );
 
         if (cached.targetBranch !== pullRequest.baseBranch) {
           const refreshed = await api.getWorktreeDetails(worktreeId);
           if (active) setDetails(refreshed);
+        } else {
+          setDetails((current) =>
+            current?.id === worktreeId ? { ...current, pullRequest } : current,
+          );
         }
       } catch (caught) {
         if (active) onError(friendlyError(caught));
@@ -58,7 +53,7 @@ export function useWorktreeInspection(
     return () => {
       active = false;
     };
-  }, [onError, onPullRequestUpdated, worktreeId]);
+  }, [onError, worktreeId]);
 
   useEffect(() => {
     if (!worktreeId) return;

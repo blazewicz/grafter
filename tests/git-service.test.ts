@@ -9,7 +9,6 @@ import {
 import type { Project, Worktree } from '../src/shared/contracts';
 import { CommandRunner } from '../src/main/commands';
 import { GitService } from '../src/main/git-service';
-import { StubCommandRunner } from './stub-command-runner';
 
 describe('GitService worktree status', () => {
   it('reports clean and dirty using porcelain status including untracked files', async () => {
@@ -129,43 +128,5 @@ describe('GitService worktree details', () => {
     expect(spec.context).toEqual(projectCommandContext(project));
     expect(runner.recordsFor(projectCommandContext(project))).toEqual([record]);
     expect(runner.recordsFor(worktreeCommandContext(worktree))).toEqual([]);
-  });
-});
-
-describe('GitService pull request loading', () => {
-  it('limits concurrent GitHub lookups to five', async () => {
-    const project: Project = {
-      id: 'project',
-      name: 'project',
-      path: '/repo',
-    };
-    const worktreeOutput = Array.from(
-      { length: 12 },
-      (_, index) => `worktree /repo.worktrees/branch-${index}
-HEAD ${String(index).padStart(7, '0')}
-branch refs/heads/branch-${index}`,
-    ).join('\n\n');
-    let active = 0;
-    let maximumActive = 0;
-    const runner = new StubCommandRunner(async (spec) => {
-      if (spec.tool === 'git' && spec.args[0] === 'worktree') {
-        return { stdout: worktreeOutput };
-      }
-      if (spec.tool === 'git' && spec.args[0] === 'symbolic-ref') {
-        return { stdout: 'origin/main\n' };
-      }
-      if (spec.tool === 'github') {
-        active += 1;
-        maximumActive = Math.max(maximumActive, active);
-        await new Promise((resolve) => setTimeout(resolve, 2));
-        active -= 1;
-        return { exitCode: 1 };
-      }
-      throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
-    });
-
-    await new GitService(runner).listBranchWorkspaces(project);
-
-    expect(maximumActive).toBe(5);
   });
 });

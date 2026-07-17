@@ -2,6 +2,7 @@ import { app, BrowserWindow, clipboard, dialog, ipcMain, shell } from 'electron'
 import path from 'node:path';
 import { validateClipboardText } from '../shared/clipboard';
 import type {
+  AppSnapshot,
   CommandRecord,
   CreateWorktreeRequest,
   EditorTool,
@@ -19,6 +20,12 @@ let service: AppService;
 function broadcastCommand(command: CommandRecord): void {
   for (const window of BrowserWindow.getAllWindows()) {
     window.webContents.send(ipc.commandUpdate, command);
+  }
+}
+
+function broadcastSnapshot(snapshot: AppSnapshot): void {
+  for (const window of BrowserWindow.getAllWindows()) {
+    window.webContents.send(ipc.snapshotUpdate, snapshot);
   }
 }
 
@@ -128,7 +135,9 @@ function registerIpc(): void {
 
 void app.whenReady().then(async () => {
   const runner = new CommandRunner(broadcastCommand);
-  service = new AppService(new StateStore(app.getPath('userData')), runner);
+  service = new AppService(new StateStore(app.getPath('userData')), runner, {
+    onSnapshotUpdate: broadcastSnapshot,
+  });
   await service.initialize();
   registerIpc();
   await createWindow();

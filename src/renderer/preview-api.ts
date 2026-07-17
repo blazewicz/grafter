@@ -265,8 +265,9 @@ async function copyPreviewText(text: string): Promise<void> {
     input.style.opacity = '0';
     document.body.append(input);
     input.select();
-    document.execCommand('copy');
+    const copied = document.execCommand('copy');
     input.remove();
+    if (!copied) throw new Error('Could not copy the text.');
   }
 }
 
@@ -361,6 +362,7 @@ export const previewApi: GrafterApi = {
   openWorktreeInEditor: () => Promise.resolve(),
   openExternal: () => Promise.resolve(),
   copyText: copyPreviewText,
+  onSnapshotUpdate: () => () => undefined,
   onCommandUpdate: (listener) => {
     void listener;
     void updateCommand;

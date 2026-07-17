@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type {
+  AppSnapshot,
   CommandContext,
   CommandRecord,
   CreateWorktreeRequest,
@@ -37,6 +38,12 @@ const api: GrafterApi = {
     ipcRenderer.invoke(ipc.openWorktreeInEditor, worktreeId, editor),
   openExternal: (url) => ipcRenderer.invoke(ipc.openExternal, url),
   copyText: (text) => ipcRenderer.invoke(ipc.copyText, text),
+  onSnapshotUpdate: (listener) => {
+    const handler = (_event: Electron.IpcRendererEvent, snapshot: AppSnapshot): void =>
+      listener(snapshot);
+    ipcRenderer.on(ipc.snapshotUpdate, handler);
+    return () => ipcRenderer.removeListener(ipc.snapshotUpdate, handler);
+  },
   onCommandUpdate: (listener) => {
     const handler = (_event: Electron.IpcRendererEvent, command: CommandRecord): void =>
       listener(command);

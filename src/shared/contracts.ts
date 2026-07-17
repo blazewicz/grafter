@@ -134,5 +134,6 @@ export interface GrafterApi {
   openWorktreeInEditor(worktreeId: string, editor: EditorTool): Promise<void>;
   openExternal(url: string): Promise<void>;
   copyText(text: string): Promise<void>;
+  onSnapshotUpdate(listener: (snapshot: AppSnapshot) => void): () => void;
   onCommandUpdate(listener: (command: CommandRecord) => void): () => void;
 }
