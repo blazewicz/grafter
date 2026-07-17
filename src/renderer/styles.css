@@ -852,13 +852,6 @@ select {
   color: #bdbdc0;
   font-size: 10px;
 }
-.audit-status {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  color: #648a73;
-  font-size: 9.5px;
-}
 .audit-body {
   height: 188px;
   display: grid;

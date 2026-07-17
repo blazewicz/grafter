@@ -660,9 +660,6 @@ function AuditPanel({
             <option value="github">GitHub CLI</option>
             <option value="shell">Setup scripts</option>
           </select>
-          <span className="audit-status">
-            <Circle size={7} fill="currentColor" /> Transparent mode
-          </span>
         </div>
       </div>
       {open && (
