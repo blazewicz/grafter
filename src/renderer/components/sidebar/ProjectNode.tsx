@@ -171,8 +171,18 @@ function BranchRows({
               >
                 <GitBranch size={13} />
                 <BranchName branch={node.branch} />
-                <span className={styles.worktreePill} title={node.worktree.path}>
-                  {node.worktree.name}
+                <span
+                  className={styles.worktreeLabelWrap}
+                  data-worktree-path={node.worktree.path}
+                >
+                  <span className={styles.worktreePill}>{node.worktree.name}</span>
+                  <span
+                    className={`${styles.hoverLabel} ${styles.worktreeHoverLabel}`}
+                    role="tooltip"
+                    aria-hidden="true"
+                  >
+                    {node.worktree.path}
+                  </span>
                 </span>
               </button>
               {!node.worktree.isMain && (
@@ -194,7 +204,6 @@ function BranchRows({
               <div className={styles.ghostLabel}>
                 <GitBranch size={13} />
                 <BranchName branch={node.branch} />
-                <span className={styles.ghostPill}>no workspace</span>
               </div>
             </div>
           )}
@@ -216,9 +225,13 @@ function BranchRows({
 
 function BranchName({ branch }: { branch: string }): React.JSX.Element {
   return (
-    <span className={styles.branchNameWrap} data-branch-name={branch} title={branch}>
+    <span className={styles.branchNameWrap} data-branch-name={branch}>
       <span className={styles.branchName}>{branch}</span>
-      <span className={styles.branchNameTooltip} role="tooltip">
+      <span
+        className={`${styles.hoverLabel} ${styles.branchHoverLabel}`}
+        role="tooltip"
+        aria-hidden="true"
+      >
         {branch}
       </span>
     </span>

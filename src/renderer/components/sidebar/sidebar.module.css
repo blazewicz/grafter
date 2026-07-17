@@ -184,11 +184,30 @@
   white-space: nowrap;
 }
 
-.branch-name-tooltip {
+.worktree-label-wrap {
+  position: relative;
+  min-width: 0;
+  max-width: 38%;
+  flex: 0 0 auto;
+}
+
+.worktree-pill {
+  display: block;
+  min-width: 0;
+  color: var(--faint);
+  font-size: 9px;
+  border: 1px solid var(--line);
+  padding: 1px 4px;
+  border-radius: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hover-label {
   z-index: 30;
   position: absolute;
   top: calc(100% - 1px);
-  left: -5px;
   width: max-content;
   max-width: calc(var(--sidebar-width) - 54px);
   padding: 5px 7px;
@@ -209,26 +228,19 @@
   white-space: normal;
 }
 
-.branch-name-wrap:hover > .branch-name-tooltip,
-.tree-label:focus-visible .branch-name-tooltip {
+.branch-hover-label {
+  left: -5px;
+}
+
+.worktree-hover-label {
+  right: -5px;
+}
+
+.branch-name-wrap:hover > .hover-label,
+.worktree-label-wrap:hover > .hover-label {
   visibility: visible;
   opacity: 1;
   transition-delay: 350ms;
-}
-
-.worktree-pill,
-.ghost-pill {
-  min-width: 0;
-  max-width: 38%;
-  flex: 0 0 auto;
-  color: var(--faint);
-  font-size: 9px;
-  border: 1px solid var(--line);
-  padding: 1px 4px;
-  border-radius: 4px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .branch-children {
@@ -254,11 +266,6 @@
   align-items: center;
   gap: 6px;
   padding: 0 7px;
-}
-
-.ghost-pill {
-  border-style: dashed;
-  color: #65666c;
 }
 
 .row-actions {
