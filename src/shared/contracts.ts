@@ -58,6 +58,8 @@ export interface Worktree {
   locked: boolean;
 }
 
+export type WorktreeStatus = 'clean' | 'dirty';
+
 export interface WorktreeDetails extends Worktree {
   projectName: string;
   targetBranch: string;
@@ -102,6 +104,7 @@ export interface GrafterApi {
   approveCommand(approvalId: string): Promise<AppSnapshot>;
   rejectCommand(approvalId: string): Promise<AppSnapshot>;
   getWorktreeDetails(worktreeId: string): Promise<WorktreeDetails>;
+  getWorktreeStatus(worktreeId: string): Promise<WorktreeStatus>;
   updateSettings(settings: Settings): Promise<AppSnapshot>;
   updateProjectSetup(projectId: string, script: string): Promise<AppSnapshot>;
   revealPath(path: string): Promise<void>;

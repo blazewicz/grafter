@@ -84,6 +84,9 @@ function registerIpc(): void {
   ipcMain.handle(ipc.worktreeDetails, (_event, worktreeId: string) =>
     service.details(worktreeId),
   );
+  ipcMain.handle(ipc.worktreeStatus, (_event, worktreeId: string) =>
+    service.worktreeStatus(worktreeId),
+  );
   ipcMain.handle(ipc.updateSettings, (_event, settings: Settings) =>
     service.updateSettings(settings),
   );

@@ -35,10 +35,12 @@ import type {
   ToolName,
   Worktree,
   WorktreeDetails,
+  WorktreeStatus,
 } from '../shared/contracts';
 import { previewApi } from './preview-api';
 
 const api: GrafterApi = window.grafter ?? previewApi;
+const worktreeStatusRefreshMs = 15_000;
 type DialogName = 'settings' | null;
 
 function friendlyError(error: unknown): string {
@@ -50,6 +52,10 @@ export function App(): React.JSX.Element {
   const [snapshot, setSnapshot] = useState<AppSnapshot | null>(null);
   const [selectedId, setSelectedId] = useState<string>();
   const [details, setDetails] = useState<WorktreeDetails>();
+  const [worktreeStatusResult, setWorktreeStatusResult] = useState<{
+    worktreeId: string;
+    status: WorktreeStatus;
+  }>();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [addingTo, setAddingTo] = useState<string>();
   const [approval, setApproval] = useState<ApprovalRequest>();
@@ -57,6 +63,10 @@ export function App(): React.JSX.Element {
   const [logsOpen, setLogsOpen] = useState(true);
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
+  const worktreeStatus =
+    worktreeStatusResult && worktreeStatusResult.worktreeId === selectedId
+      ? worktreeStatusResult.status
+      : undefined;
 
   const applySnapshot = useCallback((next: AppSnapshot): void => {
     setSnapshot(next);
@@ -135,6 +145,65 @@ export function App(): React.JSX.Element {
       });
     return () => {
       active = false;
+    };
+  }, [selectedId]);
+
+  useEffect(() => {
+    if (!selectedId) return;
+
+    let active = true;
+    let refreshInFlight = false;
+    let reportedError = false;
+    let timeoutId: number | undefined;
+
+    const clearScheduledRefresh = (): void => {
+      if (timeoutId === undefined) return;
+      window.clearTimeout(timeoutId);
+      timeoutId = undefined;
+    };
+
+    const scheduleRefresh = (): void => {
+      clearScheduledRefresh();
+      if (!active || document.visibilityState !== 'visible') return;
+      timeoutId = window.setTimeout(() => {
+        void refreshStatus();
+      }, worktreeStatusRefreshMs);
+    };
+
+    const refreshStatus = async (): Promise<void> => {
+      if (!active || refreshInFlight || document.visibilityState !== 'visible') return;
+      refreshInFlight = true;
+      try {
+        const next = await api.getWorktreeStatus(selectedId);
+        if (active) setWorktreeStatusResult({ worktreeId: selectedId, status: next });
+      } catch (caught) {
+        if (active) {
+          setWorktreeStatusResult((current) =>
+            current?.worktreeId === selectedId ? undefined : current,
+          );
+          if (!reportedError) {
+            reportedError = true;
+            setError(friendlyError(caught));
+          }
+        }
+      } finally {
+        refreshInFlight = false;
+        scheduleRefresh();
+      }
+    };
+
+    const onVisibilityChange = (): void => {
+      clearScheduledRefresh();
+      if (document.visibilityState === 'visible') void refreshStatus();
+    };
+
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    void refreshStatus();
+
+    return () => {
+      active = false;
+      clearScheduledRefresh();
+      document.removeEventListener('visibilitychange', onVisibilityChange);
     };
   }, [selectedId]);
 
@@ -252,7 +321,7 @@ export function App(): React.JSX.Element {
 
         <main className="main-view">
           {details && details.id === selectedId ? (
-            <Details details={details} />
+            <Details details={details} status={worktreeStatus} />
           ) : selectedId ? (
             <DetailsLoading />
           ) : (
@@ -531,7 +600,13 @@ function NewWorktreeForm(props: {
   );
 }
 
-function Details({ details }: { details: WorktreeDetails }): React.JSX.Element {
+function Details({
+  details,
+  status,
+}: {
+  details: WorktreeDetails;
+  status: WorktreeStatus | undefined;
+}): React.JSX.Element {
   return (
     <div className="details-wrap">
       <div className="details-eyebrow">
@@ -542,8 +617,18 @@ function Details({ details }: { details: WorktreeDetails }): React.JSX.Element {
           <h1>{details.branch}</h1>
           <p>{details.isMain ? 'Main working tree' : 'Linked worktree'}</p>
         </div>
-        <span className="clean-badge">
-          <Circle size={7} fill="currentColor" /> tracked
+        <span
+          className={`clean-badge ${status ?? 'checking'}`}
+          aria-live="polite"
+          title={
+            status === 'clean'
+              ? 'No local changes'
+              : status === 'dirty'
+                ? 'Uncommitted local changes are present'
+                : 'Checking for local changes'
+          }
+        >
+          <Circle size={7} fill="currentColor" /> {status ?? 'checking'}
         </span>
       </div>
       <section className="path-card">

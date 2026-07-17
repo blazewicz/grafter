@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { parseNumStat, parseWorktreePorcelain } from '../src/shared/git-parsers';
+import {
+  parseNumStat,
+  parseWorktreePorcelain,
+  parseWorktreeStatus,
+} from '../src/shared/git-parsers';
 
 describe('parseWorktreePorcelain', () => {
   it('parses linked, detached, and locked worktrees while marking the main clone', () => {
@@ -66,5 +70,18 @@ describe('parseNumStat', () => {
 
   it('returns empty stats for empty output', () => {
     expect(parseNumStat('')).toEqual({ files: 0, additions: 0, deletions: 0 });
+  });
+});
+
+describe('parseWorktreeStatus', () => {
+  it('marks empty porcelain output as clean', () => {
+    expect(parseWorktreeStatus('')).toBe('clean');
+    expect(parseWorktreeStatus('\n')).toBe('clean');
+  });
+
+  it('marks staged, unstaged, and untracked porcelain output as dirty', () => {
+    expect(parseWorktreeStatus('M  src/staged.ts\n')).toBe('dirty');
+    expect(parseWorktreeStatus(' M src/unstaged.ts\n')).toBe('dirty');
+    expect(parseWorktreeStatus('?? src/untracked.ts\n')).toBe('dirty');
   });
 });

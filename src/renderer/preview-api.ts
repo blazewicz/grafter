@@ -198,6 +198,8 @@ export const previewApi: GrafterApi = {
   rejectCommand: () => Promise.resolve(structuredClone(snapshot)),
   getWorktreeDetails: (worktreeId) =>
     Promise.resolve(structuredClone(details[worktreeId]!)),
+  getWorktreeStatus: (worktreeId) =>
+    Promise.resolve(worktreeId === 'grafter:audit' ? 'dirty' : 'clean'),
   updateSettings: (settings) => {
     snapshot = { ...snapshot, settings };
     return Promise.resolve(structuredClone(snapshot));

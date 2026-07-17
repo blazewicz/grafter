@@ -8,6 +8,7 @@ import type {
   Settings,
   Worktree,
   WorktreeDetails,
+  WorktreeStatus,
 } from '../shared/contracts';
 import { expandWorktreeTemplate, worktreePathForBranch } from '../shared/paths';
 import { ApprovalManager } from './approvals';
@@ -131,6 +132,10 @@ export class AppService {
   async details(worktreeId: string): Promise<WorktreeDetails> {
     const worktree = this.#worktree(worktreeId);
     return this.git.details(this.#project(worktree.projectId), worktree);
+  }
+
+  async worktreeStatus(worktreeId: string): Promise<WorktreeStatus> {
+    return this.git.status(this.#worktree(worktreeId));
   }
 
   async updateSettings(settings: Settings): Promise<AppSnapshot> {

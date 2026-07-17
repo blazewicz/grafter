@@ -7,8 +7,13 @@ import type {
   PullRequest,
   Worktree,
   WorktreeDetails,
+  WorktreeStatus,
 } from '../shared/contracts';
-import { parseNumStat, parseWorktreePorcelain } from '../shared/git-parsers';
+import {
+  parseNumStat,
+  parseWorktreePorcelain,
+  parseWorktreeStatus,
+} from '../shared/git-parsers';
 import type { CommandResult, CommandSpec } from './commands';
 import type { CommandRunner } from './commands';
 
@@ -95,6 +100,15 @@ export class GitService {
       diff,
       ...(pullRequest ? { pullRequest } : {}),
     };
+  }
+
+  async status(worktree: Worktree): Promise<WorktreeStatus> {
+    const result = await this.#git(
+      worktree.path,
+      ['status', '--porcelain=v1', '--untracked-files=normal'],
+      `Check ${worktree.branch} worktree status`,
+    );
+    return parseWorktreeStatus(result.stdout);
   }
 
   async setupScript(project: Project): Promise<string | undefined> {

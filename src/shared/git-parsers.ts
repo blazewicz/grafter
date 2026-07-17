@@ -1,4 +1,4 @@
-import type { DiffStats, Worktree } from './contracts';
+import type { DiffStats, Worktree, WorktreeStatus } from './contracts';
 
 interface WorktreeBlock {
   worktree?: string;
@@ -59,4 +59,8 @@ export function parseNumStat(output: string): DiffStats {
   }
 
   return { files, additions, deletions };
+}
+
+export function parseWorktreeStatus(output: string): WorktreeStatus {
+  return output.trim() ? 'dirty' : 'clean';
 }

@@ -556,6 +556,16 @@ select {
   color: var(--green);
   font-size: 10px;
 }
+.clean-badge.dirty {
+  border-color: rgba(216, 173, 104, 0.18);
+  background: rgba(216, 173, 104, 0.065);
+  color: var(--amber);
+}
+.clean-badge.checking {
+  border-color: var(--line);
+  background: var(--surface);
+  color: var(--faint);
+}
 .path-card {
   margin-top: 24px;
   padding: 12px 13px;
