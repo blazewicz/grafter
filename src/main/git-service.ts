@@ -2,6 +2,7 @@ import { readFile, realpath } from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { projectCommandContext, worktreeCommandContext } from '../shared/command-context';
+import { isPullRequestState } from '../shared/contracts';
 import type {
   CommandContext,
   DiffStats,
@@ -255,9 +256,10 @@ export class GitService {
         number: number;
         title: string;
         url: string;
-        state: string;
+        state: unknown;
         baseRefName: string;
       };
+      if (!isPullRequestState(parsed.state)) return undefined;
       return {
         number: parsed.number,
         title: parsed.title,

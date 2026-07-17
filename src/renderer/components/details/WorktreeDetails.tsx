@@ -164,7 +164,9 @@ export function WorktreeDetails({
               </div>
               <div className={styles.prContent}>
                 <div className={styles.prMeta}>
-                  <span className={styles.openPill}>{pullRequest.state}</span>
+                  <span className={styles.prPill} data-state={pullRequest.state}>
+                    {pullRequest.state}
+                  </span>
                   <span>Pull request #{pullRequest.number}</span>
                 </div>
                 <strong>{pullRequest.title}</strong>

@@ -414,13 +414,26 @@
   font-size: 9.5px;
 }
 
-.open-pill {
+.pr-pill {
   padding: 2px 5px;
   border-radius: 4px;
-  background: rgba(107, 207, 156, 0.1);
-  color: var(--green);
   font-size: 8px;
   font-weight: 700;
+}
+
+.pr-pill[data-state='OPEN'] {
+  background: rgba(63, 185, 80, 0.12);
+  color: #3fb950;
+}
+
+.pr-pill[data-state='MERGED'] {
+  background: rgba(163, 113, 247, 0.12);
+  color: #a371f7;
+}
+
+.pr-pill[data-state='CLOSED'] {
+  background: rgba(248, 81, 73, 0.12);
+  color: #f85149;
 }
 
 .pr-card > button {

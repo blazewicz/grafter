@@ -42,11 +42,17 @@ export interface Project {
   setupScript?: string;
 }
 
+export type PullRequestState = 'OPEN' | 'MERGED' | 'CLOSED';
+
+export function isPullRequestState(value: unknown): value is PullRequestState {
+  return value === 'OPEN' || value === 'MERGED' || value === 'CLOSED';
+}
+
 export interface PullRequest {
   number: number;
   title: string;
   url: string;
-  state: string;
+  state: PullRequestState;
   baseBranch: string;
 }
 
