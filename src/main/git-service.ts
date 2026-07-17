@@ -1,6 +1,7 @@
 import { readFile, realpath } from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
+import pMap from 'p-map';
 import { projectCommandContext, worktreeCommandContext } from '../shared/command-context';
 import { pullRequestStateFromGitHub } from '../shared/contracts';
 import type {
@@ -19,7 +20,6 @@ import {
 } from '../shared/git-parsers';
 import type { CommandResult, CommandSpec } from './commands';
 import type { CommandRunner } from './commands';
-import { mapWithConcurrency } from './concurrency';
 
 const baseBranchLookupConcurrency = 5;
 
@@ -77,10 +77,10 @@ export class GitService {
       this.listWorktrees(project),
       this.#defaultBranch(project, projectCommandContext(project)),
     ]);
-    const baseBranches = await mapWithConcurrency(
+    const baseBranches = await pMap(
       worktrees,
-      baseBranchLookupConcurrency,
       (worktree) => this.#pullRequestBase(worktree),
+      { concurrency: baseBranchLookupConcurrency },
     );
 
     return {
