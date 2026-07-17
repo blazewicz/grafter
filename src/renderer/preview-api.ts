@@ -138,10 +138,16 @@ let commands: CommandRecord[] = [
     },
     tool: 'github',
     executable: 'gh',
-    args: ['pr', 'view', 'feature/glass-sidebar', '--json', 'number,title,url'],
+    args: [
+      'pr',
+      'view',
+      'feature/glass-sidebar',
+      '--json',
+      'number,title,url,state,isDraft,baseRefName',
+    ],
     cwd: '/Users/kasia/Code/grafter.worktrees/feature-glass-sidebar',
     displayCommand:
-      "gh pr view feature/glass-sidebar --json 'number,title,url,state,baseRefName'",
+      "gh pr view feature/glass-sidebar --json 'number,title,url,state,isDraft,baseRefName'",
     purpose: 'Find pull request',
     isReadOnly: true,
     status: 'succeeded',
@@ -152,7 +158,7 @@ let commands: CommandRecord[] = [
     output: [
       {
         stream: 'stdout',
-        text: '{"number":42,"title":"Build translucent sidebar"}\n',
+        text: '{"number":42,"title":"Build translucent sidebar","state":"OPEN","isDraft":true,"baseRefName":"main"}\n',
         timestamp: fourMinutesAgo,
       },
     ],
@@ -213,7 +219,7 @@ const details: Record<string, WorktreeDetails> = {
       number: 42,
       title: 'Build translucent sidebar',
       url: 'https://github.com/example/grafter/pull/42',
-      state: 'OPEN',
+      state: 'DRAFT',
       baseBranch: 'main',
     },
   },

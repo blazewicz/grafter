@@ -1,13 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { isPullRequestState } from '../src/shared/contracts';
+import { pullRequestStateFromGitHub } from '../src/shared/contracts';
 
-describe('isPullRequestState', () => {
-  it('accepts the pull request states returned by GitHub', () => {
-    expect(['OPEN', 'MERGED', 'CLOSED'].every(isPullRequestState)).toBe(true);
+describe('pullRequestStateFromGitHub', () => {
+  it('distinguishes draft and ready open pull requests', () => {
+    expect(pullRequestStateFromGitHub('OPEN', false)).toBe('OPEN');
+    expect(pullRequestStateFromGitHub('OPEN', true)).toBe('DRAFT');
   });
 
-  it('rejects unknown pull request states', () => {
-    expect(isPullRequestState('DRAFT')).toBe(false);
-    expect(isPullRequestState(undefined)).toBe(false);
+  it('preserves terminal pull request states', () => {
+    expect(pullRequestStateFromGitHub('MERGED', false)).toBe('MERGED');
+    expect(pullRequestStateFromGitHub('CLOSED', false)).toBe('CLOSED');
+  });
+
+  it('rejects malformed GitHub responses', () => {
+    expect(pullRequestStateFromGitHub('DRAFT', true)).toBeUndefined();
+    expect(pullRequestStateFromGitHub('OPEN', undefined)).toBeUndefined();
   });
 });

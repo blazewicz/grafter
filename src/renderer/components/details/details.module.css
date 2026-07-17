@@ -426,6 +426,11 @@
   color: #3fb950;
 }
 
+.pr-pill[data-state='DRAFT'] {
+  background: rgba(139, 148, 158, 0.12);
+  color: #8b949e;
+}
+
 .pr-pill[data-state='MERGED'] {
   background: rgba(163, 113, 247, 0.12);
   color: #a371f7;

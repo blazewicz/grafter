@@ -2,7 +2,7 @@ import { readFile, realpath } from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { projectCommandContext, worktreeCommandContext } from '../shared/command-context';
-import { isPullRequestState } from '../shared/contracts';
+import { pullRequestStateFromGitHub } from '../shared/contracts';
 import type {
   CommandContext,
   DiffStats,
@@ -245,7 +245,7 @@ export class GitService {
           'view',
           worktree.branch,
           '--json',
-          'number,title,url,state,baseRefName',
+          'number,title,url,state,isDraft,baseRefName',
         ],
         cwd: worktree.path,
         purpose: `Find the pull request for ${worktree.branch}`,
@@ -257,14 +257,16 @@ export class GitService {
         title: string;
         url: string;
         state: unknown;
+        isDraft: unknown;
         baseRefName: string;
       };
-      if (!isPullRequestState(parsed.state)) return undefined;
+      const state = pullRequestStateFromGitHub(parsed.state, parsed.isDraft);
+      if (!state) return undefined;
       return {
         number: parsed.number,
         title: parsed.title,
         url: parsed.url,
-        state: parsed.state,
+        state,
         baseBranch: parsed.baseRefName,
       };
     } catch {

@@ -42,10 +42,16 @@ export interface Project {
   setupScript?: string;
 }
 
-export type PullRequestState = 'OPEN' | 'MERGED' | 'CLOSED';
+export type PullRequestState = 'OPEN' | 'DRAFT' | 'MERGED' | 'CLOSED';
 
-export function isPullRequestState(value: unknown): value is PullRequestState {
-  return value === 'OPEN' || value === 'MERGED' || value === 'CLOSED';
+export function pullRequestStateFromGitHub(
+  state: unknown,
+  isDraft: unknown,
+): PullRequestState | undefined {
+  if (typeof isDraft !== 'boolean') return undefined;
+  if (state === 'OPEN') return isDraft ? 'DRAFT' : 'OPEN';
+  if (state === 'MERGED' || state === 'CLOSED') return state;
+  return undefined;
 }
 
 export interface PullRequest {
