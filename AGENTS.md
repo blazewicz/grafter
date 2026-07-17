@@ -102,3 +102,9 @@ npm run make             # Build distributable artifacts
 ```
 
 Electron Forge packaging may need network access for platform artifacts.
+
+## Codex In-app Browser
+
+If you're Codex and you need to preview the app then instead of running `npm start`
+run `./node_modules/.bin/vite --config vite.renderer.config.ts --host 127.0.0.1` to
+start a local server and connect to it using Codes In-app Browser on http:127.0.0.1:5173.
