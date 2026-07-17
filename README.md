@@ -22,6 +22,16 @@ npm run check
 Build the platform application with `npm run package`, or create distributables with
 `npm run make`.
 
+## Quality checks
+
+`npm install` configures a pre-commit hook that runs the TypeScript, ESLint, and Prettier
+checks before a normal commit. Run the same static checks directly with
+`npm run check:static`, or reproduce the complete CI suite with `npm run check`.
+
+GitHub Actions runs the static checks and tests independently for every pull request and
+for pushes to `main`. Configure those checks as required in the repository's branch
+protection rules to prevent nonconforming changes from being merged.
+
 ## Worktree setup scripts
 
 A repository may commit a `.grafter.json` file:

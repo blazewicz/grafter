@@ -77,6 +77,8 @@ npm run check
 ```
 
 Do not claim completion with failing type checking, linting, formatting, or tests.
+Keep the npm quality scripts, `.husky/pre-commit`, and `.github/workflows/ci.yml` aligned
+when checks change. Do not bypass hooks or weaken CI checks as part of unrelated work.
 
 ## Commands
 
@@ -90,6 +92,7 @@ npm run format           # Check formatting
 npm run format:write     # Apply formatting
 npm test                 # Run tests once
 npm run test:watch       # Run tests in watch mode
+npm run check:static     # Typecheck, lint, and format-check
 npm run package          # Build an unpacked platform app
 npm run make             # Build distributable artifacts
 ```
