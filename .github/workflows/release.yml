@@ -64,7 +64,26 @@ jobs:
             echo "::error::Expected bundle identifier dev.grafter.app, found $identifier"
             exit 1
           fi
-          "$app_path/Contents/MacOS/Grafter" --version
+
+          smoke_log="$RUNNER_TEMP/grafter-smoke-test.log"
+          "$app_path/Contents/MacOS/Grafter" >"$smoke_log" 2>&1 &
+          app_pid=$!
+          cleanup() {
+            kill "$app_pid" 2>/dev/null || true
+            wait "$app_pid" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+
+          sleep 5
+          if ! kill -0 "$app_pid" 2>/dev/null; then
+            wait "$app_pid" || app_status=$?
+            cat "$smoke_log"
+            echo "::error::Grafter exited during startup with status ${app_status:-0}"
+            exit 1
+          fi
+
+          cleanup
+          trap - EXIT
 
       - name: Collect release assets
         run: |
