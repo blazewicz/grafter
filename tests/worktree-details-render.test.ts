@@ -18,12 +18,22 @@ const details: WorktreeDetailsData = {
   diff: { files: 1, additions: 2, deletions: 0 },
 };
 
+const mainWorktree: WorktreeDetailsData = {
+  ...details,
+  id: 'project:/repo',
+  name: 'repo',
+  path: '/repo',
+  branch: 'main',
+  isMain: true,
+};
+
 describe('WorktreeDetails copy controls', () => {
   it('renders accessible copy buttons for the branch name and worktree path', () => {
     const html = renderToStaticMarkup(
       createElement(WorktreeDetails, {
+        homeDirectory: '/repo.worktrees',
         details,
-        projectWorktrees: [details],
+        projectWorktrees: [mainWorktree, details],
         status: 'clean',
         onError: () => undefined,
       }),
@@ -31,6 +41,6 @@ describe('WorktreeDetails copy controls', () => {
 
     expect(html).toContain('aria-label="Copy feature/branch branch name"');
     expect(html).toContain('aria-label="Copy worktree path"');
-    expect(html).toContain('<code>/repo.worktrees/feature</code>');
+    expect(html).toContain('<code>../repo.worktrees/feature</code>');
   });
 });

@@ -136,6 +136,7 @@ function registerIpc(): void {
 void app.whenReady().then(async () => {
   const runner = new CommandRunner(broadcastCommand);
   service = new AppService(new StateStore(app.getPath('userData')), runner, {
+    homeDirectory: app.getPath('home'),
     onSnapshotUpdate: broadcastSnapshot,
   });
   await service.initialize();

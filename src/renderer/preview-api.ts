@@ -12,6 +12,7 @@ const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString();
 const fourMinutesAgo = new Date(Date.now() - 4 * 60 * 1000).toISOString();
 
 let snapshot: AppSnapshot = {
+  homeDirectory: '/Users/kasia',
   settings: { defaultWorktreePath: '../<repo_name>.worktrees' },
   projects: [
     {

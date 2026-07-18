@@ -1,11 +1,14 @@
 import { FolderGit2 } from 'lucide-react';
 import type { ProjectTreeItem } from '../../../shared/contracts';
+import { collapseHomePath } from '../../../shared/path-display';
 import { WorktreeSummary } from './WorktreeSummary';
 import styles from './details.module.css';
 
 export function ProjectDetails({
+  homeDirectory,
   project,
 }: {
+  homeDirectory: string;
   project: ProjectTreeItem;
 }): React.JSX.Element {
   return (
@@ -27,10 +30,14 @@ export function ProjectDetails({
       <section className={styles.pathCard}>
         <div className={styles.pathCopy}>
           <span className={styles.sectionLabel}>MAIN CLONE</span>
-          <code>{project.path}</code>
+          <code>{collapseHomePath(project.path, homeDirectory)}</code>
         </div>
       </section>
-      <WorktreeSummary worktrees={project.worktrees} />
+      <WorktreeSummary
+        homeDirectory={homeDirectory}
+        mainClonePath={project.path}
+        worktrees={project.worktrees}
+      />
     </div>
   );
 }

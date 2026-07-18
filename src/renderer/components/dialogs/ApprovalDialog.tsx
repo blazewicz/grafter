@@ -1,14 +1,17 @@
 import { AlertTriangle, Check, LoaderCircle, ShieldCheck } from 'lucide-react';
 import type { ApprovalRequest } from '../../../shared/contracts';
+import { collapseHomePath } from '../../../shared/path-display';
 import controls from '../../styles/controls.module.css';
 import styles from './dialogs.module.css';
 
 export function ApprovalDialog({
+  homeDirectory,
   request,
   busy,
   onReject,
   onApprove,
 }: {
+  homeDirectory: string;
   request: ApprovalRequest;
   busy: boolean;
   onReject: () => void;
@@ -37,7 +40,7 @@ export function ApprovalDialog({
           </div>
           <div>
             <span>WORKING DIRECTORY</span>
-            <code>{request.command.cwd}</code>
+            <code>{collapseHomePath(request.command.cwd, homeDirectory)}</code>
           </div>
         </div>
         <div className={styles.approvalNote}>

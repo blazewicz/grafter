@@ -11,6 +11,7 @@ import { WorktreeDetails as WorktreeDetailsView } from './WorktreeDetails';
 import styles from './details.module.css';
 
 export function MainView({
+  homeDirectory,
   selectedProject,
   selectedWorktree,
   details,
@@ -19,6 +20,7 @@ export function MainView({
   onAdd,
   onError,
 }: {
+  homeDirectory: string;
   selectedProject: ProjectTreeItem | undefined;
   selectedWorktree: Worktree | undefined;
   details: WorktreeDetails | undefined;
@@ -31,6 +33,7 @@ export function MainView({
     <main className={styles.mainView}>
       {selectedWorktree && details?.id === selectedWorktree.id ? (
         <WorktreeDetailsView
+          homeDirectory={homeDirectory}
           details={details}
           projectWorktrees={projectWorktrees}
           status={status}
@@ -39,7 +42,7 @@ export function MainView({
       ) : selectedWorktree ? (
         <DetailsLoading />
       ) : selectedProject ? (
-        <ProjectDetails project={selectedProject} />
+        <ProjectDetails homeDirectory={homeDirectory} project={selectedProject} />
       ) : (
         <Welcome onAdd={onAdd} />
       )}

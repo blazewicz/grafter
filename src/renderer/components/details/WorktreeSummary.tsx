@@ -1,11 +1,16 @@
 import { FolderGit2, GitBranch } from 'lucide-react';
 import type { Worktree } from '../../../shared/contracts';
+import { displayWorktreePath } from '../../../shared/path-display';
 import styles from './details.module.css';
 
 export function WorktreeSummary({
+  homeDirectory,
+  mainClonePath,
   worktrees,
   selectedId,
 }: {
+  homeDirectory: string;
+  mainClonePath: string;
   worktrees: Worktree[];
   selectedId?: string;
 }): React.JSX.Element {
@@ -34,7 +39,11 @@ export function WorktreeSummary({
               <span className={styles.summaryWorktreePill}>{worktree.name}</span>
             </div>
             <div className={styles.worktreeSummaryPath}>
-              <code title={worktree.path}>{worktree.path}</code>
+              <code
+                title={displayWorktreePath(worktree.path, mainClonePath, homeDirectory)}
+              >
+                {displayWorktreePath(worktree.path, mainClonePath, homeDirectory)}
+              </code>
             </div>
           </div>
         ))}

@@ -12,6 +12,7 @@ export const defaultSidebarWidth = 292;
 const keyboardResizeStep = 16;
 
 export function ProjectSidebar({
+  homeDirectory,
   projects,
   width,
   selectedId,
@@ -27,6 +28,7 @@ export function ProjectSidebar({
   onError,
   onResize,
 }: {
+  homeDirectory: string;
   projects: ProjectTreeItem[];
   width: number;
   selectedId: string | undefined;
@@ -78,6 +80,7 @@ export function ProjectSidebar({
         {projects.map((project) => (
           <ProjectNode
             key={project.id}
+            homeDirectory={homeDirectory}
             project={project}
             expanded={expanded.has(project.id)}
             selectedId={selectedId}
