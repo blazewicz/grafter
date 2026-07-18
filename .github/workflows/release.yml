@@ -1,0 +1,71 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  HUSKY: 0
+
+jobs:
+  release:
+    name: Build and publish macOS Apple Silicon
+    runs-on: macos-15
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Verify release tag
+        run: |
+          package_version="$(node -p "require('./package.json').version")"
+          if [[ "$GITHUB_REF_NAME" != "v$package_version" ]]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match package version v$package_version"
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps --prefer-offline --no-audit --no-fund
+
+      - name: Run quality checks
+        run: npm run check
+
+      - name: Build macOS distributables
+        run: npm run make -- --arch=arm64
+
+      - name: Collect release assets
+        run: |
+          mkdir release-assets
+          find out/make -type f \( -name '*.dmg' -o -name '*.zip' \) \
+            -exec cp '{}' release-assets/ \;
+          asset_count="$(find release-assets -type f | wc -l | tr -d ' ')"
+          if [[ "$asset_count" != "2" ]]; then
+            echo "::error::Expected one DMG and one ZIP, found $asset_count release assets"
+            exit 1
+          fi
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >-
+          gh release create "$GITHUB_REF_NAME" release-assets/*
+          --verify-tag
+          --generate-notes
