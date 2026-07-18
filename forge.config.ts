@@ -11,6 +11,17 @@ const config: ForgeConfig = {
     asar: true,
     appBundleId: 'dev.grafter.app',
     appCategoryType: 'public.app-category.developer-tools',
+    extendInfo: {
+      NSDocumentsFolderUsageDescription:
+        'Grafter needs access to your Documents folder to inspect Git repositories and worktrees you add.',
+    },
+    osxSign: {
+      identity: '-',
+      identityValidation: false,
+      optionsForFile: () => ({ timestamp: 'none' }),
+      preAutoEntitlements: false,
+      preEmbedProvisioningProfile: false,
+    },
   },
   rebuildConfig: {},
   makers: [

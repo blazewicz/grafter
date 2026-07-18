@@ -51,6 +51,20 @@ jobs:
       - name: Build macOS distributables
         run: npm run make -- --arch=arm64
 
+      - name: Verify macOS bundle signature
+        run: |
+          app_path="$(find out -maxdepth 2 -type d -name '*.app' -print -quit)"
+          if [[ -z "$app_path" ]]; then
+            echo "::error::Packaged macOS app was not found"
+            exit 1
+          fi
+          codesign --verify --deep --strict --verbose=2 "$app_path"
+          identifier="$(codesign -dv "$app_path" 2>&1 | sed -n 's/^Identifier=//p')"
+          if [[ "$identifier" != "dev.grafter.app" ]]; then
+            echo "::error::Expected bundle identifier dev.grafter.app, found $identifier"
+            exit 1
+          fi
+
       - name: Collect release assets
         run: |
           mkdir release-assets
