@@ -49,7 +49,11 @@ export class ApprovalManager {
   #take(approvalId: string): PendingApproval {
     const pending = this.#pending.get(approvalId);
     this.#pending.delete(approvalId);
-    if (!pending || pending.expiresAt < Date.now()) {
+    if (!pending) {
+      throw new Error('This approval request expired. Please start the action again.');
+    }
+    if (pending.expiresAt < Date.now()) {
+      this.runner.reject(pending.recordId);
       throw new Error('This approval request expired. Please start the action again.');
     }
     return pending;

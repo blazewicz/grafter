@@ -140,6 +140,23 @@ export function App(): React.JSX.Element {
     );
   };
 
+  const resolveApproval = (decision: 'approve' | 'reject'): void => {
+    if (!approval) return;
+    const approvalId = approval.approvalId;
+
+    // Approval IDs are single-use. Release the dialog before invoking the main
+    // process so an expired token or failed command cannot leave a stale modal
+    // blocking the interface.
+    setApproval(undefined);
+    void run(
+      () =>
+        decision === 'approve'
+          ? api.approveCommand(approvalId)
+          : api.rejectCommand(approvalId),
+      applySnapshot,
+    );
+  };
+
   const toggleProject = (projectId: string): void => {
     setExpanded((current) => {
       const next = new Set(current);
@@ -220,24 +237,8 @@ export function App(): React.JSX.Element {
           homeDirectory={snapshot.homeDirectory}
           request={approval}
           busy={busy}
-          onReject={() =>
-            void run(
-              () => api.rejectCommand(approval.approvalId),
-              (next) => {
-                applySnapshot(next);
-                setApproval(undefined);
-              },
-            )
-          }
-          onApprove={() =>
-            void run(
-              () => api.approveCommand(approval.approvalId),
-              (next) => {
-                applySnapshot(next);
-                setApproval(undefined);
-              },
-            )
-          }
+          onReject={() => resolveApproval('reject')}
+          onApprove={() => resolveApproval('approve')}
         />
       )}
       {dialog === 'settings' && (
