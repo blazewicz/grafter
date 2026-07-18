@@ -9,7 +9,7 @@ import type {
   Settings,
 } from '../shared/contracts';
 import { ipc } from '../shared/ipc';
-import { AppService } from './app-service';
+import { AppService } from './services/app-service';
 import { CommandRunner } from './commands';
 import { launchEditor } from './editors';
 import { StateStore } from './store';

@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { expandWorktreeTemplate, worktreePathForBranch } from '../src/shared/paths';
+import { expandWorktreeTemplate, worktreePathForBranch } from '../../src/shared/paths';
 
 describe('worktree paths', () => {
   it('expands the repository placeholder relative to the main clone', () => {

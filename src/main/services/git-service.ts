@@ -1,24 +1,25 @@
 import { readFile, realpath } from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { projectCommandContext, worktreeCommandContext } from '../shared/command-context';
-import { pullRequestStateFromGitHub } from '../shared/contracts';
+import {
+  projectCommandContext,
+  worktreeCommandContext,
+} from '../../shared/command-context';
 import type {
   CommandContext,
   DiffStats,
   Project,
-  PullRequest,
   Worktree,
   WorktreeDetails,
   WorktreeStatus,
-} from '../shared/contracts';
+} from '../../shared/contracts';
 import {
   parseNumStat,
   parseWorktreePorcelain,
   parseWorktreeStatus,
-} from '../shared/git-parsers';
-import type { CommandResult, CommandSpec } from './commands';
-import type { CommandRunner } from './commands';
+} from '../../shared/git-parsers';
+import type { CommandResult, CommandSpec } from '../commands';
+import type { CommandRunner } from '../commands';
 
 export class GitService {
   constructor(private readonly runner: CommandRunner) {}
@@ -144,31 +145,6 @@ export class GitService {
       targetBranch,
       diff,
     };
-  }
-
-  async pullRequest(worktree: Worktree): Promise<PullRequest | undefined> {
-    if (worktree.branch === '(detached)') return undefined;
-    try {
-      const result = await this.runner.run({
-        context: worktreeCommandContext(worktree),
-        tool: 'github',
-        executable: 'gh',
-        args: [
-          'pr',
-          'view',
-          worktree.branch,
-          '--json',
-          'number,title,url,state,isDraft,baseRefName',
-        ],
-        cwd: worktree.path,
-        purpose: `Find the pull request for ${worktree.branch}`,
-        isReadOnly: true,
-      });
-      if (result.record.exitCode !== 0) return undefined;
-      return parsePullRequest(result.stdout);
-    } catch {
-      return undefined;
-    }
   }
 
   async status(worktree: Worktree): Promise<WorktreeStatus> {
@@ -300,33 +276,4 @@ export class GitService {
       isReadOnly,
     });
   }
-}
-
-function parsePullRequest(output: string): PullRequest | undefined {
-  const parsed: unknown = JSON.parse(output);
-  if (typeof parsed !== 'object' || parsed === null) return undefined;
-  if (
-    !('number' in parsed) ||
-    typeof parsed.number !== 'number' ||
-    !('title' in parsed) ||
-    typeof parsed.title !== 'string' ||
-    !('url' in parsed) ||
-    typeof parsed.url !== 'string' ||
-    !('baseRefName' in parsed) ||
-    typeof parsed.baseRefName !== 'string' ||
-    !parsed.baseRefName ||
-    !('state' in parsed) ||
-    !('isDraft' in parsed)
-  ) {
-    return undefined;
-  }
-  const state = pullRequestStateFromGitHub(parsed.state, parsed.isDraft);
-  if (!state) return undefined;
-  return {
-    number: parsed.number,
-    title: parsed.title,
-    url: parsed.url,
-    state,
-    baseBranch: parsed.baseRefName,
-  };
 }

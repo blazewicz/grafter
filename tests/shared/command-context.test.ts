@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isCommandContext } from '../src/shared/command-context';
+import { isCommandContext } from '../../src/shared/command-context';
 
 describe('command context validation', () => {
   it('accepts only narrow, non-empty context payloads', () => {

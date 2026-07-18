@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { CommandContext } from '../src/shared/contracts';
-import { CommandRunner, displayCommand, quoteArg } from '../src/main/commands';
+import type { CommandContext } from '../../src/shared/contracts';
+import { CommandRunner, displayCommand, quoteArg } from '../../src/main/commands';
 
 const projectContext: CommandContext = { kind: 'project', projectId: 'project' };
 const worktreeContext: CommandContext = {

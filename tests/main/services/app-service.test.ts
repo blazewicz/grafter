@@ -2,10 +2,10 @@ import { mkdtemp } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import type { Project } from '../src/shared/contracts';
-import { AppService } from '../src/main/app-service';
-import { StateStore } from '../src/main/store';
-import { StubCommandRunner } from './stub-command-runner';
+import type { Project } from '../../../src/shared/contracts';
+import { AppService } from '../../../src/main/services/app-service';
+import { StateStore } from '../../../src/main/store';
+import { StubCommandRunner } from '../support/stub-command-runner';
 
 const project: Project = {
   id: 'project',

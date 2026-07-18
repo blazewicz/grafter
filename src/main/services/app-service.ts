@@ -1,7 +1,7 @@
 import path from 'node:path';
 import os from 'node:os';
 import pMap from 'p-map';
-import { isCommandContext } from '../shared/command-context';
+import { isCommandContext } from '../../shared/command-context';
 import type {
   AppSnapshot,
   ApprovalRequest,
@@ -14,12 +14,13 @@ import type {
   Worktree,
   WorktreeDetails,
   WorktreeStatus,
-} from '../shared/contracts';
-import { expandWorktreeTemplate, worktreePathForBranch } from '../shared/paths';
-import { ApprovalManager } from './approvals';
-import type { CommandRunner } from './commands';
+} from '../../shared/contracts';
+import { expandWorktreeTemplate, worktreePathForBranch } from '../../shared/paths';
+import { ApprovalManager } from '../approvals';
+import type { CommandRunner } from '../commands';
 import { GitService } from './git-service';
-import type { StateStore } from './store';
+import { GitHubService } from './github-service';
+import type { StateStore } from '../store';
 
 const pullRequestLookupConcurrency = 5;
 const pullRequestFreshnessMs = 30_000;
@@ -32,6 +33,7 @@ interface AppServiceOptions {
 
 export class AppService {
   readonly git: GitService;
+  readonly github: GitHubService;
   readonly approvals: ApprovalManager;
   #trees: ProjectTreeItem[] = [];
   readonly #onSnapshotUpdate: (snapshot: AppSnapshot) => void;
@@ -46,6 +48,7 @@ export class AppService {
     options: AppServiceOptions = {},
   ) {
     this.git = new GitService(runner);
+    this.github = new GitHubService(runner);
     this.approvals = new ApprovalManager(runner);
     this.#homeDirectory = options.homeDirectory ?? os.homedir();
     this.#onSnapshotUpdate = options.onSnapshotUpdate ?? (() => undefined);
@@ -248,7 +251,7 @@ export class AppService {
     const activeLookup = this.#pullRequestLookups.get(lookupKey);
     if (activeLookup) return activeLookup;
 
-    const lookup = this.git
+    const lookup = this.github
       .pullRequest(worktree)
       .then((pullRequest) => {
         this.#pullRequestRefreshedAt.set(lookupKey, this.#now());

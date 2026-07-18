@@ -1,8 +1,8 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import type { WorktreeDetails as WorktreeDetailsData } from '../src/shared/contracts';
-import { WorktreeDetails } from '../src/renderer/components/details/WorktreeDetails';
+import type { WorktreeDetails as WorktreeDetailsData } from '../../../../src/shared/contracts';
+import { WorktreeDetails } from '../../../../src/renderer/components/details/WorktreeDetails';
 
 const details: WorktreeDetailsData = {
   id: 'project:/repo.worktrees/feature',

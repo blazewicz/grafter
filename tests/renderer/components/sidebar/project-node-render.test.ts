@@ -1,8 +1,8 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import type { ProjectTreeItem, Worktree } from '../src/shared/contracts';
-import { ProjectNode } from '../src/renderer/components/sidebar/ProjectNode';
+import type { ProjectTreeItem, Worktree } from '../../../../src/shared/contracts';
+import { ProjectNode } from '../../../../src/renderer/components/sidebar/ProjectNode';
 
 function worktree(
   branch: string,

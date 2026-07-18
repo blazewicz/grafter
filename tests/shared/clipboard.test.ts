@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { validateClipboardText } from '../src/shared/clipboard';
+import { validateClipboardText } from '../../src/shared/clipboard';
 
 describe('clipboard command validation', () => {
   it('accepts a non-empty command string unchanged', () => {

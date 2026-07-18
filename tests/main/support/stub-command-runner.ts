@@ -1,5 +1,5 @@
-import type { CommandResult, CommandSpec } from '../src/main/commands';
-import { CommandRunner } from '../src/main/commands';
+import type { CommandResult, CommandSpec } from '../../../src/main/commands';
+import { CommandRunner } from '../../../src/main/commands';
 
 interface StubbedResult {
   stdout?: string;

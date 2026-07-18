@@ -2,7 +2,7 @@ import { mkdtemp, readFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { StateStore } from '../src/main/store';
+import { StateStore } from '../../src/main/store';
 
 describe('StateStore', () => {
   it('uses the default worktree template and persists updates atomically', async () => {

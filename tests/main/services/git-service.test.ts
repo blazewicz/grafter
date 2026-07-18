@@ -5,10 +5,10 @@ import { describe, expect, it } from 'vitest';
 import {
   projectCommandContext,
   worktreeCommandContext,
-} from '../src/shared/command-context';
-import type { Project, Worktree } from '../src/shared/contracts';
-import { CommandRunner } from '../src/main/commands';
-import { GitService } from '../src/main/git-service';
+} from '../../../src/shared/command-context';
+import type { Project, Worktree } from '../../../src/shared/contracts';
+import { CommandRunner } from '../../../src/main/commands';
+import { GitService } from '../../../src/main/services/git-service';
 
 describe('GitService worktree status', () => {
   it('reports clean and dirty using porcelain status including untracked files', async () => {

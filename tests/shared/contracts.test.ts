@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { pullRequestStateFromGitHub } from '../src/shared/contracts';
+import { pullRequestStateFromGitHub } from '../../src/shared/contracts';
 
 describe('pullRequestStateFromGitHub', () => {
   it('distinguishes draft and ready open pull requests', () => {

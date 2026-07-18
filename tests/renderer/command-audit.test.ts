@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { CommandRecord } from '../src/shared/contracts';
+import type { CommandRecord } from '../../src/shared/contracts';
 import {
   combineCommandRecords,
   filterAuditCommandGroups,
@@ -7,7 +7,7 @@ import {
   mergeCommandRecord,
   summarizeRunningCommands,
   transitionRunningCommandDisplay,
-} from '../src/renderer/command-audit';
+} from '../../src/renderer/command-audit';
 
 function command(id: string, overrides: Partial<CommandRecord> = {}): CommandRecord {
   return {

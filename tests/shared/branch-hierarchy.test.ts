@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   buildBranchHierarchy,
   type BranchHierarchyNode,
-} from '../src/shared/branch-hierarchy';
-import type { Worktree } from '../src/shared/contracts';
+} from '../../src/shared/branch-hierarchy';
+import type { Worktree } from '../../src/shared/contracts';
 
 function worktree(branch: string, baseBranch?: string, isMain = false): Worktree {
   const name = branch.replaceAll('/', '-');

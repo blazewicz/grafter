@@ -3,7 +3,7 @@ import {
   parseNumStat,
   parseWorktreePorcelain,
   parseWorktreeStatus,
-} from '../src/shared/git-parsers';
+} from '../../src/shared/git-parsers';
 
 describe('parseWorktreePorcelain', () => {
   it('parses linked, detached, and locked worktrees while marking the main clone', () => {

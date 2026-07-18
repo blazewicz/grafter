@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { collapseHomePath, displayWorktreePath } from '../src/shared/path-display';
+import { collapseHomePath, displayWorktreePath } from '../../src/shared/path-display';
 
 describe('path display', () => {
   it('collapses the home directory while preserving paths outside it', () => {

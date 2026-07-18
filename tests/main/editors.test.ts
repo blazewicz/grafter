@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { editorLaunchSpec } from '../src/main/editors';
+import { editorLaunchSpec } from '../../src/main/editors';
 
 describe('editor launch commands', () => {
   it('opens VS Code in a new window on macOS without requiring code on PATH', () => {
