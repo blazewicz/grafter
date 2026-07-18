@@ -208,6 +208,8 @@ export function App(): React.JSX.Element {
         key={selectedContextKey ?? 'no-command-context'}
         open={logsOpen}
         commands={commands}
+        settings={snapshot.settings}
+        systemLocale={snapshot.systemLocale}
         contextLabel={selectedWorktree?.branch ?? selectedProject?.name}
         onToggle={() => setLogsOpen((value) => !value)}
         onError={setError}

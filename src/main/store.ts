@@ -1,6 +1,7 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { Project, Settings } from '../shared/contracts';
+import { defaultSettings, normalizeSettings } from '../shared/settings';
 
 export interface PersistedState {
   projects: Project[];
@@ -9,7 +10,7 @@ export interface PersistedState {
 
 const initialState: PersistedState = {
   projects: [],
-  settings: { defaultWorktreePath: '../<repo_name>.worktrees' },
+  settings: defaultSettings,
 };
 
 export class StateStore {
@@ -27,7 +28,7 @@ export class StateStore {
       ) as Partial<PersistedState>;
       this.#state = {
         projects: Array.isArray(parsed.projects) ? parsed.projects : [],
-        settings: { ...initialState.settings, ...parsed.settings },
+        settings: normalizeSettings(parsed.settings),
       };
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;

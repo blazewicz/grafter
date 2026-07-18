@@ -13,7 +13,12 @@ const fourMinutesAgo = new Date(Date.now() - 4 * 60 * 1000).toISOString();
 
 let snapshot: AppSnapshot = {
   homeDirectory: '/Users/kasia',
-  settings: { defaultWorktreePath: '../<repo_name>.worktrees' },
+  systemLocale: 'en-GB',
+  settings: {
+    defaultWorktreePath: '../<repo_name>.worktrees',
+    dateFormat: 'system',
+    timeFormat: 'system',
+  },
   projects: [
     {
       id: 'grafter',
