@@ -1,6 +1,6 @@
 .sidebar {
   grid-column: 1;
-  grid-row: 2 / 4;
+  grid-row: 1 / 4;
   min-height: 0;
   position: relative;
   display: flex;
@@ -10,15 +10,23 @@
   overflow: hidden;
 }
 
-.sidebar::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background:
-    radial-gradient(circle at 100% 25%, rgba(71, 73, 117, 0.18), transparent 38%),
-    radial-gradient(circle at 100% 78%, rgba(63, 101, 78, 0.13), transparent 37%),
-    radial-gradient(circle at 65% 62%, rgba(116, 72, 61, 0.09), transparent 34%);
+.sidebar-chrome {
+  height: 46px;
+  flex: 0 0 auto;
+  -webkit-app-region: drag;
+}
+
+.sidebar-brand {
+  height: 54px;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-end;
+  padding: 0 16px 13px;
+  color: #ededee;
+  font-size: 18px;
+  font-weight: 650;
+  letter-spacing: -0.025em;
+  -webkit-app-region: drag;
 }
 
 .sidebar-resize-handle {
@@ -53,7 +61,7 @@
 }
 
 .sidebar-heading {
-  height: 44px;
+  height: 40px;
   flex: 0 0 auto;
   position: relative;
   padding: 0 9px 0 14px;

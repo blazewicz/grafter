@@ -1,35 +1,18 @@
 .titlebar {
-  grid-column: 1 / -1;
+  grid-column: 2;
   grid-row: 1;
   position: relative;
   display: grid;
-  grid-template-columns: var(--sidebar-width) minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   border-bottom: 1px solid var(--line);
-  background: rgba(21, 21, 22, 0.84);
+  background: var(--bg);
   -webkit-app-region: drag;
 }
 
 .drag-region {
   position: absolute;
   inset: 0;
-}
-
-.app-mark {
-  align-self: stretch;
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  padding-left: 77px;
-  border-right: 1px solid var(--line);
-  color: #d5d5d7;
-  font-size: 13px;
-  font-weight: 630;
-  z-index: 1;
-}
-
-.app-mark svg {
-  color: #a7a9c8;
 }
 
 .title-context {

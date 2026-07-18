@@ -64,6 +64,8 @@ export function ProjectSidebar({
 
   return (
     <aside className={styles.sidebar} id="project-sidebar">
+      <div className={styles.sidebarChrome} aria-hidden="true" />
+      <div className={styles.sidebarBrand}>Grafter</div>
       <div className={styles.sidebarHeading}>
         <span>Projects</span>
         <button
