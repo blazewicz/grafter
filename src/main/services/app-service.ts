@@ -16,6 +16,7 @@ import type {
   WorktreeStatus,
 } from '../../shared/contracts';
 import { expandWorktreeTemplate, worktreePathForBranch } from '../../shared/paths';
+import { isSettings } from '../../shared/settings';
 import { ApprovalManager } from '../approvals';
 import type { CommandRunner } from '../commands';
 import { GitService } from './git-service';
@@ -27,6 +28,7 @@ const pullRequestFreshnessMs = 30_000;
 
 interface AppServiceOptions {
   homeDirectory?: string;
+  systemLocale?: string;
   onSnapshotUpdate?: (snapshot: AppSnapshot) => void;
   now?: () => number;
 }
@@ -39,6 +41,7 @@ export class AppService {
   readonly #onSnapshotUpdate: (snapshot: AppSnapshot) => void;
   readonly #now: () => number;
   readonly #homeDirectory: string;
+  readonly #systemLocale: string;
   readonly #pullRequestLookups = new Map<string, Promise<PullRequest | undefined>>();
   readonly #pullRequestRefreshedAt = new Map<string, number>();
 
@@ -51,6 +54,8 @@ export class AppService {
     this.github = new GitHubService(runner);
     this.approvals = new ApprovalManager(runner);
     this.#homeDirectory = options.homeDirectory ?? os.homedir();
+    this.#systemLocale =
+      options.systemLocale ?? Intl.DateTimeFormat().resolvedOptions().locale;
     this.#onSnapshotUpdate = options.onSnapshotUpdate ?? (() => undefined);
     this.#now = options.now ?? Date.now;
   }
@@ -63,6 +68,7 @@ export class AppService {
   snapshot(): AppSnapshot {
     return {
       homeDirectory: this.#homeDirectory,
+      systemLocale: this.#systemLocale,
       projects: structuredClone(this.#trees),
       settings: this.store.state.settings,
     };
@@ -202,10 +208,14 @@ export class AppService {
   }
 
   async updateSettings(settings: Settings): Promise<AppSnapshot> {
+    if (!isSettings(settings)) throw new Error('Invalid settings.');
     if (!settings.defaultWorktreePath.trim())
       throw new Error('The default path cannot be empty.');
     await this.store.update((state) => {
-      state.settings = { defaultWorktreePath: settings.defaultWorktreePath.trim() };
+      state.settings = {
+        ...settings,
+        defaultWorktreePath: settings.defaultWorktreePath.trim(),
+      };
     });
     return this.snapshot();
   }

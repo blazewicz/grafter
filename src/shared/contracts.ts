@@ -1,6 +1,9 @@
 export type ToolName = 'git' | 'github' | 'shell';
 export type CommandStatus = 'running' | 'succeeded' | 'failed' | 'awaiting-approval';
 export type EditorTool = 'vscode';
+export type DateFormatPreference =
+  'system' | 'day-month-year' | 'month-day-year' | 'year-month-day';
+export type TimeFormatPreference = 'system' | '24-hour' | '12-hour';
 
 export type CommandContext =
   | { kind: 'application' }
@@ -34,6 +37,8 @@ export interface CommandRecord {
 
 export interface Settings {
   defaultWorktreePath: string;
+  dateFormat: DateFormatPreference;
+  timeFormat: TimeFormatPreference;
 }
 
 export interface Project {
@@ -96,6 +101,7 @@ export interface ProjectTreeItem extends Project {
 
 export interface AppSnapshot {
   homeDirectory: string;
+  systemLocale: string;
   projects: ProjectTreeItem[];
   settings: Settings;
 }

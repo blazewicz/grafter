@@ -89,6 +89,7 @@ describe('AppService pull request refresh', () => {
     });
     const service = new AppService(store, runner, {
       now: () => now,
+      systemLocale: 'en-PL',
       onSnapshotUpdate: (snapshot) => {
         if (snapshot.projects[0]?.worktrees[1]?.pullRequest?.title === 'Cached title') {
           resolveHydratedSnapshot?.(snapshot);
@@ -97,6 +98,7 @@ describe('AppService pull request refresh', () => {
     });
 
     const initial = await service.refresh();
+    expect(initial.systemLocale).toBe('en-PL');
     const worktree = initial.projects[0]?.worktrees[1];
     expect(worktree).toBeDefined();
     if (!worktree) throw new Error('Expected the feature worktree.');

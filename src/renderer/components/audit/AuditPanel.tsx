@@ -10,7 +10,7 @@ import {
   X,
 } from 'lucide-react';
 import { useState } from 'react';
-import type { CommandRecord } from '../../../shared/contracts';
+import type { CommandRecord, Settings } from '../../../shared/contracts';
 import {
   commandStatusLabel,
   filterAuditCommandGroups,
@@ -18,6 +18,7 @@ import {
   summarizeRunningCommands,
 } from '../../command-audit';
 import type { AuditToolFilter } from '../../command-audit';
+import { formatDateTime, formatTime } from '../../date-time';
 import { api, friendlyError } from '../../grafter-api';
 import { useRunningCommandDisplay } from './useRunningCommandDisplay';
 import styles from './AuditPanel.module.css';
@@ -25,12 +26,16 @@ import styles from './AuditPanel.module.css';
 export function AuditPanel({
   open,
   commands,
+  settings,
+  systemLocale,
   contextLabel,
   onToggle,
   onError,
 }: {
   open: boolean;
   commands: CommandRecord[];
+  settings: Settings;
+  systemLocale: string;
   contextLabel: string | undefined;
   onToggle: () => void;
   onError: (message: string) => void;
@@ -141,11 +146,13 @@ export function AuditPanel({
                   </div>
                   <code>{group.latest.displayCommand}</code>
                 </div>
-                <time>
-                  {new Date(group.latest.startedAt).toLocaleTimeString([], {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
+                <time dateTime={group.latest.startedAt}>
+                  {formatTime(
+                    group.latest.startedAt,
+                    settings.timeFormat,
+                    false,
+                    systemLocale,
+                  )}
                 </time>
               </button>
             ))}
@@ -158,7 +165,9 @@ export function AuditPanel({
               selected.calls.map((command) => (
                 <section className={styles.commandInvocation} key={command.id}>
                   <div className={styles.commandInvocationMeta}>
-                    <time>{new Date(command.startedAt).toLocaleString()}</time>
+                    <time dateTime={command.startedAt}>
+                      {formatDateTime(command.startedAt, settings, systemLocale)}
+                    </time>
                     <span>{commandStatusLabel(command)}</span>
                   </div>
                   <div className={styles.terminalCommand}>
