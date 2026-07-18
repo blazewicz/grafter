@@ -71,6 +71,12 @@ These constraints are architectural invariants:
 Test everything that can reasonably be automated. Add or update tests for pure domain
 logic, parsers, path rules, command policy, persistence, and security-sensitive behavior.
 
+Organize tests under `tests/` by the major source boundary that owns the behavior, such as
+main-process, shared, or renderer code. Mirror deeper source folders when it makes ownership
+and navigation clearer, but do not reproduce the source tree mechanically. Keep test support
+helpers near the layer they serve, and place tests that genuinely span multiple boundaries
+in a dedicated integration area.
+
 For renderer changes, also exercise the affected flow in a live preview or Electron and
 check for runtime errors. For Electron or packaging changes, run a platform package build.
 
