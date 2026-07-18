@@ -94,6 +94,7 @@ export interface ProjectTreeItem extends Project {
 }
 
 export interface AppSnapshot {
+  homeDirectory: string;
   projects: ProjectTreeItem[];
   settings: Settings;
 }

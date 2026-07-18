@@ -53,6 +53,7 @@ describe('ProjectNode branch labels', () => {
 
     const html = renderToStaticMarkup(
       createElement(ProjectNode, {
+        homeDirectory: '/repo.worktrees',
         project,
         expanded: true,
         selectedId: checkedOut.id,
@@ -73,7 +74,7 @@ describe('ProjectNode branch labels', () => {
     );
     expect(html.match(/checked-worktree/g)).toHaveLength(1);
     expect(html).toContain(
-      'role="tooltip" aria-hidden="true">/repo.worktrees/checked</span>',
+      'role="tooltip" aria-hidden="true">../repo.worktrees/checked</span>',
     );
     expect(html).toContain(
       'role="tooltip" aria-hidden="true">feature/missing-base</span>',

@@ -17,6 +17,7 @@ import type {
   WorktreeDetails as WorktreeDetailsData,
   WorktreeStatus,
 } from '../../../shared/contracts';
+import { displayWorktreePath } from '../../../shared/path-display';
 import { api, friendlyError } from '../../grafter-api';
 import { VisualStudioCodeMark } from '../ui/BrandMarks';
 import { WorktreeSummary } from './WorktreeSummary';
@@ -28,11 +29,13 @@ const editorOptions: readonly {
 }[] = [{ id: 'vscode', label: 'Visual Studio Code' }];
 
 export function WorktreeDetails({
+  homeDirectory,
   details,
   projectWorktrees,
   status,
   onError,
 }: {
+  homeDirectory: string;
   details: WorktreeDetailsData;
   projectWorktrees: Worktree[];
   status: WorktreeStatus | undefined;
@@ -46,6 +49,8 @@ export function WorktreeDetails({
   const selectedEditorLabel =
     editorOptions.find((option) => option.id === editor)?.label ?? 'IDE';
   const pullRequest = details.pullRequest;
+  const mainClonePath =
+    projectWorktrees.find((worktree) => worktree.isMain)?.path ?? details.path;
   const statusClass =
     status === 'dirty' ? styles.dirty : status === undefined ? styles.checking : '';
 
@@ -148,7 +153,7 @@ export function WorktreeDetails({
         <div className={styles.pathCopy}>
           <span className={styles.sectionLabel}>WORKTREE PATH</span>
           <div className={styles.pathValue}>
-            <code>{details.path}</code>
+            <code>{displayWorktreePath(details.path, mainClonePath, homeDirectory)}</code>
             <button
               className={styles.copyTextButton}
               aria-label={
@@ -216,7 +221,12 @@ export function WorktreeDetails({
         </div>
       </section>
       {details.branch === details.targetBranch ? (
-        <WorktreeSummary worktrees={projectWorktrees} selectedId={details.id} />
+        <WorktreeSummary
+          homeDirectory={homeDirectory}
+          mainClonePath={mainClonePath}
+          worktrees={projectWorktrees}
+          selectedId={details.id}
+        />
       ) : (
         <>
           {pullRequest ? (

@@ -163,6 +163,7 @@ export function App(): React.JSX.Element {
 
       <div className={styles.workspace}>
         <ProjectSidebar
+          homeDirectory={snapshot.homeDirectory}
           projects={snapshot.projects}
           width={sidebarWidth}
           selectedId={selectedId}
@@ -193,6 +194,7 @@ export function App(): React.JSX.Element {
         />
 
         <MainView
+          homeDirectory={snapshot.homeDirectory}
           selectedProject={selectedProject}
           selectedWorktree={selectedWorktree}
           details={details}
@@ -214,6 +216,7 @@ export function App(): React.JSX.Element {
 
       {approval && (
         <ApprovalDialog
+          homeDirectory={snapshot.homeDirectory}
           request={approval}
           busy={busy}
           onReject={() =>

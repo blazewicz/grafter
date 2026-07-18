@@ -14,10 +14,12 @@ import {
   type BranchHierarchyNode,
 } from '../../../shared/branch-hierarchy';
 import type { GrafterApi, ProjectTreeItem, Worktree } from '../../../shared/contracts';
+import { displayWorktreePath } from '../../../shared/path-display';
 import { NewWorktreeForm } from './NewWorktreeForm';
 import styles from './sidebar.module.css';
 
 export function ProjectNode({
+  homeDirectory,
   project,
   expanded,
   selectedId,
@@ -31,6 +33,7 @@ export function ProjectNode({
   onRemoveWorktree,
   onError,
 }: {
+  homeDirectory: string;
   project: ProjectTreeItem;
   expanded: boolean;
   selectedId: string | undefined;
@@ -122,6 +125,8 @@ export function ProjectNode({
         <div>
           <div className={styles.branchList}>
             <BranchRows
+              homeDirectory={homeDirectory}
+              mainClonePath={project.path}
               nodes={branchHierarchy}
               selectedId={selectedId}
               onSelect={onSelect}
@@ -143,11 +148,15 @@ export function ProjectNode({
 }
 
 function BranchRows({
+  homeDirectory,
+  mainClonePath,
   nodes,
   selectedId,
   onSelect,
   onRemoveWorktree,
 }: {
+  homeDirectory: string;
+  mainClonePath: string;
   nodes: BranchHierarchyNode[];
   selectedId: string | undefined;
   onSelect: (id: string) => void;
@@ -181,7 +190,11 @@ function BranchRows({
                     role="tooltip"
                     aria-hidden="true"
                   >
-                    {node.worktree.path}
+                    {displayWorktreePath(
+                      node.worktree.path,
+                      mainClonePath,
+                      homeDirectory,
+                    )}
                   </span>
                 </span>
               </button>
@@ -210,6 +223,8 @@ function BranchRows({
           {node.children.length > 0 && (
             <div className={styles.branchChildren}>
               <BranchRows
+                homeDirectory={homeDirectory}
+                mainClonePath={mainClonePath}
                 nodes={node.children}
                 selectedId={selectedId}
                 onSelect={onSelect}

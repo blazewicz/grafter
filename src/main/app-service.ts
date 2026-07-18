@@ -1,4 +1,5 @@
 import path from 'node:path';
+import os from 'node:os';
 import pMap from 'p-map';
 import { isCommandContext } from '../shared/command-context';
 import type {
@@ -24,6 +25,7 @@ const pullRequestLookupConcurrency = 5;
 const pullRequestFreshnessMs = 30_000;
 
 interface AppServiceOptions {
+  homeDirectory?: string;
   onSnapshotUpdate?: (snapshot: AppSnapshot) => void;
   now?: () => number;
 }
@@ -34,6 +36,7 @@ export class AppService {
   #trees: ProjectTreeItem[] = [];
   readonly #onSnapshotUpdate: (snapshot: AppSnapshot) => void;
   readonly #now: () => number;
+  readonly #homeDirectory: string;
   readonly #pullRequestLookups = new Map<string, Promise<PullRequest | undefined>>();
   readonly #pullRequestRefreshedAt = new Map<string, number>();
 
@@ -44,6 +47,7 @@ export class AppService {
   ) {
     this.git = new GitService(runner);
     this.approvals = new ApprovalManager(runner);
+    this.#homeDirectory = options.homeDirectory ?? os.homedir();
     this.#onSnapshotUpdate = options.onSnapshotUpdate ?? (() => undefined);
     this.#now = options.now ?? Date.now;
   }
@@ -55,6 +59,7 @@ export class AppService {
 
   snapshot(): AppSnapshot {
     return {
+      homeDirectory: this.#homeDirectory,
       projects: structuredClone(this.#trees),
       settings: this.store.state.settings,
     };
