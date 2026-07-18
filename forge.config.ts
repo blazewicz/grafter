@@ -18,7 +18,10 @@ const config: ForgeConfig = {
     osxSign: {
       identity: '-',
       identityValidation: false,
-      optionsForFile: () => ({ timestamp: 'none' }),
+      optionsForFile: () => ({
+        timestamp: 'none',
+        hardenedRuntime: false,
+      }),
       preAutoEntitlements: false,
       preEmbedProvisioningProfile: false,
     },

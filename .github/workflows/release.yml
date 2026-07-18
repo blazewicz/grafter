@@ -64,6 +64,7 @@ jobs:
             echo "::error::Expected bundle identifier dev.grafter.app, found $identifier"
             exit 1
           fi
+          "$app_path/Contents/MacOS/Grafter" --version
 
       - name: Collect release assets
         run: |
