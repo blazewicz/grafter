@@ -158,7 +158,6 @@ export function App(): React.JSX.Element {
         branchName={selectedWorktree?.branch}
         busy={busy}
         onRefresh={() => void run(() => api.refresh(), applySnapshot)}
-        onOpenSettings={() => setDialog('settings')}
       />
 
       <div className={styles.workspace}>

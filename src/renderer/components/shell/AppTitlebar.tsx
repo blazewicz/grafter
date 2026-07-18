@@ -1,12 +1,5 @@
-import {
-  ChevronRight,
-  FolderGit2,
-  LoaderCircle,
-  RefreshCw,
-  Settings,
-} from 'lucide-react';
+import { ChevronRight, FolderGit2, LoaderCircle, RefreshCw } from 'lucide-react';
 import controls from '../../styles/controls.module.css';
-import { BranchMark } from '../ui/BrandMarks';
 import styles from './AppTitlebar.module.css';
 
 export function AppTitlebar({
@@ -14,20 +7,15 @@ export function AppTitlebar({
   branchName,
   busy,
   onRefresh,
-  onOpenSettings,
 }: {
   projectName: string;
   branchName: string | undefined;
   busy: boolean;
   onRefresh: () => void;
-  onOpenSettings: () => void;
 }): React.JSX.Element {
   return (
     <header className={styles.titlebar}>
       <div className={styles.dragRegion} />
-      <div className={styles.appMark}>
-        <BranchMark /> <span>Grafter</span>
-      </div>
       <div className={styles.titleContext}>
         <FolderGit2 size={14} />
         <span className={styles.titleProject}>{projectName}</span>
@@ -46,13 +34,6 @@ export function AppTitlebar({
           onClick={onRefresh}
         >
           <RefreshCw size={15} />
-        </button>
-        <button
-          className={controls.iconButton}
-          aria-label="Open settings"
-          onClick={onOpenSettings}
-        >
-          <Settings size={16} />
         </button>
       </div>
     </header>
