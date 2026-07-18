@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CommandRecord } from '../../src/shared/contracts';
 import {
+  commandStatusLabel,
   combineCommandRecords,
   filterAuditCommandGroups,
   groupConsecutiveReadOnlyCommands,
@@ -87,6 +88,29 @@ describe('command audit filtering', () => {
     const live = [command('new', { startedAt: '2026-07-17T10:00:02.000Z' }), updated];
 
     expect(combineCommandRecords(fetched, live)).toEqual([live[0], updated, fetched[1]]);
+  });
+});
+
+describe('command status labels', () => {
+  it('formats successful and failed durations to two decimal places', () => {
+    expect(commandStatusLabel(command('success', { durationMs: 12.3456 }))).toBe(
+      'Succeeded in 12.35 ms',
+    );
+    expect(
+      commandStatusLabel(command('failure', { status: 'failed', durationMs: 987.6543 })),
+    ).toBe('Failed in 987.65 ms');
+  });
+
+  it('keeps non-executed and active statuses free of durations', () => {
+    expect(
+      commandStatusLabel(
+        command('approval', { status: 'awaiting-approval', durationMs: 10 }),
+      ),
+    ).toBe('Awaiting approval');
+    expect(
+      commandStatusLabel(command('running', { status: 'running', durationMs: 10 })),
+    ).toBe('Running');
+    expect(commandStatusLabel(command('legacy'))).toBe('Succeeded');
   });
 });
 

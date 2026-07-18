@@ -98,6 +98,19 @@ export function summarizeRunningCommands(
   return { latest, count };
 }
 
+export function commandStatusLabel(command: CommandRecord): string {
+  if (command.status === 'awaiting-approval') return 'Awaiting approval';
+
+  const status = `${command.status.charAt(0).toUpperCase()}${command.status.slice(1)}`;
+  if (
+    (command.status === 'succeeded' || command.status === 'failed') &&
+    command.durationMs !== undefined
+  ) {
+    return `${status} in ${command.durationMs.toFixed(2)} ms`;
+  }
+  return status;
+}
+
 export function transitionRunningCommandDisplay(
   current: RunningCommandDisplay,
   latest: RunningCommandLabel | undefined,

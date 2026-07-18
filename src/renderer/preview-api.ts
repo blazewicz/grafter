@@ -108,6 +108,7 @@ let commands: CommandRecord[] = [
     requiresApproval: false,
     startedAt: now,
     finishedAt: now,
+    durationMs: 18.42,
     exitCode: 0,
     output: [
       { stream: 'stdout', text: '124\t18\tsrc/renderer/App.tsx\n', timestamp: now },
@@ -136,6 +137,7 @@ let commands: CommandRecord[] = [
     requiresApproval: false,
     startedAt: twoMinutesAgo,
     finishedAt: twoMinutesAgo,
+    durationMs: 21.08,
     exitCode: 0,
     output: [
       {
@@ -175,6 +177,7 @@ let commands: CommandRecord[] = [
     requiresApproval: false,
     startedAt: fourMinutesAgo,
     finishedAt: fourMinutesAgo,
+    durationMs: 382.74,
     exitCode: 0,
     output: [
       {
@@ -202,6 +205,7 @@ let commands: CommandRecord[] = [
     requiresApproval: false,
     startedAt: now,
     finishedAt: now,
+    durationMs: 12.36,
     exitCode: 0,
     output: [],
   },
@@ -219,6 +223,7 @@ let commands: CommandRecord[] = [
     requiresApproval: false,
     startedAt: now,
     finishedAt: now,
+    durationMs: 15.91,
     exitCode: 0,
     output: [],
   },

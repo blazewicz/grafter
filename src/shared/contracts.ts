@@ -27,6 +27,7 @@ export interface CommandRecord {
   requiresApproval: boolean;
   startedAt: string;
   finishedAt?: string;
+  durationMs?: number;
   exitCode?: number;
   output: CommandOutput[];
 }

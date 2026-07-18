@@ -101,3 +101,45 @@ describe('command log contexts', () => {
     expect(runner.recordsFor(worktreeContext)).toEqual([worktreeRecord]);
   });
 });
+
+describe('command execution timing', () => {
+  it('records monotonic execution duration for successful commands', async () => {
+    const times = [100, 112.3456];
+    const runner = new CommandRunner(() => undefined, {
+      now: () => times.shift() ?? 112.3456,
+    });
+
+    const result = await runner.run({
+      context: projectContext,
+      tool: 'git',
+      executable: process.execPath,
+      args: ['-e', 'process.exit(0)'],
+      cwd: process.cwd(),
+      purpose: 'Run successful command',
+      isReadOnly: true,
+    });
+
+    expect(result.record.status).toBe('succeeded');
+    expect(result.record.durationMs).toBeCloseTo(12.3456);
+  });
+
+  it('records monotonic execution duration for failed commands', async () => {
+    const times = [25, 34.8765];
+    const runner = new CommandRunner(() => undefined, {
+      now: () => times.shift() ?? 34.8765,
+    });
+
+    const result = await runner.run({
+      context: projectContext,
+      tool: 'git',
+      executable: process.execPath,
+      args: ['-e', 'process.exit(2)'],
+      cwd: process.cwd(),
+      purpose: 'Run failed command',
+      isReadOnly: true,
+    });
+
+    expect(result.record.status).toBe('failed');
+    expect(result.record.durationMs).toBeCloseTo(9.8765);
+  });
+});

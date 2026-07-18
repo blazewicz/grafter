@@ -12,6 +12,7 @@ import {
 import { useState } from 'react';
 import type { CommandRecord } from '../../../shared/contracts';
 import {
+  commandStatusLabel,
   filterAuditCommandGroups,
   groupConsecutiveReadOnlyCommands,
   summarizeRunningCommands,
@@ -158,7 +159,7 @@ export function AuditPanel({
                 <section className={styles.commandInvocation} key={command.id}>
                   <div className={styles.commandInvocationMeta}>
                     <time>{new Date(command.startedAt).toLocaleString()}</time>
-                    <span>{statusLabel(command.status)}</span>
+                    <span>{commandStatusLabel(command)}</span>
                   </div>
                   <div className={styles.terminalCommand}>
                     <span>$</span>
@@ -213,9 +214,4 @@ function StatusIcon({ status }: { status: CommandRecord['status'] }): React.JSX.
   if (status === 'awaiting-approval')
     return <ShieldCheck className={styles.statusWaiting} size={13} />;
   return <X className={styles.statusError} size={13} />;
-}
-
-function statusLabel(status: CommandRecord['status']): string {
-  if (status === 'awaiting-approval') return 'Awaiting approval';
-  return `${status.charAt(0).toUpperCase()}${status.slice(1)}`;
 }

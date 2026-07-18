@@ -20,6 +20,10 @@ export interface CommandResult {
   stderr: string;
 }
 
+interface CommandRunnerOptions {
+  now?: () => number;
+}
+
 const shellSafe = /^[a-zA-Z0-9_./:@%+=,-]+$/;
 
 export function quoteArg(value: string): string {
@@ -37,9 +41,14 @@ export class CommandRunner {
   readonly #records = new Map<string, CommandRecord>();
   readonly #recordIdsByContext = new Map<string, string[]>();
   readonly #onUpdate: (record: CommandRecord) => void;
+  readonly #now: () => number;
 
-  constructor(onUpdate: (record: CommandRecord) => void) {
+  constructor(
+    onUpdate: (record: CommandRecord) => void,
+    options: CommandRunnerOptions = {},
+  ) {
     this.#onUpdate = onUpdate;
+    this.#now = options.now ?? (() => performance.now());
   }
 
   recordsFor(context: CommandContext): CommandRecord[] {
@@ -78,6 +87,7 @@ export class CommandRunner {
     if (!record) throw new Error('The approved command no longer exists.');
     record.status = 'running';
     this.#save(record);
+    const executionStartedAt = this.#now();
 
     return new Promise((resolve, reject) => {
       const child = spawn(spec.executable, spec.args, {
@@ -102,6 +112,7 @@ export class CommandRunner {
       child.on('error', (error) => {
         record.status = 'failed';
         record.finishedAt = new Date().toISOString();
+        record.durationMs = Math.max(0, this.#now() - executionStartedAt);
         record.output.push({
           stream: 'system',
           text: `${error.message}\n`,
@@ -114,6 +125,7 @@ export class CommandRunner {
         record.exitCode = code ?? 1;
         record.status = code === 0 ? 'succeeded' : 'failed';
         record.finishedAt = new Date().toISOString();
+        record.durationMs = Math.max(0, this.#now() - executionStartedAt);
         this.#save(record);
         resolve({ record: structuredClone(record), stdout, stderr });
       });
