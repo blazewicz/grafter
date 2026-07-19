@@ -36,6 +36,7 @@ describe('WorktreeDetails copy controls', () => {
         projectWorktrees: [mainWorktree, details],
         status: 'clean',
         onSnapshot: () => undefined,
+        onSelectProject: () => undefined,
         onError: () => undefined,
       }),
     );
@@ -45,7 +46,8 @@ describe('WorktreeDetails copy controls', () => {
     expect(html).toContain('aria-haspopup="dialog"');
     expect(html).toContain('aria-label="Copy worktree path"');
     expect(html).toContain('lucide-folder-git');
-    expect(html).toContain('repo</div>');
+    expect(html).toContain('repo</button>');
+    expect(html).toContain('aria-label="Open repo project details"');
     expect(html).toContain('<h1>feature-worktree</h1>');
     expect(html).toContain('role="tooltip">Switch branch</span>');
     expect(html).toContain('<code>feature/branch</code>');
@@ -61,6 +63,7 @@ describe('WorktreeDetails copy controls', () => {
         projectWorktrees: [mainWorktree, details],
         status: 'dirty',
         onSnapshot: () => undefined,
+        onSelectProject: () => undefined,
         onError: () => undefined,
       }),
     );
@@ -94,11 +97,12 @@ describe('WorktreeDetails copy controls', () => {
         projectWorktrees: [mainWorktree, details],
         status: 'clean',
         onSnapshot: () => undefined,
+        onSelectProject: () => undefined,
         onError: () => undefined,
       }),
     );
 
-    expect(html).toContain('repo</div>');
+    expect(html).toContain('repo</button>');
     expect(html).toContain('<h1>main</h1>');
     expect(html).toContain('Pull request #18');
     expect(html).toContain('Changes against <strong>main</strong>');
@@ -117,6 +121,7 @@ describe('WorktreeDetails copy controls', () => {
         projectWorktrees: [mainWorktree, details, collision],
         status: 'clean',
         onSnapshot: () => undefined,
+        onSelectProject: () => undefined,
         onError: () => undefined,
       }),
     );
@@ -137,6 +142,7 @@ describe('WorktreeDetails copy controls', () => {
         projectWorktrees: [mainWorktree, collidingDetails],
         status: 'clean',
         onSnapshot: () => undefined,
+        onSelectProject: () => undefined,
         onError: () => undefined,
       }),
     );

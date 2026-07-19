@@ -36,6 +36,7 @@ export function WorktreeDetails({
   projectWorktrees,
   status,
   onSnapshot,
+  onSelectProject,
   onError,
 }: {
   homeDirectory: string;
@@ -43,6 +44,7 @@ export function WorktreeDetails({
   projectWorktrees: Worktree[];
   status: WorktreeStatus | undefined;
   onSnapshot: (snapshot: AppSnapshot) => void;
+  onSelectProject: (projectId: string) => void;
   onError: (message: string) => void;
 }): React.JSX.Element {
   const [editor, setEditor] = useState<EditorTool>('vscode');
@@ -192,9 +194,14 @@ export function WorktreeDetails({
 
   return (
     <div className={styles.detailsWrap}>
-      <div className={styles.detailsEyebrow}>
+      <button
+        className={`${styles.detailsEyebrow} ${styles.detailsProjectLink}`}
+        aria-label={`Open ${details.projectName} project details`}
+        title="Open project details"
+        onClick={() => onSelectProject(details.projectId)}
+      >
         <FolderGit2 size={14} /> {details.projectName}
-      </div>
+      </button>
       <div className={styles.detailsTitleRow}>
         <div>
           <h1>{worktreeDisplayName}</h1>

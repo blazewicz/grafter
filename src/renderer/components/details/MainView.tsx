@@ -20,6 +20,7 @@ export function MainView({
   status,
   onSnapshot,
   onAdd,
+  onSelectProject,
   onSelectWorktree,
   onError,
 }: {
@@ -31,6 +32,7 @@ export function MainView({
   status: WorktreeStatus | undefined;
   onSnapshot: (snapshot: AppSnapshot) => void;
   onAdd: () => void;
+  onSelectProject: (projectId: string) => void;
   onSelectWorktree: (worktreeId: string) => void;
   onError: (message: string) => void;
 }): React.JSX.Element {
@@ -43,6 +45,7 @@ export function MainView({
           projectWorktrees={projectWorktrees}
           status={status}
           onSnapshot={onSnapshot}
+          onSelectProject={onSelectProject}
           onError={onError}
         />
       ) : selectedWorktree ? (

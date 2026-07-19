@@ -22,6 +22,18 @@
   font-weight: 560;
 }
 
+.details-project-link {
+  width: fit-content;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: default;
+}
+
+.details-project-link:hover {
+  color: #c9c9cc;
+}
+
 .details-title-row {
   margin-top: 10px;
   display: flex;
