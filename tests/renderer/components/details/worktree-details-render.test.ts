@@ -165,7 +165,13 @@ describe('WorktreeDetails copy controls', () => {
 
     expect(html).toContain('repo</button>');
     expect(html).toContain('<h1>main</h1>');
-    expect(html).toContain('Pull request #18');
+    expect(html).toContain('aria-label="Pull request #18"');
+    expect(html).toContain('PULL REQUEST');
+    expect(html).toContain('>#18</span>');
+    expect(html).toContain('PR from the main clone');
+    expect(html).toContain('Base branch:</span><code>main</code>');
+    expect(html).toContain('aria-label="Copy main base branch name"');
+    expect(html).toContain('lucide-square-arrow-out-up-right');
     expect(html).toContain('Changes against <strong>main</strong>');
   });
 

@@ -1,5 +1,4 @@
 import {
-  ArrowUpRight,
   Check,
   ChevronDown,
   Circle,
@@ -9,6 +8,7 @@ import {
   GitBranch,
   GitCompareArrows,
   GitPullRequest,
+  SquareArrowOutUpRight,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type {
@@ -369,26 +369,55 @@ export function WorktreeDetails({
         />
       )}
       {pullRequest ? (
-        <section className={styles.prCard}>
-          <div className={styles.prIcon}>
-            <GitPullRequest size={20} />
-          </div>
-          <div className={styles.prContent}>
-            <div className={styles.prMeta}>
+        <section
+          className={styles.prCard}
+          aria-label={`Pull request #${pullRequest.number}`}
+        >
+          <span className={styles.sectionLabel}>PULL REQUEST</span>
+          <div className={styles.prTitleRow}>
+            <GitPullRequest className={styles.prTitleIcon} size={16} aria-hidden="true" />
+            <div className={styles.prTitleCopy}>
+              <span className={styles.prNumber}>#{pullRequest.number}</span>
+              <strong className={styles.prTitle}>{pullRequest.title}</strong>
+            </div>
+            <div className={styles.prActions}>
               <span className={styles.prPill} data-state={pullRequest.state}>
                 {pullRequest.state}
               </span>
-              <span>Pull request #{pullRequest.number}</span>
+              <button
+                className={styles.prExternalLink}
+                aria-label="Open pull request"
+                title="Open pull request"
+                onClick={() => void api.openExternal(pullRequest.url)}
+              >
+                <SquareArrowOutUpRight size={15} aria-hidden="true" />
+              </button>
             </div>
-            <strong>{pullRequest.title}</strong>
-            <span>Base branch: {pullRequest.baseBranch}</span>
           </div>
-          <button
-            aria-label="Open pull request"
-            onClick={() => void api.openExternal(pullRequest.url)}
-          >
-            <ArrowUpRight size={17} />
-          </button>
+          <div className={styles.prMeta}>
+            <span>Base branch:</span>
+            <code>{pullRequest.baseBranch}</code>
+            <button
+              className={styles.copyTextButton}
+              aria-label={
+                copiedText === pullRequest.baseBranch
+                  ? 'Base branch name copied'
+                  : `Copy ${pullRequest.baseBranch} base branch name`
+              }
+              title={
+                copiedText === pullRequest.baseBranch
+                  ? 'Base branch name copied'
+                  : 'Copy base branch name'
+              }
+              onClick={() => copyText(pullRequest.baseBranch)}
+            >
+              {copiedText === pullRequest.baseBranch ? (
+                <Check size={13} />
+              ) : (
+                <Copy size={13} />
+              )}
+            </button>
+          </div>
         </section>
       ) : (
         <section className={styles.quietCard}>
