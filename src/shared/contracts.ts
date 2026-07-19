@@ -117,6 +117,11 @@ export interface CreateWorktreeRequest {
   path: string;
 }
 
+export interface SwitchBranchRequest {
+  worktreeId: string;
+  branch: string;
+}
+
 export interface GrafterApi {
   getSnapshot(): Promise<AppSnapshot>;
   getCommandLog(context: CommandContext): Promise<CommandRecord[]>;
@@ -130,6 +135,7 @@ export interface GrafterApi {
     snapshot: AppSnapshot;
     setupApproval?: ApprovalRequest;
   }>;
+  switchBranch(request: SwitchBranchRequest): Promise<AppSnapshot>;
   prepareRemoveWorktree(worktreeId: string): Promise<ApprovalRequest>;
   approveCommand(approvalId: string): Promise<AppSnapshot>;
   rejectCommand(approvalId: string): Promise<AppSnapshot>;

@@ -72,15 +72,15 @@ export class GitService {
     const context = projectCommandContext(project);
     const result = await this.#git(
       project.path,
-      ['for-each-ref', '--format=%(refname:short)', 'refs/heads', 'refs/remotes/origin'],
+      ['for-each-ref', '--format=%(refname:short)', 'refs/heads'],
       `List branches in ${project.name}`,
       true,
       context,
     );
     const branches = result.stdout
       .split('\n')
-      .map((branch) => branch.trim().replace(/^origin\//, ''))
-      .filter((branch) => branch && branch !== 'HEAD');
+      .map((branch) => branch.trim())
+      .filter(Boolean);
     return [...new Set(branches)].sort((a, b) => a.localeCompare(b));
   }
 
@@ -90,18 +90,23 @@ export class GitService {
     branch: string,
   ): Promise<void> {
     const context = projectCommandContext(project);
-    const localBranch = await this.#gitAllowFailure(
+    await this.#git(
       project.path,
-      ['show-ref', '--verify', '--quiet', `refs/heads/${branch}`],
-      `Check local branch ${branch}`,
-      true,
+      ['worktree', 'add', worktreePath, branch],
+      `Create worktree for ${branch}`,
+      false,
       context,
     );
-    const args =
-      localBranch.record.exitCode === 0
-        ? ['worktree', 'add', worktreePath, branch]
-        : ['worktree', 'add', '--track', '-b', branch, worktreePath, `origin/${branch}`];
-    await this.#git(project.path, args, `Create worktree for ${branch}`, false, context);
+  }
+
+  async switchBranch(worktree: Worktree, branch: string): Promise<void> {
+    await this.#git(
+      worktree.path,
+      ['switch', '--no-guess', '--', branch],
+      `Switch ${worktree.name} to ${branch}`,
+      false,
+      worktreeCommandContext(worktree),
+    );
   }
 
   removeSpec(project: Project, worktree: Worktree): CommandSpec {

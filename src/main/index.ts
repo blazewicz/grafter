@@ -15,6 +15,7 @@ import type {
   CreateWorktreeRequest,
   EditorTool,
   Settings,
+  SwitchBranchRequest,
 } from '../shared/contracts';
 import { ipc } from '../shared/ipc';
 import { AppService } from './services/app-service';
@@ -114,6 +115,9 @@ function registerIpc(): void {
   );
   ipcMain.handle(ipc.createWorktree, (_event, request: CreateWorktreeRequest) =>
     service.createWorktree(request),
+  );
+  ipcMain.handle(ipc.switchBranch, (_event, request: SwitchBranchRequest) =>
+    service.switchBranch(request),
   );
   ipcMain.handle(ipc.prepareRemove, (_event, worktreeId: string) =>
     service.prepareRemove(worktreeId),

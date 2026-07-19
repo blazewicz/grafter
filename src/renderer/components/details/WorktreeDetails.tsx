@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type {
+  AppSnapshot,
   EditorTool,
   Worktree,
   WorktreeDetails as WorktreeDetailsData,
@@ -20,6 +21,7 @@ import type {
 import { displayWorktreePath } from '../../../shared/path-display';
 import { buildWorktreeList } from '../../../shared/worktree-list';
 import { api, friendlyError } from '../../grafter-api';
+import { BranchPicker } from '../branches/BranchPicker';
 import { VisualStudioCodeMark } from '../ui/BrandMarks';
 import styles from './details.module.css';
 
@@ -33,18 +35,25 @@ export function WorktreeDetails({
   details,
   projectWorktrees,
   status,
+  onSnapshot,
   onError,
 }: {
   homeDirectory: string;
   details: WorktreeDetailsData;
   projectWorktrees: Worktree[];
   status: WorktreeStatus | undefined;
+  onSnapshot: (snapshot: AppSnapshot) => void;
   onError: (message: string) => void;
 }): React.JSX.Element {
   const [editor, setEditor] = useState<EditorTool>('vscode');
   const [editorMenuOpen, setEditorMenuOpen] = useState(false);
+  const [branchMenuOpen, setBranchMenuOpen] = useState(false);
+  const [branches, setBranches] = useState<string[]>([]);
+  const [loadingBranches, setLoadingBranches] = useState(false);
+  const [switchingBranch, setSwitchingBranch] = useState(false);
   const [copiedText, setCopiedText] = useState<string>();
   const editorMenuRef = useRef<HTMLDivElement>(null);
+  const branchMenuRef = useRef<HTMLDivElement>(null);
   const copyResetTimer = useRef<number | undefined>(undefined);
   const selectedEditorLabel =
     editorOptions.find((option) => option.id === editor)?.label ?? 'IDE';
@@ -56,6 +65,13 @@ export function WorktreeDetails({
     projectWorktrees.find((worktree) => worktree.isMain)?.path ?? details.path;
   const statusClass =
     status === 'dirty' ? styles.dirty : status === undefined ? styles.checking : '';
+  const branchSwitchDisabledReason = switchingBranch
+    ? 'Switching branches…'
+    : status === 'dirty'
+      ? 'Commit, stash, or discard your changes before switching branches'
+      : status === undefined
+        ? 'Checking for local changes'
+        : undefined;
 
   useEffect(() => {
     if (!editorMenuOpen) return;
@@ -77,6 +93,45 @@ export function WorktreeDetails({
     };
   }, [editorMenuOpen]);
 
+  useEffect(() => {
+    if (!branchMenuOpen) return;
+
+    const closeOnOutsideClick = (event: PointerEvent): void => {
+      if (!branchMenuRef.current?.contains(event.target as Node)) {
+        setBranchMenuOpen(false);
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') setBranchMenuOpen(false);
+    };
+
+    document.addEventListener('pointerdown', closeOnOutsideClick);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsideClick);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [branchMenuOpen]);
+
+  useEffect(() => {
+    if (!branchMenuOpen) return;
+    let active = true;
+    void api
+      .listBranches(details.projectId)
+      .then((next) => {
+        if (active) setBranches(next);
+      })
+      .catch((caught: unknown) => {
+        if (active) onError(friendlyError(caught));
+      })
+      .finally(() => {
+        if (active) setLoadingBranches(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [branchMenuOpen, details.projectId, onError]);
+
   useEffect(
     () => () => {
       if (copyResetTimer.current !== undefined) {
@@ -94,6 +149,32 @@ export function WorktreeDetails({
     setEditor(nextEditor);
     setEditorMenuOpen(false);
     reportActionError(api.openWorktreeInEditor(details.id, nextEditor));
+  };
+
+  const toggleBranchMenu = (): void => {
+    if (branchMenuOpen) {
+      setBranchMenuOpen(false);
+      return;
+    }
+    setBranches([]);
+    setLoadingBranches(true);
+    setBranchMenuOpen(true);
+  };
+
+  const switchBranch = async (branch: string): Promise<void> => {
+    setSwitchingBranch(true);
+    try {
+      const snapshot = await api.switchBranch({
+        worktreeId: details.id,
+        branch,
+      });
+      setBranchMenuOpen(false);
+      onSnapshot(snapshot);
+    } catch (caught) {
+      onError(friendlyError(caught));
+    } finally {
+      setSwitchingBranch(false);
+    }
   };
 
   const copyText = (text: string): void => {
@@ -119,7 +200,49 @@ export function WorktreeDetails({
           <h1>{worktreeDisplayName}</h1>
           <div className={styles.checkedOutBranch}>
             <span>Checked-out branch:</span>
-            <code>{details.branch}</code>
+            <div className={styles.branchPicker} ref={branchMenuRef}>
+              <span className={styles.branchPickerTrigger}>
+                <button
+                  className={styles.branchMenuButton}
+                  aria-disabled={branchSwitchDisabledReason !== undefined}
+                  aria-label={
+                    branchSwitchDisabledReason
+                      ? `Switch branch unavailable: ${branchSwitchDisabledReason}`
+                      : 'Switch checked-out branch'
+                  }
+                  aria-haspopup="dialog"
+                  aria-expanded={branchMenuOpen && !branchSwitchDisabledReason}
+                  onClick={
+                    branchSwitchDisabledReason === undefined
+                      ? toggleBranchMenu
+                      : undefined
+                  }
+                >
+                  <code>{details.branch}</code>
+                  <ChevronDown size={13} />
+                </button>
+                {!branchMenuOpen && (
+                  <span className={styles.branchPickerTooltip} role="tooltip">
+                    {branchSwitchDisabledReason ?? 'Switch branch'}
+                  </span>
+                )}
+              </span>
+              {branchMenuOpen && !branchSwitchDisabledReason && (
+                <div
+                  className={styles.branchMenu}
+                  role="dialog"
+                  aria-label="Switch checked-out branch"
+                >
+                  <BranchPicker
+                    branches={branches}
+                    worktrees={projectWorktrees}
+                    currentWorktreeId={details.id}
+                    loading={loadingBranches}
+                    onSelect={(branch) => void switchBranch(branch)}
+                  />
+                </div>
+              )}
+            </div>
             <button
               className={styles.copyTextButton}
               aria-label={

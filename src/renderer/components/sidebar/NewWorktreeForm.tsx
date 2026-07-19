@@ -1,8 +1,9 @@
-import { Check, GitBranch, LoaderCircle, Plus, Search } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { LoaderCircle, Plus } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import type { GrafterApi, ProjectTreeItem } from '../../../shared/contracts';
 import { api, friendlyError } from '../../grafter-api';
 import controls from '../../styles/controls.module.css';
+import { BranchPicker } from '../branches/BranchPicker';
 import styles from './sidebar.module.css';
 
 export function NewWorktreeForm({
@@ -20,11 +21,10 @@ export function NewWorktreeForm({
   onError: (message: string) => void;
 }): React.JSX.Element {
   const [branches, setBranches] = useState<string[]>([]);
-  const [query, setQuery] = useState('');
   const [chosen, setChosen] = useState('');
   const [worktreePath, setWorktreePath] = useState('');
   const [creating, setCreating] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [loadingBranches, setLoadingBranches] = useState(true);
   const onErrorRef = useRef(onError);
 
   useEffect(() => {
@@ -32,24 +32,15 @@ export function NewWorktreeForm({
   }, [onError]);
 
   useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
-
-  useEffect(() => {
     void api
       .listBranches(project.id)
       .then(setBranches)
-      .catch((error: unknown) => onErrorRef.current(friendlyError(error)));
+      .catch((error: unknown) => onErrorRef.current(friendlyError(error)))
+      .finally(() => setLoadingBranches(false));
   }, [project.id]);
-
-  const filtered = useMemo(() => {
-    const needle = query.toLowerCase();
-    return branches.filter((branch) => branch.toLowerCase().includes(needle)).slice(0, 7);
-  }, [branches, query]);
 
   const choose = (branch: string): void => {
     setChosen(branch);
-    setQuery(branch);
     void api
       .suggestWorktreePath(project.id, branch)
       .then(setWorktreePath)
@@ -75,32 +66,17 @@ export function NewWorktreeForm({
 
   return (
     <div className={styles.newWorktreeCard}>
-      <div className={styles.inputWithIcon}>
-        <Search size={13} />
-        <input
-          ref={inputRef}
-          value={query}
-          onChange={(event) => {
-            setQuery(event.target.value);
-            setChosen('');
-          }}
-          placeholder="Filter branches…"
-        />
-      </div>
-      <div className={styles.branchResults}>
-        {filtered.map((branch) => (
-          <button
-            key={branch}
-            onClick={() => choose(branch)}
-            className={chosen === branch ? styles.chosen : ''}
-          >
-            <GitBranch size={12} />
-            <span>{branch}</span>
-            {chosen === branch && <Check size={12} />}
-          </button>
-        ))}
-        {!filtered.length && <div className={styles.noResults}>No matching branches</div>}
-      </div>
+      <BranchPicker
+        branches={branches}
+        worktrees={project.worktrees}
+        selectedBranch={chosen}
+        loading={loadingBranches}
+        onQueryChange={() => {
+          setChosen('');
+          setWorktreePath('');
+        }}
+        onSelect={choose}
+      />
       {chosen && (
         <label className={styles.pathInput}>
           <span>Path</span>

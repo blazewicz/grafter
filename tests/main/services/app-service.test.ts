@@ -349,3 +349,67 @@ branch refs/heads/main
     expect(service.snapshot().projects).toEqual([]);
   });
 });
+
+describe('AppService branch switching', () => {
+  it('clears old PR data and starts refreshing the new branch immediately', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-app-service-'));
+    const store = new StateStore(directory);
+    await store.load();
+    await store.update((state) => state.projects.push(project));
+    let switched = false;
+    const switchedWorktreeOutput = `worktree /repo
+HEAD 1111111
+branch refs/heads/main
+
+worktree /repo.worktrees/feature
+HEAD 3333333
+branch refs/heads/release/0.1
+`;
+    const runner = new StubCommandRunner((spec) => {
+      if (spec.tool === 'git' && spec.args[0] === 'worktree') {
+        return { stdout: switched ? switchedWorktreeOutput : worktreeOutput };
+      }
+      if (spec.tool === 'git' && spec.args[0] === 'switch') {
+        switched = true;
+        return {};
+      }
+      if (spec.tool === 'github' && spec.args[2] === 'feature/stacked') {
+        return { stdout: pullRequestJson('Old branch PR', 'OPEN', false) };
+      }
+      if (spec.tool === 'github') return { exitCode: 1 };
+      throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
+    });
+    const service = new AppService(store, runner);
+    const initial = await service.refresh();
+    const feature = initial.projects[0]?.worktrees[1];
+    if (!feature) throw new Error('Expected the feature worktree.');
+    await service.refreshPullRequest(feature.id);
+    expect(service.snapshot().projects[0]?.worktrees[1]?.pullRequest?.title).toBe(
+      'Old branch PR',
+    );
+
+    const result = await service.switchBranch({
+      worktreeId: feature.id,
+      branch: 'release/0.1',
+    });
+
+    expect(result.projects[0]?.worktrees[1]).toMatchObject({
+      id: feature.id,
+      branch: 'release/0.1',
+      head: '3333333',
+    });
+    expect(result.projects[0]?.worktrees[1]?.pullRequest).toBeUndefined();
+    expect(runner.commands.find((command) => command.args[0] === 'switch')).toMatchObject(
+      {
+        args: ['switch', '--no-guess', '--', 'release/0.1'],
+        cwd: feature.path,
+        isReadOnly: false,
+      },
+    );
+    expect(
+      runner.commands.some(
+        (command) => command.tool === 'github' && command.args[2] === 'release/0.1',
+      ),
+    ).toBe(true);
+  });
+});

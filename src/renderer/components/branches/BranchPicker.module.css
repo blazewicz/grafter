@@ -1,0 +1,77 @@
+.picker {
+  min-width: 0;
+}
+
+.input-with-icon {
+  height: 29px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 7px;
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--faint);
+}
+
+.input-with-icon:focus-within {
+  border-color: rgba(154, 167, 255, 0.65);
+}
+
+.input-with-icon input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  color: var(--text);
+  background: transparent;
+  font-size: 11.5px;
+}
+
+.results {
+  max-height: 156px;
+  padding: 4px 0;
+  overflow: auto;
+}
+
+.results button {
+  width: 100%;
+  height: 25px;
+  padding: 0 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #b8bac1;
+  font-size: 11.5px;
+  text-align: left;
+}
+
+.results button span {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.results button:hover:not(:disabled),
+.results button.chosen:not(:disabled) {
+  background: var(--accent-bg);
+  color: #e3e6ff;
+}
+
+.results button:disabled {
+  color: #606168;
+  cursor: not-allowed;
+}
+
+.message {
+  min-height: 31px;
+  padding: 8px 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--faint);
+  font-size: 11px;
+}
