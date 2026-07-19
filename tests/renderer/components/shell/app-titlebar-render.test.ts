@@ -8,14 +8,14 @@ describe('AppTitlebar', () => {
     const html = renderToStaticMarkup(
       createElement(AppTitlebar, {
         projectName: 'grafter',
-        branchName: 'main',
+        worktreeName: 'b77c/grafter',
         busy: false,
         onRefresh: () => undefined,
       }),
     );
 
     expect(html).toContain('grafter');
-    expect(html).toContain('main');
+    expect(html).toContain('b77c/grafter');
     expect(html).toContain('aria-label="Refresh repositories"');
     expect(html).not.toContain('Grafter');
     expect(html).not.toContain('Open settings');

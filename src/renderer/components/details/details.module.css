@@ -44,11 +44,29 @@
   white-space: nowrap;
 }
 
-.branch-title {
+.checked-out-branch {
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 5px;
+  margin-top: 6px;
+  color: var(--faint);
+  font-size: 11.5px;
+}
+
+.checked-out-branch code {
+  min-width: 0;
+  overflow: hidden;
+  color: #b7b8be;
+  font-family: 'SFMono-Regular', monospace;
+  font-size: 10.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.checked-out-branch .copy-text-button {
+  width: 23px;
+  height: 23px;
 }
 
 .copy-text-button {
@@ -68,17 +86,6 @@
 .copy-text-button:focus-visible {
   background: rgba(255, 255, 255, 0.055);
   color: #d7d7da;
-}
-
-.details-title-row p {
-  margin: 5px 0 0;
-  color: var(--faint);
-  font-size: 12px;
-}
-
-.details-title-row p strong {
-  color: #b7b8be;
-  font-weight: 560;
 }
 
 .clean-badge {
@@ -314,7 +321,7 @@
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 8px;
   padding: 12px 14px;
   border-bottom: 1px solid var(--line);
 }
@@ -323,58 +330,42 @@
   border-bottom: 0;
 }
 
-.worktree-summary-row.current {
-  background: rgba(169, 173, 215, 0.035);
-}
-
-.worktree-summary-path {
-  min-width: 0;
-  flex: 1;
-  text-align: right;
-}
-
-.worktree-summary-path code {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: #bfc1c8;
-  font-size: 11px;
-  white-space: nowrap;
-}
-
-.worktree-summary-branch {
-  min-width: 0;
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  color: #d5d6dc;
-  font-size: 11.5px;
-}
-
-.worktree-summary-branch svg {
+.worktree-summary-icon {
   flex: 0 0 auto;
   color: var(--muted);
 }
 
-.worktree-summary-branch > span:not(.summary-worktree-pill) {
-  min-width: 24px;
+.worktree-summary-name {
+  min-width: 0;
   flex: 1;
   overflow: hidden;
+  border: 0;
+  background: transparent;
+  color: #d5d6dc;
+  font-size: 11.5px;
+  text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.summary-worktree-pill {
+.worktree-summary-name[data-main='true'] {
+  font-weight: 650;
+}
+
+.worktree-summary-name:hover,
+.worktree-summary-name:focus-visible {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.worktree-summary-branch {
   min-width: 0;
   max-width: 48%;
   flex: 0 0 auto;
-  padding: 2px 5px;
   overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: 4px;
   color: var(--faint);
-  font-size: 9px;
+  font-size: 10.5px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

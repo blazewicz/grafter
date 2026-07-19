@@ -27,7 +27,7 @@
 }
 
 .title-project,
-.title-branch {
+.title-worktree {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

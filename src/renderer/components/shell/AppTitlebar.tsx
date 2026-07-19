@@ -4,12 +4,12 @@ import styles from './AppTitlebar.module.css';
 
 export function AppTitlebar({
   projectName,
-  branchName,
+  worktreeName,
   busy,
   onRefresh,
 }: {
   projectName: string;
-  branchName: string | undefined;
+  worktreeName: string | undefined;
   busy: boolean;
   onRefresh: () => void;
 }): React.JSX.Element {
@@ -19,10 +19,10 @@ export function AppTitlebar({
       <div className={styles.titleContext}>
         <FolderGit2 size={14} />
         <span className={styles.titleProject}>{projectName}</span>
-        {branchName && (
+        {worktreeName && (
           <>
             <ChevronRight size={13} />
-            <span className={styles.titleBranch}>{branchName}</span>
+            <span className={styles.titleWorktree}>{worktreeName}</span>
           </>
         )}
       </div>

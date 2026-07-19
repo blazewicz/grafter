@@ -90,12 +90,11 @@ export type WorktreeStatus = 'clean' | 'dirty';
 
 export interface WorktreeDetails extends Worktree {
   projectName: string;
-  targetBranch: string;
-  diff: DiffStats;
+  targetBranch?: string;
+  diff?: DiffStats;
 }
 
 export interface ProjectTreeItem extends Project {
-  defaultBranch?: string;
   worktrees: Worktree[];
 }
 

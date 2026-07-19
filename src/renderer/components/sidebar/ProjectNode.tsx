@@ -2,6 +2,7 @@ import {
   ChevronDown,
   ChevronRight,
   FolderGit2,
+  FolderRoot,
   GitBranch,
   Minus,
   MoreHorizontal,
@@ -9,12 +10,9 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import {
-  buildBranchHierarchy,
-  type BranchHierarchyNode,
-} from '../../../shared/branch-hierarchy';
 import type { GrafterApi, ProjectTreeItem, Worktree } from '../../../shared/contracts';
 import { displayWorktreePath } from '../../../shared/path-display';
+import { buildWorktreeList } from '../../../shared/worktree-list';
 import { NewWorktreeForm } from './NewWorktreeForm';
 import styles from './sidebar.module.css';
 
@@ -51,9 +49,9 @@ export function ProjectNode({
   onError: (message: string) => void;
 }): React.JSX.Element {
   const [menuOpen, setMenuOpen] = useState(false);
-  const branchHierarchy = useMemo(
-    () => buildBranchHierarchy(project.worktrees, project.defaultBranch),
-    [project.defaultBranch, project.worktrees],
+  const worktreeItems = useMemo(
+    () => buildWorktreeList(project.worktrees),
+    [project.worktrees],
   );
 
   useEffect(() => {
@@ -124,14 +122,18 @@ export function ProjectNode({
       {expanded && (
         <div>
           <div className={styles.branchList}>
-            <BranchRows
-              homeDirectory={homeDirectory}
-              mainClonePath={project.path}
-              nodes={branchHierarchy}
-              selectedId={selectedId}
-              onSelect={onSelect}
-              onRemoveWorktree={onRemoveWorktree}
-            />
+            {worktreeItems.map(({ worktree, displayName }) => (
+              <WorktreeRow
+                key={worktree.id}
+                homeDirectory={homeDirectory}
+                mainClonePath={project.path}
+                worktree={worktree}
+                displayName={displayName}
+                selected={selectedId === worktree.id}
+                onSelect={onSelect}
+                onRemoveWorktree={onRemoveWorktree}
+              />
+            ))}
           </div>
           {adding && (
             <NewWorktreeForm
@@ -147,94 +149,67 @@ export function ProjectNode({
   );
 }
 
-function BranchRows({
+function WorktreeRow({
   homeDirectory,
   mainClonePath,
-  nodes,
-  selectedId,
+  worktree,
+  displayName,
+  selected,
   onSelect,
   onRemoveWorktree,
 }: {
   homeDirectory: string;
   mainClonePath: string;
-  nodes: BranchHierarchyNode[];
-  selectedId: string | undefined;
+  worktree: Worktree;
+  displayName: string;
+  selected: boolean;
   onSelect: (id: string) => void;
   onRemoveWorktree: (worktree: Worktree) => void;
 }): React.JSX.Element {
+  const displayedPath = displayWorktreePath(worktree.path, mainClonePath, homeDirectory);
+
   return (
-    <>
-      {nodes.map((node) => (
-        <div className={styles.branchNode} key={node.id}>
-          {node.worktree ? (
-            <div
-              className={`${styles.treeRow} ${styles.branchRow} ${
-                selectedId === node.worktree.id ? styles.selected : ''
-              }`}
-            >
-              <button
-                className={styles.treeLabel}
-                onClick={() => {
-                  if (node.worktree) onSelect(node.worktree.id);
-                }}
-              >
-                <GitBranch size={13} />
-                <BranchName branch={node.branch} />
-                <span
-                  className={styles.worktreeLabelWrap}
-                  data-worktree-path={node.worktree.path}
-                >
-                  <span className={styles.worktreePill}>{node.worktree.name}</span>
-                  <span
-                    className={`${styles.hoverLabel} ${styles.worktreeHoverLabel}`}
-                    role="tooltip"
-                    aria-hidden="true"
-                  >
-                    {displayWorktreePath(
-                      node.worktree.path,
-                      mainClonePath,
-                      homeDirectory,
-                    )}
-                  </span>
-                </span>
-              </button>
-              {!node.worktree.isMain && (
-                <div className={styles.rowActions}>
-                  <button
-                    aria-label={`Remove ${node.branch} worktree`}
-                    title="Remove worktree"
-                    onClick={() => {
-                      if (node.worktree) onRemoveWorktree(node.worktree);
-                    }}
-                  >
-                    <Minus size={14} />
-                  </button>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className={`${styles.treeRow} ${styles.branchRow} ${styles.ghostRow}`}>
-              <div className={styles.ghostLabel}>
-                <GitBranch size={13} />
-                <BranchName branch={node.branch} />
-              </div>
-            </div>
-          )}
-          {node.children.length > 0 && (
-            <div className={styles.branchChildren}>
-              <BranchRows
-                homeDirectory={homeDirectory}
-                mainClonePath={mainClonePath}
-                nodes={node.children}
-                selectedId={selectedId}
-                onSelect={onSelect}
-                onRemoveWorktree={onRemoveWorktree}
-              />
-            </div>
-          )}
+    <div
+      className={`${styles.treeRow} ${styles.branchRow} ${
+        worktree.isMain ? styles.mainWorktreeRow : ''
+      } ${selected ? styles.selected : ''}`}
+    >
+      <button
+        className={styles.treeLabel}
+        aria-label={
+          worktree.isMain
+            ? `Main worktree, checked out branch ${worktree.branch}`
+            : `${displayName}, checked out branch ${worktree.branch}`
+        }
+        onClick={() => onSelect(worktree.id)}
+      >
+        {worktree.isMain ? <FolderRoot size={13} /> : <GitBranch size={13} />}
+        <span className={styles.worktreeNameWrap} data-worktree-path={worktree.path}>
+          <span className={styles.worktreeName}>{displayName}</span>
+          <span
+            className={`${styles.hoverLabel} ${styles.worktreeHoverLabel}`}
+            role="tooltip"
+            aria-hidden="true"
+          >
+            {worktree.isMain ? `Main worktree · ${displayedPath}` : displayedPath}
+          </span>
+        </span>
+        {(!worktree.isMain || worktree.branch !== 'main') && (
+          <BranchName branch={worktree.branch} />
+        )}
+      </button>
+      {!worktree.isMain && (
+        <div className={styles.rowActions}>
+          <button
+            aria-label={`Remove ${displayName} worktree`}
+            title="Remove worktree"
+            onClick={() => onRemoveWorktree(worktree)}
+          >
+            <Minus size={14} />
+          </button>
         </div>
-      ))}
-    </>
+      )}
+    </div>
   );
 }
 

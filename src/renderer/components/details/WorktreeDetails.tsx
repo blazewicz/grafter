@@ -18,9 +18,9 @@ import type {
   WorktreeStatus,
 } from '../../../shared/contracts';
 import { displayWorktreePath } from '../../../shared/path-display';
+import { buildWorktreeList } from '../../../shared/worktree-list';
 import { api, friendlyError } from '../../grafter-api';
 import { VisualStudioCodeMark } from '../ui/BrandMarks';
-import { WorktreeSummary } from './WorktreeSummary';
 import styles from './details.module.css';
 
 const editorOptions: readonly {
@@ -49,6 +49,9 @@ export function WorktreeDetails({
   const selectedEditorLabel =
     editorOptions.find((option) => option.id === editor)?.label ?? 'IDE';
   const pullRequest = details.pullRequest;
+  const worktreeDisplayName =
+    buildWorktreeList(projectWorktrees).find(({ worktree }) => worktree.id === details.id)
+      ?.displayName ?? (details.isMain ? 'main' : details.name);
   const mainClonePath =
     projectWorktrees.find((worktree) => worktree.isMain)?.path ?? details.path;
   const statusClass =
@@ -113,8 +116,10 @@ export function WorktreeDetails({
       </div>
       <div className={styles.detailsTitleRow}>
         <div>
-          <div className={styles.branchTitle}>
-            <h1>{details.branch}</h1>
+          <h1>{worktreeDisplayName}</h1>
+          <div className={styles.checkedOutBranch}>
+            <span>Checked-out branch:</span>
+            <code>{details.branch}</code>
             <button
               className={styles.copyTextButton}
               aria-label={
@@ -130,10 +135,6 @@ export function WorktreeDetails({
               {copiedText === details.branch ? <Check size={13} /> : <Copy size={13} />}
             </button>
           </div>
-          <p>
-            Checked out in <strong>{details.name}</strong>
-            {details.isMain ? ' · main clone' : ''}
-          </p>
         </div>
         <span
           className={`${styles.cleanBadge} ${statusClass}`}
@@ -220,46 +221,39 @@ export function WorktreeDetails({
           </div>
         </div>
       </section>
-      {details.branch === details.targetBranch ? (
-        <WorktreeSummary
-          homeDirectory={homeDirectory}
-          mainClonePath={mainClonePath}
-          worktrees={projectWorktrees}
-          selectedId={details.id}
-        />
+      {pullRequest ? (
+        <section className={styles.prCard}>
+          <div className={styles.prIcon}>
+            <GitPullRequest size={20} />
+          </div>
+          <div className={styles.prContent}>
+            <div className={styles.prMeta}>
+              <span className={styles.prPill} data-state={pullRequest.state}>
+                {pullRequest.state}
+              </span>
+              <span>Pull request #{pullRequest.number}</span>
+            </div>
+            <strong>{pullRequest.title}</strong>
+            <span>Base branch: {pullRequest.baseBranch}</span>
+          </div>
+          <button
+            aria-label="Open pull request"
+            onClick={() => void api.openExternal(pullRequest.url)}
+          >
+            <ArrowUpRight size={17} />
+          </button>
+        </section>
       ) : (
+        <section className={styles.quietCard}>
+          <GitBranch size={17} />
+          <div>
+            <strong>No pull request found</strong>
+            <span>Grafter checked this branch using the GitHub CLI.</span>
+          </div>
+        </section>
+      )}
+      {details.targetBranch && details.diff && (
         <>
-          {pullRequest ? (
-            <section className={styles.prCard}>
-              <div className={styles.prIcon}>
-                <GitPullRequest size={20} />
-              </div>
-              <div className={styles.prContent}>
-                <div className={styles.prMeta}>
-                  <span className={styles.prPill} data-state={pullRequest.state}>
-                    {pullRequest.state}
-                  </span>
-                  <span>Pull request #{pullRequest.number}</span>
-                </div>
-                <strong>{pullRequest.title}</strong>
-                <span>Base branch: {pullRequest.baseBranch}</span>
-              </div>
-              <button
-                aria-label="Open pull request"
-                onClick={() => void api.openExternal(pullRequest.url)}
-              >
-                <ArrowUpRight size={17} />
-              </button>
-            </section>
-          ) : (
-            <section className={styles.quietCard}>
-              <GitBranch size={17} />
-              <div>
-                <strong>No pull request found</strong>
-                <span>Grafter checked this branch using the GitHub CLI.</span>
-              </div>
-            </section>
-          )}
           <div className={styles.sectionHeading}>
             <div>
               <GitCompareArrows size={16} />

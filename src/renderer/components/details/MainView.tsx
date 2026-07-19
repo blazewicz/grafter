@@ -18,6 +18,7 @@ export function MainView({
   projectWorktrees,
   status,
   onAdd,
+  onSelectWorktree,
   onError,
 }: {
   homeDirectory: string;
@@ -27,6 +28,7 @@ export function MainView({
   projectWorktrees: Worktree[];
   status: WorktreeStatus | undefined;
   onAdd: () => void;
+  onSelectWorktree: (worktreeId: string) => void;
   onError: (message: string) => void;
 }): React.JSX.Element {
   return (
@@ -42,7 +44,7 @@ export function MainView({
       ) : selectedWorktree ? (
         <DetailsLoading />
       ) : selectedProject ? (
-        <ProjectDetails homeDirectory={homeDirectory} project={selectedProject} />
+        <ProjectDetails project={selectedProject} onSelectWorktree={onSelectWorktree} />
       ) : (
         <Welcome onAdd={onAdd} />
       )}

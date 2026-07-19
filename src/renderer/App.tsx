@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
 import type { AppSnapshot, ApprovalRequest, CommandContext } from '../shared/contracts';
+import { buildWorktreeList } from '../shared/worktree-list';
 import { AuditPanel } from './components/audit/AuditPanel';
 import { useCommandLogs } from './components/audit/useCommandLogs';
 import { MainView } from './components/details/MainView';
@@ -41,6 +42,12 @@ export function App(): React.JSX.Element {
   const activeProject =
     selectedProject ??
     snapshot?.projects.find((project) => project.id === selectedWorktree?.projectId);
+  const selectedWorktreeDisplayName =
+    selectedWorktree && activeProject
+      ? buildWorktreeList(activeProject.worktrees).find(
+          ({ worktree }) => worktree.id === selectedWorktree.id,
+        )?.displayName
+      : undefined;
   const selectedProjectId = selectedProject?.id;
   const selectedWorktreeId = selectedWorktree?.id;
   const selectedWorktreeProjectId = selectedWorktree?.projectId;
@@ -172,7 +179,7 @@ export function App(): React.JSX.Element {
     <div className={styles.appShell} style={appShellStyle}>
       <AppTitlebar
         projectName={activeProject?.name ?? snapshot.projects[0]?.name ?? 'Worktrees'}
-        branchName={selectedWorktree?.branch}
+        worktreeName={selectedWorktreeDisplayName}
         busy={busy}
         onRefresh={() => void run(() => api.refresh(), applySnapshot)}
       />
@@ -217,6 +224,7 @@ export function App(): React.JSX.Element {
           projectWorktrees={projectWorktrees}
           status={worktreeStatus}
           onAdd={chooseProject}
+          onSelectWorktree={setSelectedId}
           onError={setError}
         />
       </div>
