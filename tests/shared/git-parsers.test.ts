@@ -67,7 +67,7 @@ describe('parseCommitDetails', () => {
   it('parses metadata, a multiline body, and per-commit diff stats', () => {
     expect(
       parseCommitDetails(
-        '1234567890abcdef\u0000Ada Lovelace\u0000ada@example.com\u00002026-07-19T14:25:00+02:00\u0000Add commit details\u0000Explain the intent.\n\nKeep the body readable.\n\u0000\n12\t3\tsrc/a.ts\n5\t0\tsrc/b.ts\n-\t-\tasset.png\n',
+        '1234567890abcdef\nAda Lovelace\nada@example.com\n2026-07-19T14:25:00+02:00\nAdd commit details\nExplain the intent.\n\nKeep the body readable.\n\u0000\n12\t3\tsrc/a.ts\n5\t0\tsrc/b.ts\n-\t-\tasset.png\n',
       ),
     ).toEqual({
       hash: '1234567890abcdef',
@@ -83,9 +83,7 @@ describe('parseCommitDetails', () => {
   it('rejects incomplete or invalid commit metadata', () => {
     expect(parseCommitDetails('')).toBeUndefined();
     expect(
-      parseCommitDetails(
-        'abc\u0000Ada\u0000ada@example.com\u0000not-a-date\u0000Title\u0000Body\u0000',
-      ),
+      parseCommitDetails('abc\nAda\nada@example.com\nnot-a-date\nTitle\nBody\u0000'),
     ).toBeUndefined();
   });
 });

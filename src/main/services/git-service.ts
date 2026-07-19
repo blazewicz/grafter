@@ -231,7 +231,7 @@ export class GitService {
         '-1',
         '--numstat',
         '--diff-merges=first-parent',
-        '--format=%H%x00%an%x00%ae%x00%aI%x00%s%x00%b%x00',
+        '--format=%H%n%an%n%ae%n%aI%n%s%n%b%x00',
         'HEAD',
       ],
       'Read latest commit',

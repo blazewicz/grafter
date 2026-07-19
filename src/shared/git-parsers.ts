@@ -68,17 +68,20 @@ export function parseNumStat(output: string): DiffStats {
 }
 
 export function parseCommitDetails(output: string): CommitDetails | undefined {
-  const fields = output.split('\0');
-  if (fields.length !== 7) return undefined;
+  const sections = output.split('\0');
+  if (sections.length !== 2) return undefined;
 
-  const [hash, authorName, authorEmail, authoredAt, title, rawBody, rawStats] = fields;
+  const [rawMetadata, rawStats] = sections;
+  const [hash, authorName, authorEmail, authoredAt, title, ...bodyLines] = (
+    rawMetadata ?? ''
+  ).split('\n');
   if (!hash?.trim() || !authorName?.trim() || !authoredAt?.trim()) return undefined;
   if (Number.isNaN(Date.parse(authoredAt))) return undefined;
 
   return {
     hash: hash.trim(),
     title: title?.trim() ?? '',
-    body: (rawBody ?? '').replace(/\n+$/, ''),
+    body: bodyLines.join('\n').replace(/\n+$/, ''),
     authorName: authorName.trim(),
     ...(authorEmail?.trim() ? { authorEmail: authorEmail.trim() } : {}),
     authoredAt: authoredAt.trim(),

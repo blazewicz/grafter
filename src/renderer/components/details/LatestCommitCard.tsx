@@ -1,4 +1,4 @@
-import { Check, ChevronRight, Copy, GitCommitHorizontal } from 'lucide-react';
+import { Check, Copy, Ellipsis, GitCommitHorizontal } from 'lucide-react';
 import { useId, useState } from 'react';
 import type { CommitDetails, Settings } from '../../../shared/contracts';
 import { formatDate, formatTime } from '../../date-time';
@@ -33,9 +33,23 @@ export function LatestCommitCard({
           size={16}
           aria-hidden="true"
         />
-        <strong className={styles.commitTitle}>
-          {commit.title || 'Untitled commit'}
-        </strong>
+        <div className={styles.commitTitleCopy}>
+          <strong className={styles.commitTitle}>
+            {commit.title || 'Untitled commit'}
+          </strong>
+          {hasBody && (
+            <button
+              className={styles.commitBodyButton}
+              aria-controls={bodyId}
+              aria-expanded={bodyOpen}
+              aria-label={bodyOpen ? 'Hide commit body' : 'Show commit body'}
+              title={bodyOpen ? 'Hide commit body' : 'Show commit body'}
+              onClick={() => setBodyOpen((open) => !open)}
+            >
+              <Ellipsis size={14} aria-hidden="true" />
+            </button>
+          )}
+        </div>
         <div className={styles.commitHash}>
           <code title={commit.hash}>{commit.hash.slice(0, 7)}</code>
           <button
@@ -48,6 +62,11 @@ export function LatestCommitCard({
           </button>
         </div>
       </div>
+      {hasBody && (
+        <div className={styles.commitBody} id={bodyId} hidden={!bodyOpen}>
+          {commit.body}
+        </div>
+      )}
       <div className={styles.commitMeta}>
         <span title={authorTitle}>{commit.authorName}</span>
         <span aria-hidden="true">·</span>
@@ -73,22 +92,6 @@ export function LatestCommitCard({
           −{commit.stats.deletions}
         </span>
       </div>
-      {hasBody && (
-        <>
-          <button
-            className={styles.commitBodyToggle}
-            aria-controls={bodyId}
-            aria-expanded={bodyOpen}
-            onClick={() => setBodyOpen((open) => !open)}
-          >
-            <ChevronRight size={13} aria-hidden="true" />
-            {bodyOpen ? 'Hide commit message' : 'Show commit message'}
-          </button>
-          <pre className={styles.commitBody} id={bodyId} hidden={!bodyOpen}>
-            {commit.body}
-          </pre>
-        </>
-      )}
     </section>
   );
 }

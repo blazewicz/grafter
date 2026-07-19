@@ -528,6 +528,14 @@
   color: var(--accent);
 }
 
+.commit-title-copy {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  gap: 3px;
+}
+
 .commit-hash {
   flex: 0 0 auto;
   display: flex;
@@ -549,12 +557,34 @@
 
 .commit-title {
   min-width: 0;
-  flex: 1;
+  flex: 0 1 auto;
   overflow-wrap: anywhere;
   color: #d8d9de;
   font-size: 12.5px;
   font-weight: 600;
   line-height: 1.4;
+}
+
+.commit-body-button {
+  width: 20px;
+  height: 18px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--faint);
+}
+
+.commit-body-button:hover,
+.commit-body-button:focus-visible,
+.commit-body-button[aria-expanded='true'] {
+  background: rgba(255, 255, 255, 0.055);
+  color: #c7c8cd;
 }
 
 .commit-meta {
@@ -582,40 +612,13 @@
   color: var(--red);
 }
 
-.commit-body-toggle {
-  width: fit-content;
-  margin: 6px 0 0 19px;
-  padding: 3px 4px 3px 1px;
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  border: 0;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--muted);
-  font-size: 10.5px;
-}
-
-.commit-body-toggle:hover,
-.commit-body-toggle:focus-visible {
-  background: rgba(255, 255, 255, 0.045);
-  color: #c7c8cd;
-}
-
-.commit-body-toggle[aria-expanded='true'] svg {
-  transform: rotate(90deg);
-}
-
 .commit-body {
-  max-height: 220px;
-  margin: 6px 0 0 23px;
-  padding: 8px 10px;
+  max-height: 180px;
+  margin: 5px 0 1px 23px;
+  padding: 0;
   overflow: auto;
-  border-left: 2px solid var(--line-strong);
-  background: rgba(0, 0, 0, 0.08);
-  color: #aeb0b7;
-  font-family: 'SFMono-Regular', monospace;
-  font-size: 10.5px;
+  color: #afb0b5;
+  font-size: 11.5px;
   line-height: 1.55;
   overflow-wrap: anywhere;
   white-space: pre-wrap;

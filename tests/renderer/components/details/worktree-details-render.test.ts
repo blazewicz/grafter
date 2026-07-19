@@ -72,7 +72,10 @@ describe('WorktreeDetails copy controls', () => {
     expect(html).toContain('aria-label="8 additions">+8</span>');
     expect(html).toContain('aria-label="2 deletions">−2</span>');
     expect(html).toContain('aria-expanded="false"');
-    expect(html).toContain('Show commit message');
+    expect(html).toContain('aria-label="Show commit body"');
+    expect(html).toContain('lucide-ellipsis');
+    expect(html).not.toContain('Show commit message');
+    expect(html).not.toContain('<pre');
     expect(html).toContain('lucide-folder-git');
     expect(html).toContain('repo</button>');
     expect(html).toContain('aria-label="Open repo project details"');
@@ -117,6 +120,7 @@ describe('WorktreeDetails copy controls', () => {
           ...details,
           commit: {
             ...commit,
+            body: '',
             stats: { ...commit.stats, files: 1 },
           },
         },
@@ -130,6 +134,7 @@ describe('WorktreeDetails copy controls', () => {
 
     expect(html).toContain('1 file');
     expect(html).not.toContain('1 files');
+    expect(html).not.toContain('Show commit body');
   });
 
   it('labels the main worktree consistently and shows its PR status', () => {
