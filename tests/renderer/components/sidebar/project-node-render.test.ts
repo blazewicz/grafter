@@ -69,14 +69,17 @@ describe('ProjectNode worktree labels', () => {
     expect(html).toContain('lucide-folder-root');
     expect(html.match(/lucide-git-branch/g)).toHaveLength(2);
     expect(html).toContain('>main</span>');
-    expect(html).toContain('Main worktree · /repo');
+    expect(html).toContain('data-tooltip-content="Main worktree · /repo"');
     expect(html).toContain('data-branch-name="feature/from-main"');
     expect(html).toContain('feature/checked-out');
     expect(html).toContain('feature/stacked');
-    expect(html).toContain(
-      'role="tooltip" aria-hidden="true">../repo.worktrees/checked</span>',
-    );
-    expect(html.match(/role="tooltip"/g)).toHaveLength(6);
+    expect(html).toContain('data-tooltip-content="../repo.worktrees/checked"');
+    expect(html).toContain('aria-label="Remove repo from Grafter"');
+    expect(html).toContain('aria-haspopup="dialog"');
+    expect(html).toContain('title="Remove from Grafter"');
+    expect(html).toContain('lucide-folder-minus');
+    expect(html.match(/lucide-trash-2/g)).toHaveLength(2);
+    expect(html).not.toContain('More options for repo');
     expect(html).not.toContain('title="/repo.worktrees/checked"');
     expect(html).not.toContain('feature/missing-base');
   });

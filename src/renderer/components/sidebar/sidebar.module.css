@@ -147,6 +147,10 @@
   color: #cccccf;
 }
 
+.project-row {
+  --row-actions-space: 53px;
+}
+
 .project-row .tree-label > span {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -160,6 +164,7 @@
 }
 
 .branch-row {
+  --row-actions-space: 28px;
   font-size: 11.75px;
 }
 
@@ -210,14 +215,11 @@
   font-weight: 650;
 }
 
-.hover-label {
-  z-index: 30;
-  position: absolute;
-  top: calc(100% - 1px);
+.sidebar-tooltip {
+  z-index: 1000;
+  position: fixed;
   width: max-content;
-  max-width: calc(var(--sidebar-width) - 54px);
   padding: 5px 7px;
-  visibility: hidden;
   border: 1px solid var(--line-strong);
   border-radius: 5px;
   background: rgba(31, 32, 36, 0.98);
@@ -225,40 +227,44 @@
   color: #dddde0;
   font-size: 10.5px;
   line-height: 1.2;
-  opacity: 0;
   overflow-wrap: anywhere;
   pointer-events: none;
-  transition:
-    opacity 90ms ease 350ms,
-    visibility 0ms linear 440ms;
   white-space: normal;
+  animation: tooltip-in 90ms ease 350ms both;
 }
 
-.branch-hover-label {
-  left: -5px;
-}
-
-.worktree-hover-label {
-  right: -5px;
-}
-
-.branch-name-wrap:hover > .hover-label,
-.worktree-name-wrap:hover > .hover-label {
-  visibility: visible;
-  opacity: 1;
-  transition-delay: 350ms;
+@keyframes tooltip-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .row-actions {
+  z-index: 2;
+  position: absolute;
+  right: 3px;
   opacity: 0;
   display: flex;
   align-items: center;
-  margin-right: 3px;
+  gap: 1px;
+  pointer-events: none;
+  transition: opacity 90ms ease;
 }
 
 .tree-row:hover > .row-actions,
+.tree-row > .tree-label:focus-visible ~ .row-actions,
 .row-actions:focus-within {
   opacity: 1;
+  pointer-events: auto;
+}
+
+.tree-row:hover > .tree-label,
+.tree-row > .tree-label:focus-visible,
+.tree-row:has(> .row-actions:focus-within) > .tree-label {
+  padding-right: var(--row-actions-space);
 }
 
 .row-actions button {
@@ -278,35 +284,13 @@
   background: rgba(255, 255, 255, 0.08);
 }
 
-.context-menu {
-  z-index: 10;
-  position: absolute;
-  right: 3px;
-  top: 26px;
-  width: 145px;
-  padding: 5px;
-  border-radius: 8px;
-  border: 1px solid var(--line-strong);
-  background: rgba(38, 39, 44, 0.97);
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+.row-actions .danger-action {
+  color: rgba(238, 107, 103, 0.78);
 }
 
-.context-menu button {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  border: 0;
-  border-radius: 5px;
-  padding: 7px;
-  background: transparent;
-  font-size: 12px;
-  text-align: left;
-}
-
-.context-menu button:hover {
-  background: rgba(239, 129, 121, 0.12);
+.row-actions .danger-action:hover {
   color: #ffaaa4;
+  background: rgba(239, 129, 121, 0.13);
 }
 
 .sidebar-settings {
