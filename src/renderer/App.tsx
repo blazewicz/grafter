@@ -243,7 +243,7 @@ export function App(): React.JSX.Element {
         commands={commands}
         settings={snapshot.settings}
         systemLocale={snapshot.systemLocale}
-        contextLabel={selectedWorktree?.branch ?? selectedProject?.name}
+        contextLabel={selectedWorktree?.name ?? selectedProject?.name}
         onToggle={() => setLogsOpen((value) => !value)}
         onError={setError}
       />
