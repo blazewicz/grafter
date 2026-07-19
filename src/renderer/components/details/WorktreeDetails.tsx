@@ -7,13 +7,18 @@ import {
   FolderOpen,
   GitBranch,
   GitCompareArrows,
+  GitMerge,
   GitPullRequest,
+  GitPullRequestClosed,
+  GitPullRequestDraft,
   SquareArrowOutUpRight,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type {
   AppSnapshot,
   EditorTool,
+  PullRequestState,
   Settings,
   Worktree,
   WorktreeDetails as WorktreeDetailsData,
@@ -31,6 +36,30 @@ const editorOptions: readonly {
   id: EditorTool;
   label: string;
 }[] = [{ id: 'vscode', label: 'Visual Studio Code' }];
+
+const pullRequestStatePresentation = {
+  OPEN: { icon: GitPullRequest, label: 'Open' },
+  DRAFT: { icon: GitPullRequestDraft, label: 'Draft' },
+  MERGED: { icon: GitMerge, label: 'Merged' },
+  CLOSED: { icon: GitPullRequestClosed, label: 'Closed' },
+} satisfies Record<PullRequestState, { icon: LucideIcon; label: string }>;
+
+function PullRequestStateIcon({ state }: { state: PullRequestState }): React.JSX.Element {
+  const presentation = pullRequestStatePresentation[state];
+  const StateIcon = presentation.icon;
+
+  return (
+    <span
+      className={styles.prStateIcon}
+      data-state={state}
+      role="img"
+      aria-label={`Pull request status: ${presentation.label.toLowerCase()}`}
+      title={`Status: ${presentation.label}`}
+    >
+      <StateIcon size={16} aria-hidden="true" />
+    </span>
+  );
+}
 
 export function WorktreeDetails({
   homeDirectory,
@@ -375,15 +404,12 @@ export function WorktreeDetails({
         >
           <span className={styles.sectionLabel}>PULL REQUEST</span>
           <div className={styles.prTitleRow}>
-            <GitPullRequest className={styles.prTitleIcon} size={16} aria-hidden="true" />
+            <PullRequestStateIcon state={pullRequest.state} />
             <div className={styles.prTitleCopy}>
               <span className={styles.prNumber}>#{pullRequest.number}</span>
               <strong className={styles.prTitle}>{pullRequest.title}</strong>
             </div>
             <div className={styles.prActions}>
-              <span className={styles.prPill} data-state={pullRequest.state}>
-                {pullRequest.state}
-              </span>
               <button
                 className={styles.prExternalLink}
                 aria-label="Open pull request"

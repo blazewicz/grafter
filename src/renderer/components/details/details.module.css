@@ -643,10 +643,28 @@
   gap: 7px;
 }
 
-.pr-title-icon {
+.pr-state-icon {
   flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   margin-top: 1px;
-  color: var(--accent);
+}
+
+.pr-state-icon[data-state='OPEN'] {
+  color: #3fb950;
+}
+
+.pr-state-icon[data-state='DRAFT'] {
+  color: #8b949e;
+}
+
+.pr-state-icon[data-state='MERGED'] {
+  color: #a371f7;
+}
+
+.pr-state-icon[data-state='CLOSED'] {
+  color: #f85149;
 }
 
 .pr-title-copy {
@@ -700,33 +718,6 @@
   width: 23px;
   height: 23px;
   margin: -5px 0 -5px -2px;
-}
-
-.pr-pill {
-  padding: 2px 5px;
-  border-radius: 4px;
-  font-size: 8px;
-  font-weight: 700;
-}
-
-.pr-pill[data-state='OPEN'] {
-  background: rgba(63, 185, 80, 0.12);
-  color: #3fb950;
-}
-
-.pr-pill[data-state='DRAFT'] {
-  background: rgba(139, 148, 158, 0.12);
-  color: #8b949e;
-}
-
-.pr-pill[data-state='MERGED'] {
-  background: rgba(163, 113, 247, 0.12);
-  color: #a371f7;
-}
-
-.pr-pill[data-state='CLOSED'] {
-  background: rgba(248, 81, 73, 0.12);
-  color: #f85149;
 }
 
 .pr-external-link {

@@ -171,8 +171,43 @@ describe('WorktreeDetails copy controls', () => {
     expect(html).toContain('PR from the main clone');
     expect(html).toContain('Base branch:</span><code>main</code>');
     expect(html).toContain('aria-label="Copy main base branch name"');
+    expect(html).toContain('aria-label="Open pull request"');
+    expect(html).toContain('lucide-git-pull-request');
     expect(html).toContain('lucide-square-arrow-out-up-right');
     expect(html).toContain('Changes against <strong>main</strong>');
+  });
+
+  it.each([
+    ['OPEN', 'Open', 'lucide-git-pull-request'],
+    ['DRAFT', 'Draft', 'lucide-git-pull-request-draft'],
+    ['MERGED', 'Merged', 'lucide-git-merge'],
+    ['CLOSED', 'Closed', 'lucide-git-pull-request-closed'],
+  ] as const)('renders the %s pull request state icon', (state, label, iconClass) => {
+    const html = renderToStaticMarkup(
+      createElement(WorktreeDetails, {
+        homeDirectory: '/repo.worktrees',
+        ...displayPreferences,
+        details: {
+          ...details,
+          pullRequest: {
+            number: 18,
+            title: 'State-aware pull request',
+            url: 'https://github.com/example/repo/pull/18',
+            state,
+            baseBranch: 'main',
+          },
+        },
+        projectWorktrees: [mainWorktree, details],
+        status: 'clean',
+        onSnapshot: () => undefined,
+        onSelectProject: () => undefined,
+        onError: () => undefined,
+      }),
+    );
+
+    expect(html).toContain(`aria-label="Pull request status: ${label.toLowerCase()}"`);
+    expect(html).toContain(`data-state="${state}"`);
+    expect(html).toContain(iconClass);
   });
 
   it('uses the same collision-safe worktree label as the sidebar', () => {
