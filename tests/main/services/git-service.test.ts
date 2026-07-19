@@ -198,6 +198,12 @@ describe('GitService worktree details', () => {
       locked: false,
     };
     const runner = new StubCommandRunner((spec) => {
+      if (spec.args[0] === 'log') {
+        return {
+          stdout:
+            '1234567890abcdef\u0000Ada Lovelace\u0000ada@example.com\u00002026-07-19T14:25:00+02:00\u0000Add commit details\u0000Explain the intent.\n',
+        };
+      }
       if (spec.args[0] === 'symbolic-ref') return { stdout: 'origin/main\n' };
       if (spec.args[0] === 'diff') return { stdout: '3\t1\tsrc/example.ts\n' };
       throw new Error(`Unexpected command: ${spec.args.join(' ')}`);
@@ -205,6 +211,14 @@ describe('GitService worktree details', () => {
     const service = new GitService(runner);
 
     await expect(service.details(project, baseWorktree)).resolves.toMatchObject({
+      commit: {
+        hash: '1234567890abcdef',
+        title: 'Add commit details',
+        body: 'Explain the intent.',
+        authorName: 'Ada Lovelace',
+        authorEmail: 'ada@example.com',
+        authoredAt: '2026-07-19T14:25:00+02:00',
+      },
       targetBranch: 'main',
       diff: { files: 1, additions: 3, deletions: 1 },
     });
@@ -254,6 +268,12 @@ describe('GitService worktree details', () => {
       locked: false,
     };
     const runner = new StubCommandRunner((spec) => {
+      if (spec.args[0] === 'log') {
+        return {
+          stdout:
+            '1234567890abcdef\u0000Ada Lovelace\u0000\u00002026-07-19T14:25:00+02:00\u0000Title only\u0000\n',
+        };
+      }
       if (spec.args[0] === 'diff') return { stdout: '2\t0\tsrc/example.ts\n' };
       throw new Error(`Unexpected command: ${spec.args.join(' ')}`);
     });

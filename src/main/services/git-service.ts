@@ -6,6 +6,7 @@ import {
   worktreeCommandContext,
 } from '../../shared/command-context';
 import type {
+  CommitDetails,
   CommandContext,
   DiffStats,
   Project,
@@ -14,6 +15,7 @@ import type {
   WorktreeStatus,
 } from '../../shared/contracts';
 import {
+  parseCommitDetails,
   parseNumStat,
   parseWorktreePorcelain,
   parseWorktreeStatus,
@@ -124,9 +126,12 @@ export class GitService {
 
   async details(project: Project, worktree: Worktree): Promise<WorktreeDetails> {
     const context = worktreeCommandContext(worktree);
-    const targetBranch =
-      worktree.pullRequest?.baseBranch ??
-      (await this.#remoteHeadBranch(project, context));
+    const [commit, targetBranch] = await Promise.all([
+      this.#latestCommit(worktree, context),
+      worktree.pullRequest?.baseBranch
+        ? Promise.resolve(worktree.pullRequest.baseBranch)
+        : this.#remoteHeadBranch(project, context),
+    ]);
     const comparableTarget =
       targetBranch &&
       (worktree.pullRequest !== undefined || targetBranch !== worktree.branch)
@@ -141,6 +146,7 @@ export class GitService {
     return {
       ...worktree,
       projectName: project.name,
+      ...(commit ? { commit } : {}),
       ...comparison,
     };
   }
@@ -211,6 +217,21 @@ export class GitService {
     );
     if (remote.record.exitCode !== 0) return undefined;
     return remote.stdout.trim().replace(/^origin\//, '') || undefined;
+  }
+
+  async #latestCommit(
+    worktree: Worktree,
+    context: CommandContext,
+  ): Promise<CommitDetails | undefined> {
+    if (!worktree.head) return undefined;
+    const result = await this.#gitAllowFailure(
+      worktree.path,
+      ['log', '-1', '--format=%H%x00%an%x00%ae%x00%aI%x00%s%x00%b', 'HEAD'],
+      'Read latest commit',
+      true,
+      context,
+    );
+    return result.record.exitCode === 0 ? parseCommitDetails(result.stdout) : undefined;
   }
 
   async #diffStats(

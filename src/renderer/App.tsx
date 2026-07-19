@@ -84,6 +84,7 @@ export function App(): React.JSX.Element {
   const { details, status: worktreeStatus } = useWorktreeInspection(
     selectedWorktreeId,
     selectedWorktree?.branch,
+    selectedWorktree?.head,
     setError,
   );
   const projectWorktrees = details
@@ -237,6 +238,8 @@ export function App(): React.JSX.Element {
 
         <MainView
           homeDirectory={snapshot.homeDirectory}
+          settings={snapshot.settings}
+          systemLocale={snapshot.systemLocale}
           selectedProject={selectedProject}
           selectedWorktree={selectedWorktree}
           details={details}

@@ -401,12 +401,6 @@
   color: #e1e2e6;
 }
 
-.commit-id {
-  color: var(--faint);
-  font-family: 'SFMono-Regular', monospace;
-  font-size: 10px;
-}
-
 .worktree-count {
   color: var(--faint);
   font-size: 10px;
@@ -511,6 +505,100 @@
 
 .stats-grid .negative strong {
   color: var(--red);
+}
+
+.commit-card {
+  margin-top: 12px;
+  padding: 13px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.commit-card-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.commit-card-heading .section-label {
+  margin-bottom: 0;
+}
+
+.commit-hash {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.commit-hash code {
+  color: var(--faint);
+  font-family: 'SFMono-Regular', monospace;
+  font-size: 10px;
+}
+
+.commit-hash .copy-text-button {
+  width: 23px;
+  height: 23px;
+}
+
+.commit-title {
+  display: block;
+  margin-top: 8px;
+  overflow-wrap: anywhere;
+  color: #d8d9de;
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.commit-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 5px;
+  color: var(--faint);
+  font-size: 10.5px;
+}
+
+.commit-body-toggle {
+  width: fit-content;
+  margin-top: 9px;
+  padding: 3px 4px 3px 1px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 10.5px;
+}
+
+.commit-body-toggle:hover,
+.commit-body-toggle:focus-visible {
+  background: rgba(255, 255, 255, 0.045);
+  color: #c7c8cd;
+}
+
+.commit-body-toggle[aria-expanded='true'] svg {
+  transform: rotate(90deg);
+}
+
+.commit-body {
+  max-height: 220px;
+  margin: 7px 0 0;
+  padding: 8px 10px;
+  overflow: auto;
+  border-left: 2px solid var(--line-strong);
+  background: rgba(0, 0, 0, 0.08);
+  color: #aeb0b7;
+  font-family: 'SFMono-Regular', monospace;
+  font-size: 10.5px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 
 .pr-card,

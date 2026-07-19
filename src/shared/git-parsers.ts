@@ -1,4 +1,4 @@
-import type { DiffStats, Worktree, WorktreeStatus } from './contracts';
+import type { CommitDetails, DiffStats, Worktree, WorktreeStatus } from './contracts';
 
 interface WorktreeBlock {
   worktree?: string;
@@ -65,6 +65,24 @@ export function parseNumStat(output: string): DiffStats {
   }
 
   return { files, additions, deletions };
+}
+
+export function parseCommitDetails(output: string): CommitDetails | undefined {
+  const fields = output.split('\0');
+  if (fields.length !== 6) return undefined;
+
+  const [hash, authorName, authorEmail, authoredAt, title, rawBody] = fields;
+  if (!hash?.trim() || !authorName?.trim() || !authoredAt?.trim()) return undefined;
+  if (Number.isNaN(Date.parse(authoredAt))) return undefined;
+
+  return {
+    hash: hash.trim(),
+    title: title?.trim() ?? '',
+    body: (rawBody ?? '').replace(/\n$/, ''),
+    authorName: authorName.trim(),
+    ...(authorEmail?.trim() ? { authorEmail: authorEmail.trim() } : {}),
+    authoredAt: authoredAt.trim(),
+  };
 }
 
 export function parseWorktreeStatus(output: string): WorktreeStatus {

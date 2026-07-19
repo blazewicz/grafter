@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  parseCommitDetails,
   parseNumStat,
   parseWorktreePorcelain,
   parseWorktreeStatus,
@@ -59,6 +60,32 @@ detached
     expect(
       parseWorktreePorcelain('worktree /code/repo.git\nHEAD aaa\nbare\n', 'project'),
     ).toEqual([]);
+  });
+});
+
+describe('parseCommitDetails', () => {
+  it('parses the full hash, author, authored date, title, and multiline body', () => {
+    expect(
+      parseCommitDetails(
+        '1234567890abcdef\u0000Ada Lovelace\u0000ada@example.com\u00002026-07-19T14:25:00+02:00\u0000Add commit details\u0000Explain the intent.\n\nKeep the body readable.\n',
+      ),
+    ).toEqual({
+      hash: '1234567890abcdef',
+      title: 'Add commit details',
+      body: 'Explain the intent.\n\nKeep the body readable.',
+      authorName: 'Ada Lovelace',
+      authorEmail: 'ada@example.com',
+      authoredAt: '2026-07-19T14:25:00+02:00',
+    });
+  });
+
+  it('rejects incomplete or invalid commit metadata', () => {
+    expect(parseCommitDetails('')).toBeUndefined();
+    expect(
+      parseCommitDetails(
+        'abc\u0000Ada\u0000ada@example.com\u0000not-a-date\u0000Title\u0000Body',
+      ),
+    ).toBeUndefined();
   });
 });
 

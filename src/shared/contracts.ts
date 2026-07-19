@@ -74,6 +74,15 @@ export interface DiffStats {
   deletions: number;
 }
 
+export interface CommitDetails {
+  hash: string;
+  title: string;
+  body: string;
+  authorName: string;
+  authorEmail?: string;
+  authoredAt: string;
+}
+
 export interface Worktree {
   id: string;
   projectId: string;
@@ -90,6 +99,7 @@ export type WorktreeStatus = 'clean' | 'dirty';
 
 export interface WorktreeDetails extends Worktree {
   projectName: string;
+  commit?: CommitDetails;
   targetBranch?: string;
   diff?: DiffStats;
 }

@@ -14,6 +14,14 @@ const details: WorktreeDetailsData = {
   head: '1234567890',
   isMain: false,
   locked: false,
+  commit: {
+    hash: '1234567890abcdef',
+    title: 'Add commit details',
+    body: 'Explain the intent.\n\nKeep the body readable.',
+    authorName: 'Ada Lovelace',
+    authorEmail: 'ada@example.com',
+    authoredAt: '2026-07-19T14:25:00+02:00',
+  },
   targetBranch: 'main',
   diff: { files: 1, additions: 2, deletions: 0 },
 };
@@ -27,11 +35,20 @@ const mainWorktree: WorktreeDetailsData = {
   isMain: true,
 };
 
+const displayPreferences = {
+  settings: {
+    dateFormat: 'year-month-day',
+    timeFormat: '24-hour',
+  },
+  systemLocale: 'en-GB',
+} as const;
+
 describe('WorktreeDetails copy controls', () => {
   it('renders the worktree-first header and accessible copy controls', () => {
     const html = renderToStaticMarkup(
       createElement(WorktreeDetails, {
         homeDirectory: '/repo.worktrees',
+        ...displayPreferences,
         details,
         projectWorktrees: [mainWorktree, details],
         status: 'clean',
@@ -45,6 +62,12 @@ describe('WorktreeDetails copy controls', () => {
     expect(html).toContain('aria-label="Switch checked-out branch"');
     expect(html).toContain('aria-haspopup="dialog"');
     expect(html).toContain('aria-label="Copy worktree path"');
+    expect(html).toContain('aria-label="Copy full commit hash"');
+    expect(html).toContain('<code title="1234567890abcdef">1234567</code>');
+    expect(html).toContain('Add commit details');
+    expect(html).toContain('Ada Lovelace');
+    expect(html).toContain('aria-expanded="false"');
+    expect(html).toContain('Show commit message');
     expect(html).toContain('lucide-folder-git');
     expect(html).toContain('repo</button>');
     expect(html).toContain('aria-label="Open repo project details"');
@@ -59,6 +82,7 @@ describe('WorktreeDetails copy controls', () => {
     const html = renderToStaticMarkup(
       createElement(WorktreeDetails, {
         homeDirectory: '/repo.worktrees',
+        ...displayPreferences,
         details,
         projectWorktrees: [mainWorktree, details],
         status: 'dirty',
@@ -81,6 +105,7 @@ describe('WorktreeDetails copy controls', () => {
     const html = renderToStaticMarkup(
       createElement(WorktreeDetails, {
         homeDirectory: '/repo.worktrees',
+        ...displayPreferences,
         details: {
           ...mainWorktree,
           branch: 'feature/main-clone-pr',
@@ -117,6 +142,7 @@ describe('WorktreeDetails copy controls', () => {
     const html = renderToStaticMarkup(
       createElement(WorktreeDetails, {
         homeDirectory: '/repo.worktrees',
+        ...displayPreferences,
         details,
         projectWorktrees: [mainWorktree, details, collision],
         status: 'clean',
@@ -138,6 +164,7 @@ describe('WorktreeDetails copy controls', () => {
     const html = renderToStaticMarkup(
       createElement(WorktreeDetails, {
         homeDirectory: '/repo.worktrees',
+        ...displayPreferences,
         details: collidingDetails,
         projectWorktrees: [mainWorktree, collidingDetails],
         status: 'clean',

@@ -7,6 +7,7 @@ const worktreeStatusRefreshMs = 15_000;
 export function useWorktreeInspection(
   worktreeId: string | undefined,
   worktreeBranch: string | undefined,
+  worktreeHead: string | undefined,
   onError: (message: string) => void,
 ): {
   details: WorktreeDetails | undefined;
@@ -58,7 +59,7 @@ export function useWorktreeInspection(
     return () => {
       active = false;
     };
-  }, [onError, worktreeBranch, worktreeId]);
+  }, [onError, worktreeBranch, worktreeHead, worktreeId]);
 
   useEffect(() => {
     if (!worktreeId) return;
@@ -123,7 +124,10 @@ export function useWorktreeInspection(
 
   return {
     details:
-      details && details.id === worktreeId && details.branch === worktreeBranch
+      details &&
+      details.id === worktreeId &&
+      details.branch === worktreeBranch &&
+      details.head === worktreeHead
         ? details
         : undefined,
     status:
