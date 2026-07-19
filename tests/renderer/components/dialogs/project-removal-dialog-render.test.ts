@@ -16,10 +16,12 @@ describe('ProjectRemovalDialog', () => {
 
     expect(html).toContain('role="dialog"');
     expect(html).toContain('aria-modal="true"');
-    expect(html).toContain('Remove “grafter”?');
+    expect(html).toContain('Remove “grafter” from Grafter?');
     expect(html).toContain('The repository and its worktrees will remain on disk.');
     expect(html).toContain('>Cancel</button>');
     expect(html).toContain('Remove project</button>');
+    expect(html.match(/lucide-folder-minus/g)).toHaveLength(2);
+    expect(html).not.toContain('lucide-trash-2');
     expect(html).not.toContain('COMMAND');
     expect(html).not.toContain('WORKING DIRECTORY');
   });

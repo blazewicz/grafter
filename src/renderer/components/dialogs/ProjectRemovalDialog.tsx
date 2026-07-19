@@ -1,4 +1,4 @@
-import { LoaderCircle, Trash2 } from 'lucide-react';
+import { FolderMinus, LoaderCircle } from 'lucide-react';
 import controls from '../../styles/controls.module.css';
 import styles from './dialogs.module.css';
 
@@ -21,12 +21,12 @@ export function ProjectRemovalDialog({
         aria-modal="true"
         aria-labelledby="project-removal-title"
       >
-        <div className={`${styles.modalIcon} ${styles.danger}`}>
-          <Trash2 size={19} />
+        <div className={`${styles.modalIcon} ${styles.projectRemoval}`}>
+          <FolderMinus size={19} />
         </div>
         <div className={styles.modalHeading}>
-          <span>REMOVE PROJECT</span>
-          <h2 id="project-removal-title">Remove “{projectName}”?</h2>
+          <span>REMOVE FROM GRAFTER</span>
+          <h2 id="project-removal-title">Remove “{projectName}” from Grafter?</h2>
           <p>
             Grafter will remove this project from the sidebar. The repository and its
             worktrees will remain on disk.
@@ -41,11 +41,15 @@ export function ProjectRemovalDialog({
             Cancel
           </button>
           <button
-            className={`${controls.button} ${controls.danger}`}
+            className={`${controls.button} ${controls.primary}`}
             disabled={busy}
             onClick={onConfirm}
           >
-            {busy ? <LoaderCircle className="spin" size={14} /> : <Trash2 size={14} />}
+            {busy ? (
+              <LoaderCircle className="spin" size={14} />
+            ) : (
+              <FolderMinus size={14} />
+            )}
             Remove project
           </button>
         </div>

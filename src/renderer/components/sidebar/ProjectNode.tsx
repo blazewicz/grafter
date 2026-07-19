@@ -2,6 +2,7 @@ import {
   ChevronDown,
   ChevronRight,
   FolderGit2,
+  FolderMinus,
   FolderRoot,
   GitBranch,
   Plus,
@@ -83,13 +84,12 @@ export function ProjectNode({
             <Plus size={14} />
           </button>
           <button
-            className={styles.dangerAction}
-            aria-label={`Remove ${project.name} project`}
+            aria-label={`Remove ${project.name} from Grafter`}
             aria-haspopup="dialog"
-            title="Remove project"
+            title="Remove from Grafter"
             onClick={onRemoveProject}
           >
-            <Trash2 size={13} />
+            <FolderMinus size={13} />
           </button>
         </div>
       </div>

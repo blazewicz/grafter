@@ -74,10 +74,11 @@ describe('ProjectNode worktree labels', () => {
     expect(html).toContain('feature/checked-out');
     expect(html).toContain('feature/stacked');
     expect(html).toContain('data-tooltip-content="../repo.worktrees/checked"');
-    expect(html).toContain('aria-label="Remove repo project"');
+    expect(html).toContain('aria-label="Remove repo from Grafter"');
     expect(html).toContain('aria-haspopup="dialog"');
-    expect(html).toContain('title="Remove project"');
-    expect(html.match(/lucide-trash-2/g)).toHaveLength(3);
+    expect(html).toContain('title="Remove from Grafter"');
+    expect(html).toContain('lucide-folder-minus');
+    expect(html.match(/lucide-trash-2/g)).toHaveLength(2);
     expect(html).not.toContain('More options for repo');
     expect(html).not.toContain('title="/repo.worktrees/checked"');
     expect(html).not.toContain('feature/missing-base');

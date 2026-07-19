@@ -33,9 +33,9 @@
   background: rgba(227, 183, 111, 0.1);
 }
 
-.modal-icon.danger {
-  color: #ff918a;
-  background: rgba(239, 129, 121, 0.11);
+.modal-icon.project-removal {
+  color: #b8bbc5;
+  background: rgba(255, 255, 255, 0.055);
 }
 
 .project-removal-modal {
