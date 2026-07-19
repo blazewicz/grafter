@@ -47,7 +47,7 @@ describe('WorktreeDetails copy controls', () => {
     expect(html).toContain('lucide-folder-git');
     expect(html).toContain('repo</div>');
     expect(html).toContain('<h1>feature-worktree</h1>');
-    expect(html).toContain('title="Switch branch"');
+    expect(html).toContain('role="tooltip">Switch branch</span>');
     expect(html).toContain('<code>feature/branch</code>');
     expect(html).toContain('<code>../repo.worktrees/feature</code>');
     expect(html).not.toContain('Checked-out branches');
@@ -66,12 +66,12 @@ describe('WorktreeDetails copy controls', () => {
     );
 
     expect(html).toContain(
-      'title="Commit, stash, or discard your changes before switching branches"',
+      'role="tooltip">Commit, stash, or discard your changes before switching branches</span>',
     );
     expect(html).toContain(
       'aria-label="Switch branch unavailable: Commit, stash, or discard your changes before switching branches"',
     );
-    expect(html).toContain('disabled=""');
+    expect(html).toContain('aria-disabled="true"');
   });
 
   it('labels the main worktree consistently and shows its PR status', () => {

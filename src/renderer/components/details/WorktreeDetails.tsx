@@ -201,13 +201,10 @@ export function WorktreeDetails({
           <div className={styles.checkedOutBranch}>
             <span>Checked-out branch:</span>
             <div className={styles.branchPicker} ref={branchMenuRef}>
-              <span
-                className={styles.branchPickerTrigger}
-                title={branchSwitchDisabledReason ?? 'Switch branch'}
-              >
+              <span className={styles.branchPickerTrigger}>
                 <button
                   className={styles.branchMenuButton}
-                  disabled={branchSwitchDisabledReason !== undefined}
+                  aria-disabled={branchSwitchDisabledReason !== undefined}
                   aria-label={
                     branchSwitchDisabledReason
                       ? `Switch branch unavailable: ${branchSwitchDisabledReason}`
@@ -215,11 +212,20 @@ export function WorktreeDetails({
                   }
                   aria-haspopup="dialog"
                   aria-expanded={branchMenuOpen && !branchSwitchDisabledReason}
-                  onClick={toggleBranchMenu}
+                  onClick={
+                    branchSwitchDisabledReason === undefined
+                      ? toggleBranchMenu
+                      : undefined
+                  }
                 >
                   <code>{details.branch}</code>
                   <ChevronDown size={13} />
                 </button>
+                {!branchMenuOpen && (
+                  <span className={styles.branchPickerTooltip} role="tooltip">
+                    {branchSwitchDisabledReason ?? 'Switch branch'}
+                  </span>
+                )}
               </span>
               {branchMenuOpen && !branchSwitchDisabledReason && (
                 <div
