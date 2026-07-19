@@ -308,6 +308,45 @@ export const previewApi: GrafterApi = {
   suggestWorktreePath: (_projectId, branch) =>
     Promise.resolve(`/Users/kasia/Code/grafter.worktrees/${branch.replaceAll('/', '-')}`),
   createWorktree: () => Promise.resolve({ snapshot: structuredClone(snapshot) }),
+  switchBranch: ({ worktreeId, branch }) => {
+    const project = snapshot.projects.find((item) =>
+      item.worktrees.some((worktree) => worktree.id === worktreeId),
+    );
+    const worktree = project?.worktrees.find((item) => item.id === worktreeId);
+    if (!project || !worktree) return Promise.reject(new Error('Worktree not found.'));
+    if (worktreeId === 'grafter:audit') {
+      return Promise.reject(
+        new Error('Your local changes would be overwritten by checkout.'),
+      );
+    }
+
+    const switched = { ...worktree, branch };
+    delete switched.pullRequest;
+    snapshot = {
+      ...snapshot,
+      projects: snapshot.projects.map((item) =>
+        item.id === project.id
+          ? {
+              ...item,
+              worktrees: item.worktrees.map((candidate) =>
+                candidate.id === worktreeId ? switched : candidate,
+              ),
+            }
+          : item,
+      ),
+    };
+    details[worktreeId] = {
+      ...switched,
+      projectName: project.name,
+      ...(branch === 'main'
+        ? {}
+        : {
+            targetBranch: 'main',
+            diff: { files: 2, additions: 18, deletions: 4 },
+          }),
+    };
+    return Promise.resolve(structuredClone(snapshot));
+  },
   prepareRemoveWorktree: (worktreeId) => {
     const worktree = snapshot.projects
       .flatMap((project) => project.worktrees)

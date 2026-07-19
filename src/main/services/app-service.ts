@@ -11,6 +11,7 @@ import type {
   ProjectTreeItem,
   PullRequest,
   Settings,
+  SwitchBranchRequest,
   Worktree,
   WorktreeDetails,
   WorktreeStatus,
@@ -156,6 +157,27 @@ export class AppService {
       'This project requested a setup script. Review the exact shell command before running it.',
     );
     return { snapshot: this.snapshot(), setupApproval };
+  }
+
+  async switchBranch(request: SwitchBranchRequest): Promise<AppSnapshot> {
+    const branch = request.branch.trim();
+    if (!branch) throw new Error('Choose a branch first.');
+    const worktree = this.#worktree(request.worktreeId);
+    if (branch === worktree.branch) {
+      throw new Error(`${branch} is already checked out in this worktree.`);
+    }
+
+    const project = this.#project(worktree.projectId);
+    await this.git.switchBranch(worktree, branch);
+    const worktrees = await this.#refreshProject(project, false);
+    this.#prunePullRequestCache(this.#trees.flatMap((item) => item.worktrees));
+
+    const switched = worktrees.find((item) => item.id === worktree.id);
+    if (switched?.branch !== branch) {
+      throw new Error('The worktree branch could not be confirmed after switching.');
+    }
+    void this.#refreshPullRequest(switched).catch(() => undefined);
+    return this.snapshot();
   }
 
   prepareRemove(worktreeId: string): ApprovalRequest {

@@ -35,18 +35,43 @@ describe('WorktreeDetails copy controls', () => {
         details,
         projectWorktrees: [mainWorktree, details],
         status: 'clean',
+        onSnapshot: () => undefined,
         onError: () => undefined,
       }),
     );
 
     expect(html).toContain('aria-label="Copy feature/branch branch name"');
+    expect(html).toContain('aria-label="Switch checked-out branch"');
+    expect(html).toContain('aria-haspopup="dialog"');
     expect(html).toContain('aria-label="Copy worktree path"');
     expect(html).toContain('lucide-folder-git');
     expect(html).toContain('repo</div>');
     expect(html).toContain('<h1>feature-worktree</h1>');
-    expect(html).toContain('Checked-out branch:</span><code>feature/branch</code>');
+    expect(html).toContain('title="Switch branch"');
+    expect(html).toContain('<code>feature/branch</code>');
     expect(html).toContain('<code>../repo.worktrees/feature</code>');
     expect(html).not.toContain('Checked-out branches');
+  });
+
+  it('disables branch switching with an explanation for a dirty worktree', () => {
+    const html = renderToStaticMarkup(
+      createElement(WorktreeDetails, {
+        homeDirectory: '/repo.worktrees',
+        details,
+        projectWorktrees: [mainWorktree, details],
+        status: 'dirty',
+        onSnapshot: () => undefined,
+        onError: () => undefined,
+      }),
+    );
+
+    expect(html).toContain(
+      'title="Commit, stash, or discard your changes before switching branches"',
+    );
+    expect(html).toContain(
+      'aria-label="Switch branch unavailable: Commit, stash, or discard your changes before switching branches"',
+    );
+    expect(html).toContain('disabled=""');
   });
 
   it('labels the main worktree consistently and shows its PR status', () => {
@@ -68,6 +93,7 @@ describe('WorktreeDetails copy controls', () => {
         },
         projectWorktrees: [mainWorktree, details],
         status: 'clean',
+        onSnapshot: () => undefined,
         onError: () => undefined,
       }),
     );
@@ -90,6 +116,7 @@ describe('WorktreeDetails copy controls', () => {
         details,
         projectWorktrees: [mainWorktree, details, collision],
         status: 'clean',
+        onSnapshot: () => undefined,
         onError: () => undefined,
       }),
     );
@@ -109,6 +136,7 @@ describe('WorktreeDetails copy controls', () => {
         details: collidingDetails,
         projectWorktrees: [mainWorktree, collidingDetails],
         status: 'clean',
+        onSnapshot: () => undefined,
         onError: () => undefined,
       }),
     );

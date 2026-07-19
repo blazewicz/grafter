@@ -9,6 +9,7 @@ export const ipc = {
   listBranches: 'grafter:list-branches',
   suggestWorktreePath: 'grafter:suggest-worktree-path',
   createWorktree: 'grafter:create-worktree',
+  switchBranch: 'grafter:switch-branch',
   prepareRemove: 'grafter:prepare-remove',
   approveCommand: 'grafter:approve-command',
   rejectCommand: 'grafter:reject-command',

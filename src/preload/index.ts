@@ -6,6 +6,7 @@ import type {
   CreateWorktreeRequest,
   GrafterApi,
   Settings,
+  SwitchBranchRequest,
 } from '../shared/contracts';
 import { ipc } from '../shared/ipc';
 
@@ -21,6 +22,8 @@ const api: GrafterApi = {
     ipcRenderer.invoke(ipc.suggestWorktreePath, projectId, branch),
   createWorktree: (request: CreateWorktreeRequest) =>
     ipcRenderer.invoke(ipc.createWorktree, request),
+  switchBranch: (request: SwitchBranchRequest) =>
+    ipcRenderer.invoke(ipc.switchBranch, request),
   prepareRemoveWorktree: (worktreeId) =>
     ipcRenderer.invoke(ipc.prepareRemove, worktreeId),
   approveCommand: (approvalId) => ipcRenderer.invoke(ipc.approveCommand, approvalId),

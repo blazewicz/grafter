@@ -69,6 +69,69 @@
   height: 23px;
 }
 
+.branch-picker {
+  position: relative;
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
+.branch-picker-trigger {
+  min-width: 0;
+  display: flex;
+}
+
+.branch-menu-button {
+  min-width: 0;
+  max-width: 100%;
+  height: 23px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  justify-content: center;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #b7b8be;
+}
+
+.branch-menu-button code {
+  color: inherit;
+}
+
+.branch-menu-button svg {
+  flex: 0 0 auto;
+  color: var(--muted);
+}
+
+.branch-menu-button:hover:not(:disabled),
+.branch-menu-button:focus-visible {
+  background: rgba(255, 255, 255, 0.055);
+  color: #d7d7da;
+}
+
+.branch-menu-button:disabled {
+  color: #4e4f54;
+  cursor: not-allowed;
+}
+
+.branch-menu-button:disabled svg {
+  color: inherit;
+}
+
+.branch-menu {
+  z-index: 20;
+  position: absolute;
+  top: calc(100% + 5px);
+  left: -6px;
+  width: 280px;
+  padding: 7px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: rgba(38, 39, 44, 0.98);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.38);
+}
+
 .copy-text-button {
   width: 25px;
   height: 25px;

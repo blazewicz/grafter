@@ -6,6 +6,7 @@ const worktreeStatusRefreshMs = 15_000;
 
 export function useWorktreeInspection(
   worktreeId: string | undefined,
+  worktreeBranch: string | undefined,
   onError: (message: string) => void,
 ): {
   details: WorktreeDetails | undefined;
@@ -14,6 +15,7 @@ export function useWorktreeInspection(
   const [details, setDetails] = useState<WorktreeDetails>();
   const [statusResult, setStatusResult] = useState<{
     worktreeId: string;
+    branch: string | undefined;
     status: WorktreeStatus;
   }>();
 
@@ -56,7 +58,7 @@ export function useWorktreeInspection(
     return () => {
       active = false;
     };
-  }, [onError, worktreeId]);
+  }, [onError, worktreeBranch, worktreeId]);
 
   useEffect(() => {
     if (!worktreeId) return;
@@ -85,11 +87,13 @@ export function useWorktreeInspection(
       refreshInFlight = true;
       try {
         const next = await api.getWorktreeStatus(worktreeId);
-        if (active) setStatusResult({ worktreeId, status: next });
+        if (active) setStatusResult({ worktreeId, branch: worktreeBranch, status: next });
       } catch (caught) {
         if (active) {
           setStatusResult((current) =>
-            current?.worktreeId === worktreeId ? undefined : current,
+            current?.worktreeId === worktreeId && current.branch === worktreeBranch
+              ? undefined
+              : current,
           );
           if (!reportedError) {
             reportedError = true;
@@ -115,12 +119,17 @@ export function useWorktreeInspection(
       clearScheduledRefresh();
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, [onError, worktreeId]);
+  }, [onError, worktreeBranch, worktreeId]);
 
   return {
-    details,
+    details:
+      details && details.id === worktreeId && details.branch === worktreeBranch
+        ? details
+        : undefined,
     status:
-      statusResult && statusResult.worktreeId === worktreeId
+      statusResult &&
+      statusResult.worktreeId === worktreeId &&
+      statusResult.branch === worktreeBranch
         ? statusResult.status
         : undefined,
   };

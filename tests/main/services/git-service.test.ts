@@ -55,6 +55,85 @@ describe('GitService worktree status', () => {
   });
 });
 
+describe('GitService branch operations', () => {
+  const project: Project = {
+    id: 'project',
+    name: 'project',
+    path: '/repo',
+  };
+  const worktree: Worktree = {
+    id: 'project:/repo.worktrees/feature',
+    projectId: project.id,
+    name: 'feature',
+    path: '/repo.worktrees/feature',
+    branch: 'feature/old',
+    head: '1234567',
+    isMain: false,
+    locked: false,
+  };
+
+  it('lists only local branches and sorts them', async () => {
+    const runner = new StubCommandRunner(() => ({
+      stdout: 'release/0.1\nmain\nfeature/new\n',
+    }));
+
+    await expect(new GitService(runner).listBranches(project)).resolves.toEqual([
+      'feature/new',
+      'main',
+      'release/0.1',
+    ]);
+    expect(runner.commands[0]).toMatchObject({
+      args: ['for-each-ref', '--format=%(refname:short)', 'refs/heads'],
+      cwd: project.path,
+      isReadOnly: true,
+    });
+  });
+
+  it('switches with an argument array in the worktree context', async () => {
+    const runner = new StubCommandRunner(() => ({}));
+
+    await new GitService(runner).switchBranch(worktree, 'feature/new');
+
+    expect(runner.commands[0]).toEqual({
+      context: worktreeCommandContext(worktree),
+      tool: 'git',
+      executable: 'git',
+      args: ['switch', '--no-guess', '--', 'feature/new'],
+      cwd: worktree.path,
+      purpose: 'Switch feature to feature/new',
+      isReadOnly: false,
+    });
+  });
+
+  it('does not create or track a branch while adding a worktree', async () => {
+    const runner = new StubCommandRunner(() => ({}));
+
+    await new GitService(runner).addWorktree(
+      project,
+      '/repo.worktrees/feature-new',
+      'feature/new',
+    );
+
+    expect(runner.commands[0]?.args).toEqual([
+      'worktree',
+      'add',
+      '/repo.worktrees/feature-new',
+      'feature/new',
+    ]);
+  });
+
+  it('surfaces a switch rejected by Git', async () => {
+    const runner = new StubCommandRunner(() => ({
+      exitCode: 1,
+      stderr: 'Your local changes would be overwritten by checkout.',
+    }));
+
+    await expect(
+      new GitService(runner).switchBranch(worktree, 'feature/new'),
+    ).rejects.toThrow('Your local changes would be overwritten by checkout.');
+  });
+});
+
 describe('GitService worktree details', () => {
   it('omits comparison data when remote HEAD is unknown', async () => {
     const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-details-'));
