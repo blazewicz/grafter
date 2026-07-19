@@ -1,5 +1,4 @@
 import {
-  ArrowUpRight,
   Check,
   ChevronDown,
   Circle,
@@ -8,12 +7,18 @@ import {
   FolderOpen,
   GitBranch,
   GitCompareArrows,
+  GitMerge,
   GitPullRequest,
+  GitPullRequestClosed,
+  GitPullRequestDraft,
+  SquareArrowOutUpRight,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type {
   AppSnapshot,
   EditorTool,
+  PullRequestState,
   Settings,
   Worktree,
   WorktreeDetails as WorktreeDetailsData,
@@ -31,6 +36,30 @@ const editorOptions: readonly {
   id: EditorTool;
   label: string;
 }[] = [{ id: 'vscode', label: 'Visual Studio Code' }];
+
+const pullRequestStatePresentation = {
+  OPEN: { icon: GitPullRequest, label: 'Open' },
+  DRAFT: { icon: GitPullRequestDraft, label: 'Draft' },
+  MERGED: { icon: GitMerge, label: 'Merged' },
+  CLOSED: { icon: GitPullRequestClosed, label: 'Closed' },
+} satisfies Record<PullRequestState, { icon: LucideIcon; label: string }>;
+
+function PullRequestStateIcon({ state }: { state: PullRequestState }): React.JSX.Element {
+  const presentation = pullRequestStatePresentation[state];
+  const StateIcon = presentation.icon;
+
+  return (
+    <span
+      className={styles.prStateIcon}
+      data-state={state}
+      role="img"
+      aria-label={`Pull request status: ${presentation.label.toLowerCase()}`}
+      title={`Status: ${presentation.label}`}
+    >
+      <StateIcon size={16} aria-hidden="true" />
+    </span>
+  );
+}
 
 export function WorktreeDetails({
   homeDirectory,
@@ -369,26 +398,52 @@ export function WorktreeDetails({
         />
       )}
       {pullRequest ? (
-        <section className={styles.prCard}>
-          <div className={styles.prIcon}>
-            <GitPullRequest size={20} />
-          </div>
-          <div className={styles.prContent}>
-            <div className={styles.prMeta}>
-              <span className={styles.prPill} data-state={pullRequest.state}>
-                {pullRequest.state}
-              </span>
-              <span>Pull request #{pullRequest.number}</span>
+        <section
+          className={styles.prCard}
+          aria-label={`Pull request #${pullRequest.number}`}
+        >
+          <span className={styles.sectionLabel}>PULL REQUEST</span>
+          <div className={styles.prTitleRow}>
+            <PullRequestStateIcon state={pullRequest.state} />
+            <div className={styles.prTitleCopy}>
+              <span className={styles.prNumber}>#{pullRequest.number}</span>
+              <strong className={styles.prTitle}>{pullRequest.title}</strong>
             </div>
-            <strong>{pullRequest.title}</strong>
-            <span>Base branch: {pullRequest.baseBranch}</span>
+            <div className={styles.prActions}>
+              <button
+                className={styles.prExternalLink}
+                aria-label="Open pull request"
+                title="Open pull request"
+                onClick={() => void api.openExternal(pullRequest.url)}
+              >
+                <SquareArrowOutUpRight size={15} aria-hidden="true" />
+              </button>
+            </div>
           </div>
-          <button
-            aria-label="Open pull request"
-            onClick={() => void api.openExternal(pullRequest.url)}
-          >
-            <ArrowUpRight size={17} />
-          </button>
+          <div className={styles.prMeta}>
+            <span>Base branch:</span>
+            <code>{pullRequest.baseBranch}</code>
+            <button
+              className={styles.copyTextButton}
+              aria-label={
+                copiedText === pullRequest.baseBranch
+                  ? 'Base branch name copied'
+                  : `Copy ${pullRequest.baseBranch} base branch name`
+              }
+              title={
+                copiedText === pullRequest.baseBranch
+                  ? 'Base branch name copied'
+                  : 'Copy base branch name'
+              }
+              onClick={() => copyText(pullRequest.baseBranch)}
+            >
+              {copiedText === pullRequest.baseBranch ? (
+                <Check size={13} />
+              ) : (
+                <Copy size={13} />
+              )}
+            </button>
+          </div>
         </section>
       ) : (
         <section className={styles.quietCard}>
