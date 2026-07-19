@@ -224,6 +224,7 @@ export function App(): React.JSX.Element {
           projectWorktrees={projectWorktrees}
           status={worktreeStatus}
           onAdd={chooseProject}
+          onSelectWorktree={setSelectedId}
           onError={setError}
         />
       </div>
