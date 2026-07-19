@@ -33,6 +33,15 @@
   background: rgba(227, 183, 111, 0.1);
 }
 
+.modal-icon.danger {
+  color: #ff918a;
+  background: rgba(239, 129, 121, 0.11);
+}
+
+.project-removal-modal {
+  width: min(410px, 100%);
+}
+
 .modal-heading {
   margin-top: 14px;
 }

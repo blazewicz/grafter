@@ -85,6 +85,7 @@ export function ProjectNode({
           <button
             className={styles.dangerAction}
             aria-label={`Remove ${project.name} project`}
+            aria-haspopup="dialog"
             title="Remove project"
             onClick={onRemoveProject}
           >

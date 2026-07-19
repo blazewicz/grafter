@@ -7,6 +7,7 @@ import { useCommandLogs } from './components/audit/useCommandLogs';
 import { MainView } from './components/details/MainView';
 import { useWorktreeInspection } from './components/details/useWorktreeInspection';
 import { ApprovalDialog } from './components/dialogs/ApprovalDialog';
+import { ProjectRemovalDialog } from './components/dialogs/ProjectRemovalDialog';
 import { SettingsDialog } from './components/dialogs/SettingsDialog';
 import { ErrorToast } from './components/feedback/ErrorToast';
 import { AppTitlebar } from './components/shell/AppTitlebar';
@@ -27,6 +28,7 @@ export function App(): React.JSX.Element {
   const [selectedId, setSelectedId] = useState<string>();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [approval, setApproval] = useState<ApprovalRequest>();
+  const [projectRemovalId, setProjectRemovalId] = useState<string>();
   const [dialog, setDialog] = useState<DialogName>(null);
   const [logsOpen, setLogsOpen] = useState(true);
   const [error, setError] = useState<string>();
@@ -37,6 +39,9 @@ export function App(): React.JSX.Element {
   };
 
   const selectedProject = snapshot?.projects.find((project) => project.id === selectedId);
+  const projectPendingRemoval = snapshot?.projects.find(
+    (project) => project.id === projectRemovalId,
+  );
   const selectedWorktree = snapshot?.projects
     .flatMap((project) => project.worktrees)
     .find((worktree) => worktree.id === selectedId);
@@ -209,9 +214,7 @@ export function App(): React.JSX.Element {
             if (created) setSelectedId(created.id);
             if (next.setupApproval) setApproval(next.setupApproval);
           }}
-          onRemoveProject={(projectId) =>
-            void run(() => api.removeProject(projectId), applySnapshot)
-          }
+          onRemoveProject={setProjectRemovalId}
           onRemoveWorktree={(worktree) =>
             void run(() => api.prepareRemoveWorktree(worktree.id), setApproval)
           }
@@ -252,6 +255,22 @@ export function App(): React.JSX.Element {
           busy={busy}
           onReject={() => resolveApproval('reject')}
           onApprove={() => resolveApproval('approve')}
+        />
+      )}
+      {projectPendingRemoval && (
+        <ProjectRemovalDialog
+          projectName={projectPendingRemoval.name}
+          busy={busy}
+          onCancel={() => setProjectRemovalId(undefined)}
+          onConfirm={() =>
+            void run(
+              () => api.removeProject(projectPendingRemoval.id),
+              (next) => {
+                applySnapshot(next);
+                setProjectRemovalId(undefined);
+              },
+            )
+          }
         />
       )}
       {dialog === 'settings' && (
