@@ -48,7 +48,11 @@ export function MainView({
       ) : selectedWorktree ? (
         <DetailsLoading />
       ) : selectedProject ? (
-        <ProjectDetails project={selectedProject} onSelectWorktree={onSelectWorktree} />
+        <ProjectDetails
+          homeDirectory={homeDirectory}
+          project={selectedProject}
+          onSelectWorktree={onSelectWorktree}
+        />
       ) : (
         <Welcome onAdd={onAdd} />
       )}

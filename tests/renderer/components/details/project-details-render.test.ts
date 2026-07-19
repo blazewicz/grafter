@@ -18,19 +18,24 @@ function worktree(name: string, path: string, branch: string, isMain = false): W
 }
 
 describe('ProjectDetails', () => {
-  it('renders a worktree-first navigation list without paths or duplicate metadata', () => {
-    const main = worktree('repo', '/projects/repo', 'main', true);
-    const alpha = worktree('alpha', '/worktrees/alpha', 'feature/alpha');
-    const collision = worktree('repo', '/worktrees/b77c/repo', 'feature/worktree-first');
+  it('renders concrete home-collapsed worktree paths with full hover labels', () => {
+    const main = worktree('repo', '/Users/kasia/projects/repo', 'main', true);
+    const alpha = worktree('alpha', '/Users/kasia/worktrees/alpha', 'feature/alpha');
+    const collision = worktree(
+      'repo',
+      '/Users/kasia/worktrees/b77c/repo',
+      'feature/worktree-first',
+    );
     const project: ProjectTreeItem = {
       id: 'project',
       name: 'repo',
-      path: '/projects/repo',
+      path: '/Users/kasia/projects/repo',
       worktrees: [collision, alpha, main],
     };
 
     const html = renderToStaticMarkup(
       createElement(ProjectDetails, {
+        homeDirectory: '/Users/kasia',
         project,
         onSelectWorktree: () => undefined,
       }),
@@ -39,15 +44,19 @@ describe('ProjectDetails', () => {
     expect(html).toContain('<h1>repo</h1>');
     expect(html).toContain('aria-label="Worktrees"');
     expect(html).toContain('3 worktrees');
-    expect(html.indexOf('>main</button>')).toBeLessThan(html.indexOf('>alpha</button>'));
-    expect(html.indexOf('>alpha</button>')).toBeLessThan(
-      html.indexOf('>b77c/repo</button>'),
+    expect(html.indexOf('>~/projects/repo</button>')).toBeLessThan(
+      html.indexOf('>~/worktrees/alpha</button>'),
     );
+    expect(html.indexOf('>~/worktrees/alpha</button>')).toBeLessThan(
+      html.indexOf('>~/worktrees/b77c/repo</button>'),
+    );
+    expect(html).toContain('title="~/projects/repo"');
+    expect(html).toContain('title="~/worktrees/alpha"');
+    expect(html).toContain('title="~/worktrees/b77c/repo"');
     expect(html).toContain('feature/alpha');
     expect(html).toContain('feature/worktree-first');
     expect(html).not.toContain('MAIN CLONE');
-    expect(html).not.toContain('/projects/repo');
-    expect(html).not.toContain('/worktrees/alpha');
+    expect(html).not.toContain('/Users/kasia');
     expect(html).not.toContain('Checked-out branches');
     expect(html).not.toContain('workspace');
   });

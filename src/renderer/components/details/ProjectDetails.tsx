@@ -4,9 +4,11 @@ import { ProjectWorktreeList } from './ProjectWorktreeList';
 import styles from './details.module.css';
 
 export function ProjectDetails({
+  homeDirectory,
   project,
   onSelectWorktree,
 }: {
+  homeDirectory: string;
   project: ProjectTreeItem;
   onSelectWorktree: (worktreeId: string) => void;
 }): React.JSX.Element {
@@ -18,7 +20,11 @@ export function ProjectDetails({
       <div className={styles.detailsTitleRow}>
         <h1>{project.name}</h1>
       </div>
-      <ProjectWorktreeList worktrees={project.worktrees} onSelect={onSelectWorktree} />
+      <ProjectWorktreeList
+        homeDirectory={homeDirectory}
+        worktrees={project.worktrees}
+        onSelect={onSelectWorktree}
+      />
     </div>
   );
 }
