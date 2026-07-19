@@ -2,6 +2,7 @@ import {
   ChevronDown,
   ChevronRight,
   FolderGit2,
+  FolderRoot,
   GitBranch,
   Minus,
   MoreHorizontal,
@@ -182,7 +183,7 @@ function WorktreeRow({
         }
         onClick={() => onSelect(worktree.id)}
       >
-        <GitBranch size={13} />
+        {worktree.isMain ? <FolderRoot size={13} /> : <GitBranch size={13} />}
         <span className={styles.worktreeNameWrap} data-worktree-path={worktree.path}>
           <span className={styles.worktreeName}>{displayName}</span>
           <span

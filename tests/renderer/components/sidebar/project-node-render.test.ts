@@ -66,6 +66,8 @@ describe('ProjectNode worktree labels', () => {
       html.indexOf('z-checked-worktree, checked out branch feature/checked-out'),
     );
     expect(html).toContain('mainWorktreeRow');
+    expect(html).toContain('lucide-folder-root');
+    expect(html.match(/lucide-git-branch/g)).toHaveLength(2);
     expect(html).toContain('>main</span>');
     expect(html).toContain('Main worktree · /repo');
     expect(html).toContain('data-branch-name="feature/from-main"');
