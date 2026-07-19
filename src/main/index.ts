@@ -103,6 +103,9 @@ function registerIpc(): void {
     service.removeProject(projectId),
   );
   ipcMain.handle(ipc.refresh, () => service.refresh());
+  ipcMain.handle(ipc.refreshProject, (_event, projectId: string) =>
+    service.refreshProject(projectId),
+  );
   ipcMain.handle(ipc.listBranches, (_event, projectId: string) =>
     service.listBranches(projectId),
   );

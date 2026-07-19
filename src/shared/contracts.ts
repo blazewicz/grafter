@@ -123,6 +123,7 @@ export interface GrafterApi {
   chooseProject(): Promise<AppSnapshot | null>;
   removeProject(projectId: string): Promise<AppSnapshot>;
   refresh(): Promise<AppSnapshot>;
+  refreshProject(projectId: string): Promise<AppSnapshot>;
   listBranches(projectId: string): Promise<string[]>;
   suggestWorktreePath(projectId: string, branch: string): Promise<string>;
   createWorktree(request: CreateWorktreeRequest): Promise<{

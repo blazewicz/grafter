@@ -44,6 +44,7 @@ export class AppService {
   readonly #systemLocale: string;
   readonly #pullRequestLookups = new Map<string, Promise<PullRequest | undefined>>();
   readonly #pullRequestRefreshedAt = new Map<string, number>();
+  readonly #projectRefreshVersions = new Map<string, number>();
 
   constructor(
     readonly store: StateStore,
@@ -93,36 +94,28 @@ export class AppService {
     await this.store.update((state) => {
       state.projects = state.projects.filter((project) => project.id !== projectId);
     });
+    this.#projectRefreshVersions.delete(projectId);
     return this.refresh();
   }
 
   async refresh(): Promise<AppSnapshot> {
-    const previousWorktrees = new Map(
-      this.#trees.flatMap((project) =>
-        project.worktrees.map((worktree) => [worktree.id, worktree] as const),
-      ),
+    const previousTrees = new Map(this.#trees.map((project) => [project.id, project]));
+    this.#trees = this.store.state.projects.map(
+      (project) => previousTrees.get(project.id) ?? { ...project, worktrees: [] },
     );
-    const trees: ProjectTreeItem[] = [];
     for (const project of this.store.state.projects) {
-      try {
-        const worktrees = await this.git.listWorktrees(project);
-        trees.push({
-          ...project,
-          worktrees: worktrees.map((worktree) => {
-            const previous = previousWorktrees.get(worktree.id);
-            return previous?.branch === worktree.branch && previous.pullRequest
-              ? { ...worktree, pullRequest: previous.pullRequest }
-              : worktree;
-          }),
-        });
-      } catch {
-        trees.push({ ...project, worktrees: [] });
-      }
+      await this.#refreshProject(project, true);
     }
-    this.#trees = trees;
-    const worktrees = trees.flatMap((project) => project.worktrees);
+    const worktrees = this.#trees.flatMap((project) => project.worktrees);
     this.#prunePullRequestCache(worktrees);
     void this.#hydratePullRequests(worktrees).catch(() => undefined);
+    return this.snapshot();
+  }
+
+  async refreshProject(projectId: string): Promise<AppSnapshot> {
+    const project = this.#project(projectId);
+    await this.#refreshProject(project, false);
+    this.#prunePullRequestCache(this.#trees.flatMap((item) => item.worktrees));
     return this.snapshot();
   }
 
@@ -227,6 +220,51 @@ export class AppService {
       else delete project.setupScript;
     });
     return this.refresh();
+  }
+
+  async #refreshProject(project: Project, tolerateFailure: boolean): Promise<Worktree[]> {
+    const refreshVersion = (this.#projectRefreshVersions.get(project.id) ?? 0) + 1;
+    this.#projectRefreshVersions.set(project.id, refreshVersion);
+    const previousWorktrees = new Map(
+      this.#trees
+        .find((item) => item.id === project.id)
+        ?.worktrees.map((worktree) => [worktree.id, worktree] as const) ?? [],
+    );
+    let worktrees: Worktree[];
+    try {
+      worktrees = (await this.git.listWorktrees(project)).map((worktree) => {
+        const previous = previousWorktrees.get(worktree.id);
+        return previous?.branch === worktree.branch && previous.pullRequest
+          ? { ...worktree, pullRequest: previous.pullRequest }
+          : worktree;
+      });
+    } catch (error) {
+      if (!tolerateFailure) throw error;
+      worktrees = [];
+    }
+
+    const currentWorktrees =
+      this.#trees.find((item) => item.id === project.id)?.worktrees ?? [];
+    const currentProject = this.store.state.projects.find(
+      (item) => item.id === project.id,
+    );
+    if (
+      !currentProject ||
+      this.#projectRefreshVersions.get(project.id) !== refreshVersion
+    ) {
+      return currentWorktrees;
+    }
+
+    const nextTree = { ...currentProject, worktrees };
+    const existingIndex = this.#trees.findIndex((item) => item.id === project.id);
+    if (existingIndex === -1) {
+      this.#trees = [...this.#trees, nextTree];
+    } else {
+      this.#trees = this.#trees.map((item, index) =>
+        index === existingIndex ? nextTree : item,
+      );
+    }
+    return worktrees;
   }
 
   #project(projectId: string): Project {

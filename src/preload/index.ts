@@ -15,6 +15,7 @@ const api: GrafterApi = {
   chooseProject: () => ipcRenderer.invoke(ipc.chooseProject),
   removeProject: (projectId) => ipcRenderer.invoke(ipc.removeProject, projectId),
   refresh: () => ipcRenderer.invoke(ipc.refresh),
+  refreshProject: (projectId) => ipcRenderer.invoke(ipc.refreshProject, projectId),
   listBranches: (projectId) => ipcRenderer.invoke(ipc.listBranches, projectId),
   suggestWorktreePath: (projectId, branch) =>
     ipcRenderer.invoke(ipc.suggestWorktreePath, projectId, branch),

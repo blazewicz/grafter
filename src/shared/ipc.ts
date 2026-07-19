@@ -5,6 +5,7 @@ export const ipc = {
   chooseProject: 'grafter:choose-project',
   removeProject: 'grafter:remove-project',
   refresh: 'grafter:refresh',
+  refreshProject: 'grafter:refresh-project',
   listBranches: 'grafter:list-branches',
   suggestWorktreePath: 'grafter:suggest-worktree-path',
   createWorktree: 'grafter:create-worktree',

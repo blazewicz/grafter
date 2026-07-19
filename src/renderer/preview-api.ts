@@ -295,6 +295,7 @@ export const previewApi: GrafterApi = {
     return Promise.resolve(structuredClone(snapshot));
   },
   refresh: () => Promise.resolve(structuredClone(snapshot)),
+  refreshProject: () => Promise.resolve(structuredClone(snapshot)),
   listBranches: () =>
     Promise.resolve([
       'audit-console',

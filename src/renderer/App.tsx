@@ -12,6 +12,7 @@ import { ErrorToast } from './components/feedback/ErrorToast';
 import { AppTitlebar } from './components/shell/AppTitlebar';
 import { Splash } from './components/shell/Splash';
 import { defaultSidebarWidth, ProjectSidebar } from './components/sidebar/ProjectSidebar';
+import { useProjectWorktreeRefresh } from './components/sidebar/useProjectWorktreeRefresh';
 import { api, friendlyError } from './grafter-api';
 import styles from './App.module.css';
 
@@ -95,6 +96,8 @@ export function App(): React.JSX.Element {
       );
     });
   }, []);
+
+  useProjectWorktreeRefresh(activeProject?.id, applySnapshot, setError);
 
   const run = useCallback(
     async <T,>(
