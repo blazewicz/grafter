@@ -198,6 +198,12 @@ describe('GitService worktree details', () => {
       locked: false,
     };
     const runner = new StubCommandRunner((spec) => {
+      if (spec.args[0] === 'log') {
+        return {
+          stdout:
+            '1234567890abcdef\nAda Lovelace\nada@example.com\n2026-07-19T14:25:00+02:00\nAdd commit details\nExplain the intent.\n\u0000\n8\t2\tsrc/details.ts\n',
+        };
+      }
       if (spec.args[0] === 'symbolic-ref') return { stdout: 'origin/main\n' };
       if (spec.args[0] === 'diff') return { stdout: '3\t1\tsrc/example.ts\n' };
       throw new Error(`Unexpected command: ${spec.args.join(' ')}`);
@@ -205,9 +211,26 @@ describe('GitService worktree details', () => {
     const service = new GitService(runner);
 
     await expect(service.details(project, baseWorktree)).resolves.toMatchObject({
+      commit: {
+        hash: '1234567890abcdef',
+        title: 'Add commit details',
+        body: 'Explain the intent.',
+        authorName: 'Ada Lovelace',
+        authorEmail: 'ada@example.com',
+        authoredAt: '2026-07-19T14:25:00+02:00',
+        stats: { files: 1, additions: 8, deletions: 2 },
+      },
       targetBranch: 'main',
       diff: { files: 1, additions: 3, deletions: 1 },
     });
+    expect(runner.commands.find((command) => command.args[0] === 'log')?.args).toEqual([
+      'log',
+      '-1',
+      '--numstat',
+      '--diff-merges=first-parent',
+      '--format=%H%n%an%n%ae%n%aI%n%s%n%b%x00',
+      'HEAD',
+    ]);
 
     const mainWorktree = {
       ...baseWorktree,
@@ -254,6 +277,12 @@ describe('GitService worktree details', () => {
       locked: false,
     };
     const runner = new StubCommandRunner((spec) => {
+      if (spec.args[0] === 'log') {
+        return {
+          stdout:
+            '1234567890abcdef\nAda Lovelace\n\n2026-07-19T14:25:00+02:00\nTitle only\n\u0000\n2\t0\tsrc/example.ts\n',
+        };
+      }
       if (spec.args[0] === 'diff') return { stdout: '2\t0\tsrc/example.ts\n' };
       throw new Error(`Unexpected command: ${spec.args.join(' ')}`);
     });

@@ -71,6 +71,12 @@ describe('AppService pull request refresh', () => {
       if (spec.tool === 'git' && spec.args[0] === 'diff') {
         return { stdout: '3\t1\tsrc/example.ts\n' };
       }
+      if (spec.tool === 'git' && spec.args[0] === 'log') {
+        return {
+          stdout:
+            'bbbbbbb\nAda Lovelace\nada@example.com\n2026-07-19T14:25:00+02:00\nCached details commit\n\u0000\n3\t1\tsrc/example.ts\n',
+        };
+      }
       if (spec.tool === 'github' && spec.args[2] === 'main') {
         return { exitCode: 1, stderr: 'no pull request found' };
       }
@@ -132,6 +138,7 @@ describe('AppService pull request refresh', () => {
 
     const cachedDetails = await service.details(worktree.id);
     expect(cachedDetails.pullRequest?.title).toBe('Cached title');
+    expect(cachedDetails.commit?.title).toBe('Cached details commit');
     expect(cachedDetails.targetBranch).toBe('feature/base');
     expect(featurePullRequestCalls).toBe(1);
 

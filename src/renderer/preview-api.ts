@@ -236,22 +236,56 @@ const details: Record<string, WorktreeDetails> = {
   'grafter:main': {
     ...snapshot.projects[0]!.worktrees[0]!,
     projectName: 'grafter',
+    commit: {
+      hash: '3e7cb81771d9d59de29f052c2fc7852d12b2a990',
+      title: 'Polish branch switching feedback',
+      body: '',
+      authorName: 'Kasia Nowak',
+      authorEmail: 'kasia@example.com',
+      authoredAt: '2026-07-19T10:14:00+02:00',
+      stats: { files: 2, additions: 18, deletions: 4 },
+    },
   },
   'grafter:glass': {
     ...snapshot.projects[0]!.worktrees[1]!,
     projectName: 'grafter',
+    commit: {
+      hash: 'cf91e24bc937201570241099a8d04377c705426a',
+      title: 'Build translucent sidebar',
+      body: 'Tighten the selected worktree hierarchy and keep secondary actions hidden until hover.\n\nThis also aligns spacing with the details view.',
+      authorName: 'Kasia Nowak',
+      authorEmail: 'kasia@example.com',
+      authoredAt: '2026-07-19T12:42:00+02:00',
+      stats: { files: 2, additions: 124, deletions: 18 },
+    },
     targetBranch: 'main',
     diff: { files: 7, additions: 438, deletions: 41 },
   },
   'grafter:audit': {
     ...snapshot.projects[0]!.worktrees[2]!,
     projectName: 'grafter',
+    commit: {
+      hash: '81ca4922f8233eb7bab2fb30ec764f473296f484',
+      title: 'Add the audit console',
+      body: 'Group command attempts by their worktree context.',
+      authorName: 'Marek Zieliński',
+      authoredAt: '2026-07-18T17:08:00+02:00',
+      stats: { files: 3, additions: 121, deletions: 9 },
+    },
     targetBranch: 'feature/worktree-picker',
     diff: { files: 3, additions: 121, deletions: 9 },
   },
   'garden:main': {
     ...snapshot.projects[1]!.worktrees[0]!,
     projectName: 'garden-api',
+    commit: {
+      hash: '30dd5c35c5d87793437ac634a9aa5056d180dbb7',
+      title: 'Document local development',
+      body: '',
+      authorName: 'Alicja Kowalska',
+      authoredAt: '2026-07-17T09:30:00+02:00',
+      stats: { files: 1, additions: 12, deletions: 0 },
+    },
   },
 };
 
@@ -338,6 +372,15 @@ export const previewApi: GrafterApi = {
     details[worktreeId] = {
       ...switched,
       projectName: project.name,
+      commit: {
+        hash: switched.head,
+        title: `Switch to ${branch}`,
+        body: '',
+        authorName: 'Kasia Nowak',
+        authorEmail: 'kasia@example.com',
+        authoredAt: new Date().toISOString(),
+        stats: { files: 1, additions: 3, deletions: 1 },
+      },
       ...(branch === 'main'
         ? {}
         : {

@@ -14,6 +14,7 @@ import { useEffect, useRef, useState } from 'react';
 import type {
   AppSnapshot,
   EditorTool,
+  Settings,
   Worktree,
   WorktreeDetails as WorktreeDetailsData,
   WorktreeStatus,
@@ -24,6 +25,7 @@ import { api, friendlyError } from '../../grafter-api';
 import { BranchPicker } from '../branches/BranchPicker';
 import { VisualStudioCodeMark } from '../ui/BrandMarks';
 import styles from './details.module.css';
+import { LatestCommitCard } from './LatestCommitCard';
 
 const editorOptions: readonly {
   id: EditorTool;
@@ -32,6 +34,8 @@ const editorOptions: readonly {
 
 export function WorktreeDetails({
   homeDirectory,
+  settings,
+  systemLocale,
   details,
   projectWorktrees,
   status,
@@ -40,6 +44,8 @@ export function WorktreeDetails({
   onError,
 }: {
   homeDirectory: string;
+  settings: Pick<Settings, 'dateFormat' | 'timeFormat'>;
+  systemLocale: string;
   details: WorktreeDetailsData;
   projectWorktrees: Worktree[];
   status: WorktreeStatus | undefined;
@@ -60,6 +66,7 @@ export function WorktreeDetails({
   const selectedEditorLabel =
     editorOptions.find((option) => option.id === editor)?.label ?? 'IDE';
   const pullRequest = details.pullRequest;
+  const commit = details.commit;
   const worktreeDisplayName =
     buildWorktreeList(projectWorktrees).find(({ worktree }) => worktree.id === details.id)
       ?.displayName ?? (details.isMain ? 'main' : details.name);
@@ -351,6 +358,16 @@ export function WorktreeDetails({
           </div>
         </div>
       </section>
+      {commit && (
+        <LatestCommitCard
+          key={commit.hash}
+          commit={commit}
+          settings={settings}
+          systemLocale={systemLocale}
+          copied={copiedText === commit.hash}
+          onCopy={() => copyText(commit.hash)}
+        />
+      )}
       {pullRequest ? (
         <section className={styles.prCard}>
           <div className={styles.prIcon}>
@@ -391,7 +408,6 @@ export function WorktreeDetails({
                 Changes against <strong>{details.targetBranch}</strong>
               </span>
             </div>
-            <span className={styles.commitId}>{details.head.slice(0, 8)}</span>
           </div>
           <section className={styles.statsGrid}>
             <div>
