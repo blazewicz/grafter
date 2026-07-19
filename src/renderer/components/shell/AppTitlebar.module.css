@@ -19,11 +19,47 @@
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 9px;
   padding: 0 14px;
   color: #8d8d92;
   font-size: 11.5px;
   z-index: 1;
+}
+
+.history-actions {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+.history-button {
+  width: 23px;
+  height: 25px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 6px;
+  padding: 0;
+  color: #a4a4a9;
+  background: transparent;
+  cursor: default;
+}
+
+.history-button:hover:not(:disabled) {
+  color: var(--text);
+  background: var(--surface-strong);
+}
+
+.history-button:disabled {
+  color: #505055;
+}
+
+.title-breadcrumb {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
 }
 
 .title-project,
@@ -36,6 +72,18 @@
 .title-project {
   color: #c9c9cc;
   font-weight: 570;
+}
+
+.title-project-button {
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: default;
+}
+
+.title-project-button:hover {
+  color: var(--text);
 }
 
 .title-branch {

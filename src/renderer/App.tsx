@@ -12,6 +12,7 @@ import { SettingsDialog } from './components/dialogs/SettingsDialog';
 import { ErrorToast } from './components/feedback/ErrorToast';
 import { AppTitlebar } from './components/shell/AppTitlebar';
 import { Splash } from './components/shell/Splash';
+import { useNavigationHistory } from './components/shell/useNavigationHistory';
 import { defaultSidebarWidth, ProjectSidebar } from './components/sidebar/ProjectSidebar';
 import { useProjectWorktreeRefresh } from './components/sidebar/useProjectWorktreeRefresh';
 import { api, friendlyError } from './grafter-api';
@@ -25,7 +26,6 @@ interface AppShellStyle extends CSSProperties {
 
 export function App(): React.JSX.Element {
   const [snapshot, setSnapshot] = useState<AppSnapshot | null>(null);
-  const [selectedId, setSelectedId] = useState<string>();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [approval, setApproval] = useState<ApprovalRequest>();
   const [projectRemovalId, setProjectRemovalId] = useState<string>();
@@ -34,6 +34,15 @@ export function App(): React.JSX.Element {
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(defaultSidebarWidth);
+  const {
+    selectedId,
+    canGoBack,
+    canGoForward,
+    navigate,
+    goBack,
+    goForward,
+    reconcile: reconcileNavigation,
+  } = useNavigationHistory();
   const appShellStyle: AppShellStyle = {
     '--sidebar-width': `${sidebarWidth}px`,
   };
@@ -82,26 +91,24 @@ export function App(): React.JSX.Element {
         ?.worktrees ?? [details])
     : [];
 
-  const applySnapshot = useCallback((next: AppSnapshot): void => {
-    setSnapshot(next);
-    setExpanded((current) => {
-      if (current.size) return current;
-      return new Set(next.projects.map((project) => project.id));
-    });
-    setSelectedId((current) => {
-      const available = new Set([
-        ...next.projects.map((project) => project.id),
-        ...next.projects.flatMap((project) =>
-          project.worktrees.map((worktree) => worktree.id),
-        ),
-      ]);
-      if (current && available.has(current)) return current;
-      return (
-        next.projects.flatMap((project) => project.worktrees)[1]?.id ??
-        next.projects.flatMap((project) => project.worktrees)[0]?.id
+  const applySnapshot = useCallback(
+    (next: AppSnapshot): void => {
+      setSnapshot(next);
+      setExpanded((current) => {
+        if (current.size) return current;
+        return new Set(next.projects.map((project) => project.id));
+      });
+      const worktrees = next.projects.flatMap((project) => project.worktrees);
+      reconcileNavigation(
+        [
+          ...next.projects.map((project) => project.id),
+          ...worktrees.map((worktree) => worktree.id),
+        ],
+        worktrees[1]?.id ?? worktrees[0]?.id,
       );
-    });
-  }, []);
+    },
+    [reconcileNavigation],
+  );
 
   useProjectWorktreeRefresh(activeProject?.id, applySnapshot, setError);
 
@@ -189,6 +196,11 @@ export function App(): React.JSX.Element {
       <AppTitlebar
         projectName={activeProject?.name ?? snapshot.projects[0]?.name ?? 'Worktrees'}
         worktreeName={selectedWorktreeDisplayName}
+        canGoBack={canGoBack}
+        canGoForward={canGoForward}
+        onBack={goBack}
+        onForward={goForward}
+        onSelectProject={activeProject ? () => navigate(activeProject.id) : undefined}
         busy={busy}
         onRefresh={() => void run(() => api.refresh(), applySnapshot)}
       />
@@ -200,7 +212,7 @@ export function App(): React.JSX.Element {
           width={sidebarWidth}
           selectedId={selectedId}
           expanded={expanded}
-          onSelect={setSelectedId}
+          onSelect={navigate}
           onToggleProject={toggleProject}
           onExpandProject={(projectId) =>
             setExpanded((current) => new Set(current).add(projectId))
@@ -211,7 +223,7 @@ export function App(): React.JSX.Element {
             const created = next.snapshot.projects
               .find((project) => project.id === projectId)
               ?.worktrees.find((worktree) => worktree.path === request.path);
-            if (created) setSelectedId(created.id);
+            if (created) navigate(created.id);
             if (next.setupApproval) setApproval(next.setupApproval);
           }}
           onRemoveProject={setProjectRemovalId}
@@ -232,7 +244,8 @@ export function App(): React.JSX.Element {
           status={worktreeStatus}
           onSnapshot={applySnapshot}
           onAdd={chooseProject}
-          onSelectWorktree={setSelectedId}
+          onSelectProject={navigate}
+          onSelectWorktree={navigate}
           onError={setError}
         />
       </div>
