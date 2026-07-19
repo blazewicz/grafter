@@ -226,7 +226,14 @@ export class GitService {
     if (!worktree.head) return undefined;
     const result = await this.#gitAllowFailure(
       worktree.path,
-      ['log', '-1', '--format=%H%x00%an%x00%ae%x00%aI%x00%s%x00%b', 'HEAD'],
+      [
+        'log',
+        '-1',
+        '--numstat',
+        '--diff-merges=first-parent',
+        '--format=%H%x00%an%x00%ae%x00%aI%x00%s%x00%b%x00',
+        'HEAD',
+      ],
       'Read latest commit',
       true,
       context,

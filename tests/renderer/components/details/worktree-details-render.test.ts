@@ -21,6 +21,7 @@ const details: WorktreeDetailsData = {
     authorName: 'Ada Lovelace',
     authorEmail: 'ada@example.com',
     authoredAt: '2026-07-19T14:25:00+02:00',
+    stats: { files: 2, additions: 8, deletions: 2 },
   },
   targetBranch: 'main',
   diff: { files: 1, additions: 2, deletions: 0 },
@@ -66,6 +67,10 @@ describe('WorktreeDetails copy controls', () => {
     expect(html).toContain('<code title="1234567890abcdef">1234567</code>');
     expect(html).toContain('Add commit details');
     expect(html).toContain('Ada Lovelace');
+    expect(html).toContain('lucide-git-commit-horizontal');
+    expect(html).toContain('2 files');
+    expect(html).toContain('aria-label="8 additions">+8</span>');
+    expect(html).toContain('aria-label="2 deletions">−2</span>');
     expect(html).toContain('aria-expanded="false"');
     expect(html).toContain('Show commit message');
     expect(html).toContain('lucide-folder-git');
@@ -99,6 +104,32 @@ describe('WorktreeDetails copy controls', () => {
       'aria-label="Switch branch unavailable: Commit, stash, or discard your changes before switching branches"',
     );
     expect(html).toContain('aria-disabled="true"');
+  });
+
+  it('uses a singular file label for a one-file commit', () => {
+    const commit = details.commit;
+    if (!commit) throw new Error('Expected commit details.');
+    const html = renderToStaticMarkup(
+      createElement(WorktreeDetails, {
+        homeDirectory: '/repo.worktrees',
+        ...displayPreferences,
+        details: {
+          ...details,
+          commit: {
+            ...commit,
+            stats: { ...commit.stats, files: 1 },
+          },
+        },
+        projectWorktrees: [mainWorktree, details],
+        status: 'clean',
+        onSnapshot: () => undefined,
+        onSelectProject: () => undefined,
+        onError: () => undefined,
+      }),
+    );
+
+    expect(html).toContain('1 file');
+    expect(html).not.toContain('1 files');
   });
 
   it('labels the main worktree consistently and shows its PR status', () => {

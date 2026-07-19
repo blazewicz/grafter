@@ -74,7 +74,7 @@ describe('AppService pull request refresh', () => {
       if (spec.tool === 'git' && spec.args[0] === 'log') {
         return {
           stdout:
-            'bbbbbbb\u0000Ada Lovelace\u0000ada@example.com\u00002026-07-19T14:25:00+02:00\u0000Cached details commit\u0000\n',
+            'bbbbbbb\u0000Ada Lovelace\u0000ada@example.com\u00002026-07-19T14:25:00+02:00\u0000Cached details commit\u0000\u0000\n3\t1\tsrc/example.ts\n',
         };
       }
       if (spec.tool === 'github' && spec.args[2] === 'main') {

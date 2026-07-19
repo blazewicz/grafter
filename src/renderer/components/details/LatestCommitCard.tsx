@@ -1,4 +1,4 @@
-import { Check, ChevronRight, Copy } from 'lucide-react';
+import { Check, ChevronRight, Copy, GitCommitHorizontal } from 'lucide-react';
 import { useId, useState } from 'react';
 import type { CommitDetails, Settings } from '../../../shared/contracts';
 import { formatDate, formatTime } from '../../date-time';
@@ -26,8 +26,16 @@ export function LatestCommitCard({
 
   return (
     <section className={styles.commitCard} aria-label="HEAD commit">
-      <div className={styles.commitCardHeading}>
-        <span className={styles.sectionLabel}>HEAD COMMIT</span>
+      <span className={styles.sectionLabel}>HEAD COMMIT</span>
+      <div className={styles.commitTitleRow}>
+        <GitCommitHorizontal
+          className={styles.commitTitleIcon}
+          size={16}
+          aria-hidden="true"
+        />
+        <strong className={styles.commitTitle}>
+          {commit.title || 'Untitled commit'}
+        </strong>
         <div className={styles.commitHash}>
           <code title={commit.hash}>{commit.hash.slice(0, 7)}</code>
           <button
@@ -40,7 +48,6 @@ export function LatestCommitCard({
           </button>
         </div>
       </div>
-      <strong className={styles.commitTitle}>{commit.title || 'Untitled commit'}</strong>
       <div className={styles.commitMeta}>
         <span title={authorTitle}>{commit.authorName}</span>
         <span aria-hidden="true">·</span>
@@ -48,6 +55,23 @@ export function LatestCommitCard({
           {formatDate(commit.authoredAt, settings.dateFormat, systemLocale)} at{' '}
           {formatTime(commit.authoredAt, settings.timeFormat, false, systemLocale)}
         </time>
+        <span aria-hidden="true">·</span>
+        <span>
+          {commit.stats.files} {commit.stats.files === 1 ? 'file' : 'files'}
+        </span>
+        <span aria-hidden="true">·</span>
+        <span
+          className={styles.commitAdditions}
+          aria-label={`${commit.stats.additions} additions`}
+        >
+          +{commit.stats.additions}
+        </span>
+        <span
+          className={styles.commitDeletions}
+          aria-label={`${commit.stats.deletions} deletions`}
+        >
+          −{commit.stats.deletions}
+        </span>
       </div>
       {hasBody && (
         <>

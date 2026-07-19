@@ -243,6 +243,7 @@ const details: Record<string, WorktreeDetails> = {
       authorName: 'Kasia Nowak',
       authorEmail: 'kasia@example.com',
       authoredAt: '2026-07-19T10:14:00+02:00',
+      stats: { files: 2, additions: 18, deletions: 4 },
     },
   },
   'grafter:glass': {
@@ -255,6 +256,7 @@ const details: Record<string, WorktreeDetails> = {
       authorName: 'Kasia Nowak',
       authorEmail: 'kasia@example.com',
       authoredAt: '2026-07-19T12:42:00+02:00',
+      stats: { files: 2, additions: 124, deletions: 18 },
     },
     targetBranch: 'main',
     diff: { files: 7, additions: 438, deletions: 41 },
@@ -268,6 +270,7 @@ const details: Record<string, WorktreeDetails> = {
       body: 'Group command attempts by their worktree context.',
       authorName: 'Marek Zieliński',
       authoredAt: '2026-07-18T17:08:00+02:00',
+      stats: { files: 3, additions: 121, deletions: 9 },
     },
     targetBranch: 'feature/worktree-picker',
     diff: { files: 3, additions: 121, deletions: 9 },
@@ -281,6 +284,7 @@ const details: Record<string, WorktreeDetails> = {
       body: '',
       authorName: 'Alicja Kowalska',
       authoredAt: '2026-07-17T09:30:00+02:00',
+      stats: { files: 1, additions: 12, deletions: 0 },
     },
   },
 };
@@ -375,6 +379,7 @@ export const previewApi: GrafterApi = {
         authorName: 'Kasia Nowak',
         authorEmail: 'kasia@example.com',
         authoredAt: new Date().toISOString(),
+        stats: { files: 1, additions: 3, deletions: 1 },
       },
       ...(branch === 'main'
         ? {}

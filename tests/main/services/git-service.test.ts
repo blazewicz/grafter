@@ -201,7 +201,7 @@ describe('GitService worktree details', () => {
       if (spec.args[0] === 'log') {
         return {
           stdout:
-            '1234567890abcdef\u0000Ada Lovelace\u0000ada@example.com\u00002026-07-19T14:25:00+02:00\u0000Add commit details\u0000Explain the intent.\n',
+            '1234567890abcdef\u0000Ada Lovelace\u0000ada@example.com\u00002026-07-19T14:25:00+02:00\u0000Add commit details\u0000Explain the intent.\n\u0000\n8\t2\tsrc/details.ts\n',
         };
       }
       if (spec.args[0] === 'symbolic-ref') return { stdout: 'origin/main\n' };
@@ -218,10 +218,19 @@ describe('GitService worktree details', () => {
         authorName: 'Ada Lovelace',
         authorEmail: 'ada@example.com',
         authoredAt: '2026-07-19T14:25:00+02:00',
+        stats: { files: 1, additions: 8, deletions: 2 },
       },
       targetBranch: 'main',
       diff: { files: 1, additions: 3, deletions: 1 },
     });
+    expect(runner.commands.find((command) => command.args[0] === 'log')?.args).toEqual([
+      'log',
+      '-1',
+      '--numstat',
+      '--diff-merges=first-parent',
+      '--format=%H%x00%an%x00%ae%x00%aI%x00%s%x00%b%x00',
+      'HEAD',
+    ]);
 
     const mainWorktree = {
       ...baseWorktree,
@@ -271,7 +280,7 @@ describe('GitService worktree details', () => {
       if (spec.args[0] === 'log') {
         return {
           stdout:
-            '1234567890abcdef\u0000Ada Lovelace\u0000\u00002026-07-19T14:25:00+02:00\u0000Title only\u0000\n',
+            '1234567890abcdef\u0000Ada Lovelace\u0000\u00002026-07-19T14:25:00+02:00\u0000Title only\u0000\u0000\n2\t0\tsrc/example.ts\n',
         };
       }
       if (spec.args[0] === 'diff') return { stdout: '2\t0\tsrc/example.ts\n' };

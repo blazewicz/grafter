@@ -81,6 +81,7 @@ export interface CommitDetails {
   authorName: string;
   authorEmail?: string;
   authoredAt: string;
+  stats: DiffStats;
 }
 
 export interface Worktree {

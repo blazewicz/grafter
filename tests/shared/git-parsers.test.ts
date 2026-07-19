@@ -64,10 +64,10 @@ detached
 });
 
 describe('parseCommitDetails', () => {
-  it('parses the full hash, author, authored date, title, and multiline body', () => {
+  it('parses metadata, a multiline body, and per-commit diff stats', () => {
     expect(
       parseCommitDetails(
-        '1234567890abcdef\u0000Ada Lovelace\u0000ada@example.com\u00002026-07-19T14:25:00+02:00\u0000Add commit details\u0000Explain the intent.\n\nKeep the body readable.\n',
+        '1234567890abcdef\u0000Ada Lovelace\u0000ada@example.com\u00002026-07-19T14:25:00+02:00\u0000Add commit details\u0000Explain the intent.\n\nKeep the body readable.\n\u0000\n12\t3\tsrc/a.ts\n5\t0\tsrc/b.ts\n-\t-\tasset.png\n',
       ),
     ).toEqual({
       hash: '1234567890abcdef',
@@ -76,6 +76,7 @@ describe('parseCommitDetails', () => {
       authorName: 'Ada Lovelace',
       authorEmail: 'ada@example.com',
       authoredAt: '2026-07-19T14:25:00+02:00',
+      stats: { files: 3, additions: 17, deletions: 3 },
     });
   });
 
@@ -83,7 +84,7 @@ describe('parseCommitDetails', () => {
     expect(parseCommitDetails('')).toBeUndefined();
     expect(
       parseCommitDetails(
-        'abc\u0000Ada\u0000ada@example.com\u0000not-a-date\u0000Title\u0000Body',
+        'abc\u0000Ada\u0000ada@example.com\u0000not-a-date\u0000Title\u0000Body\u0000',
       ),
     ).toBeUndefined();
   });
