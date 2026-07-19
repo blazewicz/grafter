@@ -105,11 +105,10 @@ export class AppService {
     const trees: ProjectTreeItem[] = [];
     for (const project of this.store.state.projects) {
       try {
-        const branchWorkspaces = await this.git.listBranchWorkspaces(project);
+        const worktrees = await this.git.listWorktrees(project);
         trees.push({
           ...project,
-          ...branchWorkspaces,
-          worktrees: branchWorkspaces.worktrees.map((worktree) => {
+          worktrees: worktrees.map((worktree) => {
             const previous = previousWorktrees.get(worktree.id);
             return previous?.branch === worktree.branch && previous.pullRequest
               ? { ...worktree, pullRequest: previous.pullRequest }

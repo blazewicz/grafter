@@ -24,7 +24,6 @@ let snapshot: AppSnapshot = {
       id: 'grafter',
       name: 'grafter',
       path: '/Users/kasia/Code/grafter',
-      defaultBranch: 'main',
       setupScript: 'npm install',
       worktrees: [
         {
@@ -77,7 +76,6 @@ let snapshot: AppSnapshot = {
       id: 'garden',
       name: 'garden-api',
       path: '/Users/kasia/Code/garden-api',
-      defaultBranch: 'main',
       worktrees: [
         {
           id: 'garden:main',
@@ -238,8 +236,6 @@ const details: Record<string, WorktreeDetails> = {
   'grafter:main': {
     ...snapshot.projects[0]!.worktrees[0]!,
     projectName: 'grafter',
-    targetBranch: 'main',
-    diff: { files: 0, additions: 0, deletions: 0 },
   },
   'grafter:glass': {
     ...snapshot.projects[0]!.worktrees[1]!,
@@ -256,8 +252,6 @@ const details: Record<string, WorktreeDetails> = {
   'garden:main': {
     ...snapshot.projects[1]!.worktrees[0]!,
     projectName: 'garden-api',
-    targetBranch: 'main',
-    diff: { files: 0, additions: 0, deletions: 0 },
   },
 };
 

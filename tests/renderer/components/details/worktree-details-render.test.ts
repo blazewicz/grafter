@@ -28,7 +28,7 @@ const mainWorktree: WorktreeDetailsData = {
 };
 
 describe('WorktreeDetails copy controls', () => {
-  it('renders accessible copy buttons for the branch name and worktree path', () => {
+  it('renders the worktree-first header and accessible copy controls', () => {
     const html = renderToStaticMarkup(
       createElement(WorktreeDetails, {
         homeDirectory: '/repo.worktrees',
@@ -41,6 +41,78 @@ describe('WorktreeDetails copy controls', () => {
 
     expect(html).toContain('aria-label="Copy feature/branch branch name"');
     expect(html).toContain('aria-label="Copy worktree path"');
+    expect(html).toContain('lucide-folder-git');
+    expect(html).toContain('repo</div>');
+    expect(html).toContain('<h1>feature-worktree</h1>');
+    expect(html).toContain('Checked-out branch:</span><code>feature/branch</code>');
     expect(html).toContain('<code>../repo.worktrees/feature</code>');
+    expect(html).not.toContain('Checked-out branches');
+  });
+
+  it('labels the main worktree consistently and shows its PR status', () => {
+    const html = renderToStaticMarkup(
+      createElement(WorktreeDetails, {
+        homeDirectory: '/repo.worktrees',
+        details: {
+          ...mainWorktree,
+          branch: 'feature/main-clone-pr',
+          pullRequest: {
+            number: 18,
+            title: 'PR from the main clone',
+            url: 'https://github.com/example/repo/pull/18',
+            state: 'OPEN',
+            baseBranch: 'main',
+          },
+          targetBranch: 'main',
+          diff: { files: 2, additions: 3, deletions: 1 },
+        },
+        projectWorktrees: [mainWorktree, details],
+        status: 'clean',
+        onError: () => undefined,
+      }),
+    );
+
+    expect(html).toContain('repo</div>');
+    expect(html).toContain('<h1>main</h1>');
+    expect(html).toContain('Pull request #18');
+    expect(html).toContain('Changes against <strong>main</strong>');
+  });
+
+  it('uses the same collision-safe worktree label as the sidebar', () => {
+    const collision = {
+      ...details,
+      id: 'project:/other/feature',
+      path: '/other/feature',
+    };
+    const html = renderToStaticMarkup(
+      createElement(WorktreeDetails, {
+        homeDirectory: '/repo.worktrees',
+        details,
+        projectWorktrees: [mainWorktree, details, collision],
+        status: 'clean',
+        onError: () => undefined,
+      }),
+    );
+
+    expect(html).toContain('<h1>repo.worktrees/feature</h1>');
+  });
+
+  it('expands the heading when the linked worktree matches the main clone name', () => {
+    const collidingDetails = {
+      ...details,
+      name: 'repo',
+      path: '/worktrees/b77c/repo',
+    };
+    const html = renderToStaticMarkup(
+      createElement(WorktreeDetails, {
+        homeDirectory: '/repo.worktrees',
+        details: collidingDetails,
+        projectWorktrees: [mainWorktree, collidingDetails],
+        status: 'clean',
+        onError: () => undefined,
+      }),
+    );
+
+    expect(html).toContain('<h1>b77c/repo</h1>');
   });
 });

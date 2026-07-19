@@ -44,11 +44,29 @@
   white-space: nowrap;
 }
 
-.branch-title {
+.checked-out-branch {
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 5px;
+  margin-top: 6px;
+  color: var(--faint);
+  font-size: 11.5px;
+}
+
+.checked-out-branch code {
+  min-width: 0;
+  overflow: hidden;
+  color: #b7b8be;
+  font-family: 'SFMono-Regular', monospace;
+  font-size: 10.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.checked-out-branch .copy-text-button {
+  width: 23px;
+  height: 23px;
 }
 
 .copy-text-button {
@@ -68,17 +86,6 @@
 .copy-text-button:focus-visible {
   background: rgba(255, 255, 255, 0.055);
   color: #d7d7da;
-}
-
-.details-title-row p {
-  margin: 5px 0 0;
-  color: var(--faint);
-  font-size: 12px;
-}
-
-.details-title-row p strong {
-  color: #b7b8be;
-  font-weight: 560;
 }
 
 .clean-badge {

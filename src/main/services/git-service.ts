@@ -68,20 +68,6 @@ export class GitService {
     return parseWorktreePorcelain(output, project.id);
   }
 
-  async listBranchWorkspaces(
-    project: Project,
-  ): Promise<{ defaultBranch: string; worktrees: Worktree[] }> {
-    const [worktrees, defaultBranch] = await Promise.all([
-      this.listWorktrees(project),
-      this.#defaultBranch(project, projectCommandContext(project)),
-    ]);
-
-    return {
-      defaultBranch,
-      worktrees,
-    };
-  }
-
   async listBranches(project: Project): Promise<string[]> {
     const context = projectCommandContext(project);
     const result = await this.#git(
@@ -134,16 +120,23 @@ export class GitService {
   async details(project: Project, worktree: Worktree): Promise<WorktreeDetails> {
     const context = worktreeCommandContext(worktree);
     const targetBranch =
-      worktree.pullRequest?.baseBranch ?? (await this.#defaultBranch(project, context));
-    const diff =
-      worktree.branch === targetBranch
-        ? { files: 0, additions: 0, deletions: 0 }
-        : await this.#diffStats(worktree.path, targetBranch, context);
+      worktree.pullRequest?.baseBranch ??
+      (await this.#remoteHeadBranch(project, context));
+    const comparableTarget =
+      targetBranch &&
+      (worktree.pullRequest !== undefined || targetBranch !== worktree.branch)
+        ? targetBranch
+        : undefined;
+    const comparison = comparableTarget
+      ? {
+          targetBranch: comparableTarget,
+          diff: await this.#diffStats(worktree.path, comparableTarget, context),
+        }
+      : {};
     return {
       ...worktree,
       projectName: project.name,
-      targetBranch,
-      diff,
+      ...comparison,
     };
   }
 
@@ -200,24 +193,19 @@ export class GitService {
     return { id: randomUUID(), ...details };
   }
 
-  async #defaultBranch(project: Project, context: CommandContext): Promise<string> {
+  async #remoteHeadBranch(
+    project: Project,
+    context: CommandContext,
+  ): Promise<string | undefined> {
     const remote = await this.#gitAllowFailure(
       project.path,
       ['symbolic-ref', '--short', 'refs/remotes/origin/HEAD'],
-      'Resolve default branch',
+      'Resolve remote HEAD',
       true,
       context,
     );
-    if (remote.record.exitCode === 0)
-      return remote.stdout.trim().replace(/^origin\//, '');
-    const current = await this.#git(
-      project.path,
-      ['branch', '--show-current'],
-      'Resolve current branch',
-      true,
-      context,
-    );
-    return current.stdout.trim() || 'main';
+    if (remote.record.exitCode !== 0) return undefined;
+    return remote.stdout.trim().replace(/^origin\//, '') || undefined;
   }
 
   async #diffStats(

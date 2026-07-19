@@ -9,6 +9,7 @@ import {
 import type { Project, Worktree } from '../../../src/shared/contracts';
 import { CommandRunner } from '../../../src/main/commands';
 import { GitService } from '../../../src/main/services/git-service';
+import { StubCommandRunner } from '../support/stub-command-runner';
 
 describe('GitService worktree status', () => {
   it('reports clean and dirty using porcelain status including untracked files', async () => {
@@ -55,7 +56,7 @@ describe('GitService worktree status', () => {
 });
 
 describe('GitService worktree details', () => {
-  it('does not compare a worktree with the branch it already targets', async () => {
+  it('omits comparison data when remote HEAD is unknown', async () => {
     const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-details-'));
     const runner = new CommandRunner(() => undefined);
     const initialized = await runner.run({
@@ -86,13 +87,12 @@ describe('GitService worktree details', () => {
     };
     const service = new GitService(runner);
 
-    await expect(service.details(project, worktree)).resolves.toMatchObject({
-      targetBranch: 'main',
-      diff: { files: 0, additions: 0, deletions: 0 },
-    });
+    await expect(service.details(project, worktree)).resolves.not.toHaveProperty(
+      'targetBranch',
+    );
     const worktreeCommands = runner.recordsFor(worktreeCommandContext(worktree));
     expect(
-      worktreeCommands.some((record) => record.purpose === 'Compare with main'),
+      worktreeCommands.some((record) => record.purpose.startsWith('Compare with')),
     ).toBe(false);
     expect(
       worktreeCommands.every(
@@ -100,6 +100,94 @@ describe('GitService worktree details', () => {
           record.context.kind === 'worktree' && record.context.worktreeId === worktree.id,
       ),
     ).toBe(true);
+  });
+
+  it('compares against a known remote HEAD only when it differs from the branch', async () => {
+    const project: Project = {
+      id: 'project',
+      name: 'project',
+      path: '/repo',
+    };
+    const baseWorktree: Worktree = {
+      id: 'project:/repo.worktrees/feature',
+      projectId: project.id,
+      name: 'feature',
+      path: '/repo.worktrees/feature',
+      branch: 'feature',
+      head: '1234567',
+      isMain: false,
+      locked: false,
+    };
+    const runner = new StubCommandRunner((spec) => {
+      if (spec.args[0] === 'symbolic-ref') return { stdout: 'origin/main\n' };
+      if (spec.args[0] === 'diff') return { stdout: '3\t1\tsrc/example.ts\n' };
+      throw new Error(`Unexpected command: ${spec.args.join(' ')}`);
+    });
+    const service = new GitService(runner);
+
+    await expect(service.details(project, baseWorktree)).resolves.toMatchObject({
+      targetBranch: 'main',
+      diff: { files: 1, additions: 3, deletions: 1 },
+    });
+
+    const mainWorktree = {
+      ...baseWorktree,
+      id: 'project:/repo',
+      name: 'repo',
+      path: '/repo',
+      branch: 'main',
+      isMain: true,
+    };
+    await expect(service.details(project, mainWorktree)).resolves.not.toHaveProperty(
+      'targetBranch',
+    );
+    expect(
+      runner.commands.filter(
+        (command) =>
+          command.context.kind === 'worktree' &&
+          command.context.worktreeId === mainWorktree.id &&
+          command.args[0] === 'diff',
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('prefers a loaded pull request target without resolving remote HEAD', async () => {
+    const project: Project = {
+      id: 'project',
+      name: 'project',
+      path: '/repo',
+    };
+    const worktree: Worktree = {
+      id: 'project:/repo',
+      projectId: project.id,
+      name: 'repo',
+      path: '/repo',
+      branch: 'feature/from-main-clone',
+      pullRequest: {
+        number: 18,
+        title: 'Main clone pull request',
+        url: 'https://github.com/example/project/pull/18',
+        state: 'OPEN',
+        baseBranch: 'release',
+      },
+      head: '1234567',
+      isMain: true,
+      locked: false,
+    };
+    const runner = new StubCommandRunner((spec) => {
+      if (spec.args[0] === 'diff') return { stdout: '2\t0\tsrc/example.ts\n' };
+      throw new Error(`Unexpected command: ${spec.args.join(' ')}`);
+    });
+
+    await expect(
+      new GitService(runner).details(project, worktree),
+    ).resolves.toMatchObject({
+      targetBranch: 'release',
+      diff: { files: 1, additions: 2, deletions: 0 },
+    });
+    expect(runner.commands.some((command) => command.args[0] === 'symbolic-ref')).toBe(
+      false,
+    );
   });
 
   it('retains removal in the project log after the target worktree disappears', () => {

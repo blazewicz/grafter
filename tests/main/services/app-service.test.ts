@@ -102,7 +102,6 @@ describe('AppService pull request refresh', () => {
     const worktree = initial.projects[0]?.worktrees[1];
     expect(worktree).toBeDefined();
     if (!worktree) throw new Error('Expected the feature worktree.');
-    expect(initial.projects[0]?.defaultBranch).toBe('main');
     expect(worktree.pullRequest).toBeUndefined();
     await lookupStarted;
     expect(featurePullRequestCalls).toBe(1);
