@@ -3,12 +3,17 @@ import {
   ChevronRight,
   Copy,
   FileCode2,
+  FileCode,
+  FilePlus,
+  FileMinus,
+  FileDiff,
   Folder,
   GitCompareArrows,
   LoaderCircle,
   Search,
   X,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, RefObject } from 'react';
 import type {
@@ -16,6 +21,7 @@ import type {
   DiffFileSummary,
   DiffLine,
   DiffSession,
+  DiffFileStatus,
 } from '../../../shared/contracts';
 import { api, friendlyError } from '../../grafter-api';
 import {
@@ -26,6 +32,15 @@ import {
 } from './diff-tree';
 import type { DiffTreeNode } from './diff-tree';
 import styles from './DiffViewer.module.css';
+
+const diffFileStatusIcon = {
+  added: FilePlus,
+  copied: FileCode,
+  deleted: FileMinus,
+  modified: FileDiff,
+  renamed: FileCode,
+  'type-changed': FileCode,
+} satisfies Record<DiffFileStatus, LucideIcon>;
 
 export function DiffViewer({
   session,
@@ -314,6 +329,7 @@ function TreeNodes({
           );
         }
 
+        const FileIcon = diffFileStatusIcon[node.file.status];
         return (
           <button
             key={node.file.id}
@@ -325,7 +341,7 @@ function TreeNodes({
             onClick={() => onSelect(node.file.id)}
           >
             <span className={styles.treeSpacer} />
-            <FileCode2 size={13} />
+            <FileIcon size={13} />
             <span>{node.name}</span>
           </button>
         );
