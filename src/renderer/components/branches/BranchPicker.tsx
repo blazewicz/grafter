@@ -94,7 +94,7 @@ export function BranchPicker({
           const disabledReason = checkedOut
             ? checkedOut.id === currentWorktreeId
               ? 'Currently checked out in this worktree'
-              : `Already checked out in ${checkedOut.name}`
+              : `Already checked out in ${checkedOut.displayName}`
             : undefined;
           return (
             <button

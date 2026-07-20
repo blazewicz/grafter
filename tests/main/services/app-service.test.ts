@@ -357,6 +357,60 @@ branch refs/heads/main
   });
 });
 
+describe('AppService worktree creation', () => {
+  it('recalculates all display names after adding a colliding worktree', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-app-service-'));
+    const store = new StateStore(directory);
+    await store.load();
+    await store.update((state) => state.projects.push(project));
+    let created = false;
+    const beforeCreation = `worktree /repo
+HEAD 1111111
+branch refs/heads/main
+
+worktree /repo.worktrees/alpha/feature
+HEAD 2222222
+branch refs/heads/feature/alpha
+`;
+    const afterCreation = `${beforeCreation}
+
+worktree /repo.worktrees/beta/feature
+HEAD 3333333
+branch refs/heads/feature/beta
+`;
+    const runner = new StubCommandRunner((spec) => {
+      if (spec.tool === 'git' && spec.args[0] === 'worktree' && spec.args[1] === 'add') {
+        created = true;
+        return {};
+      }
+      if (spec.tool === 'git' && spec.args[0] === 'worktree') {
+        return { stdout: created ? afterCreation : beforeCreation };
+      }
+      if (spec.tool === 'github') return { exitCode: 1 };
+      throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
+    });
+    const service = new AppService(store, runner);
+
+    const initial = await service.refresh();
+    expect(initial.projects[0]?.worktrees).toMatchObject([
+      { displayName: 'main' },
+      { displayName: 'feature' },
+    ]);
+
+    const result = await service.createWorktree({
+      projectId: project.id,
+      branch: 'feature/beta',
+      path: '/repo.worktrees/beta/feature',
+    });
+
+    expect(result.snapshot.projects[0]?.worktrees).toMatchObject([
+      { displayName: 'main' },
+      { displayName: 'alpha/feature' },
+      { displayName: 'beta/feature' },
+    ]);
+  });
+});
+
 describe('AppService branch switching', () => {
   it('clears old PR data and starts refreshing the new branch immediately', async () => {
     const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-app-service-'));

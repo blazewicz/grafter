@@ -29,7 +29,7 @@ describe('GitService worktree status', () => {
     const worktree: Worktree = {
       id: `project:${directory}`,
       projectId: 'project',
-      name: path.basename(directory),
+      displayName: 'main',
       path: directory,
       branch: 'main',
       head: '',
@@ -64,7 +64,7 @@ describe('GitService branch operations', () => {
   const worktree: Worktree = {
     id: 'project:/repo.worktrees/feature',
     projectId: project.id,
-    name: 'feature',
+    displayName: 'b77c/feature',
     path: '/repo.worktrees/feature',
     branch: 'feature/old',
     head: '1234567',
@@ -100,7 +100,7 @@ describe('GitService branch operations', () => {
       executable: 'git',
       args: ['switch', '--no-guess', '--', 'feature/new'],
       cwd: worktree.path,
-      purpose: 'Switch feature to feature/new',
+      purpose: 'Switch b77c/feature to feature/new',
       isReadOnly: false,
     });
   });
@@ -157,7 +157,7 @@ describe('GitService worktree details', () => {
     const worktree: Worktree = {
       id: `project:${directory}`,
       projectId: project.id,
-      name: path.basename(directory),
+      displayName: 'main',
       path: directory,
       branch: 'main',
       head: '',
@@ -190,7 +190,7 @@ describe('GitService worktree details', () => {
     const baseWorktree: Worktree = {
       id: 'project:/repo.worktrees/feature',
       projectId: project.id,
-      name: 'feature',
+      displayName: 'feature',
       path: '/repo.worktrees/feature',
       branch: 'feature',
       head: '1234567',
@@ -235,7 +235,7 @@ describe('GitService worktree details', () => {
     const mainWorktree = {
       ...baseWorktree,
       id: 'project:/repo',
-      name: 'repo',
+      displayName: 'main',
       path: '/repo',
       branch: 'main',
       isMain: true,
@@ -262,7 +262,7 @@ describe('GitService worktree details', () => {
     const worktree: Worktree = {
       id: 'project:/repo',
       projectId: project.id,
-      name: 'repo',
+      displayName: 'main',
       path: '/repo',
       branch: 'feature/from-main-clone',
       pullRequest: {
@@ -309,7 +309,7 @@ describe('GitService worktree details', () => {
     const worktree: Worktree = {
       id: 'project:/repo.worktrees/feature',
       projectId: project.id,
-      name: 'feature',
+      displayName: 'feature',
       path: '/repo.worktrees/feature',
       branch: 'feature',
       head: '',

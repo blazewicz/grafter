@@ -1,7 +1,7 @@
-import { FolderGit2, FolderRoot, GitBranch } from 'lucide-react';
+import { FolderGit2, FolderRoot } from 'lucide-react';
 import type { Worktree } from '../../../shared/contracts';
 import { collapseHomePath } from '../../../shared/path-display';
-import { buildWorktreeList } from '../../../shared/worktree-list';
+import { sortWorktrees } from '../../../shared/worktree-list';
 import styles from './details.module.css';
 
 export function ProjectWorktreeList({
@@ -13,7 +13,7 @@ export function ProjectWorktreeList({
   worktrees: Worktree[];
   onSelect: (worktreeId: string) => void;
 }): React.JSX.Element {
-  const worktreeItems = buildWorktreeList(worktrees);
+  const sortedWorktrees = sortWorktrees(worktrees);
 
   return (
     <>
@@ -27,7 +27,7 @@ export function ProjectWorktreeList({
         </span>
       </div>
       <section className={styles.worktreeSummary} aria-label="Worktrees">
-        {worktreeItems.map(({ worktree }) => {
+        {sortedWorktrees.map((worktree) => {
           const displayedPath = collapseHomePath(worktree.path, homeDirectory);
 
           return (
@@ -35,7 +35,7 @@ export function ProjectWorktreeList({
               {worktree.isMain ? (
                 <FolderRoot className={styles.worktreeSummaryIcon} size={13} />
               ) : (
-                <GitBranch className={styles.worktreeSummaryIcon} size={13} />
+                <FolderGit2 className={styles.worktreeSummaryIcon} size={13} />
               )}
               <button
                 className={styles.worktreeSummaryName}

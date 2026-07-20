@@ -1,4 +1,8 @@
 import type { CommitDetails, DiffStats, Worktree, WorktreeStatus } from './contracts';
+import {
+  resolveWorktreeDisplayNames,
+  type WorktreeWithoutDisplayName,
+} from './worktree-list';
 
 interface WorktreeBlock {
   worktree?: string;
@@ -15,7 +19,7 @@ export function parseWorktreePorcelain(output: string, projectId: string): Workt
     .split(/\n\s*\n/)
     .filter(Boolean);
 
-  return blocks.flatMap((raw, index) => {
+  const worktrees = blocks.flatMap<WorktreeWithoutDisplayName>((raw, index) => {
     const block: WorktreeBlock = {};
     for (const line of raw.split('\n')) {
       const space = line.indexOf(' ');
@@ -35,7 +39,6 @@ export function parseWorktreePorcelain(output: string, projectId: string): Workt
       {
         id: `${projectId}:${block.worktree}`,
         projectId,
-        name: worktreeName(block.worktree),
         path: block.worktree,
         branch,
         head: block.HEAD ?? '',
@@ -44,11 +47,8 @@ export function parseWorktreePorcelain(output: string, projectId: string): Workt
       },
     ];
   });
-}
 
-function worktreeName(worktreePath: string): string {
-  const normalized = worktreePath.replace(/\/+$/, '');
-  return normalized.slice(normalized.lastIndexOf('/') + 1) || worktreePath;
+  return resolveWorktreeDisplayNames(worktrees);
 }
 
 export function parseNumStat(output: string): DiffStats {

@@ -7,7 +7,7 @@ import { StubCommandRunner } from '../support/stub-command-runner';
 const worktree: Worktree = {
   id: 'project:/repo.worktrees/feature',
   projectId: 'project',
-  name: 'feature',
+  displayName: 'feature',
   path: '/repo.worktrees/feature',
   branch: 'feature',
   head: 'abcdef0',
