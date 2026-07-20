@@ -1,6 +1,6 @@
 import type { CommandRecord, ToolName } from '../shared/contracts';
 
-export const runningCommandMinimumDisplayMs = 800;
+export const commandActivityMinimumVisibleMs = 1_500;
 
 export interface RunningCommandSummary {
   latest: CommandRecord | undefined;
@@ -15,17 +15,7 @@ export interface AuditCommandGroup {
 
 export type AuditToolFilter = ToolName | 'all';
 
-export type RunningCommandLabel = Pick<CommandRecord, 'id' | 'purpose'>;
-
-export interface RunningCommandDisplay {
-  command: RunningCommandLabel | undefined;
-  shownAt: number | undefined;
-}
-
-export interface RunningCommandDisplayTransition {
-  display: RunningCommandDisplay;
-  waitMs?: number;
-}
+export type CommandActivityLabel = Pick<CommandRecord, 'id' | 'purpose' | 'status'>;
 
 export function mergeCommandRecord(
   commands: CommandRecord[],
@@ -111,28 +101,16 @@ export function commandStatusLabel(command: CommandRecord): string {
   return status;
 }
 
-export function transitionRunningCommandDisplay(
-  current: RunningCommandDisplay,
-  latest: RunningCommandLabel | undefined,
+export function commandActivityHideDelay(
+  command: CommandActivityLabel,
+  shownAt: number,
   now: number,
-  minimumDisplayMs = runningCommandMinimumDisplayMs,
-): RunningCommandDisplayTransition {
-  if (current.command?.id === latest?.id) return { display: current };
-
-  if (!current.command) {
-    if (!latest) return { display: current };
-    return { display: { command: latest, shownAt: now } };
+  minimumVisibleMs = commandActivityMinimumVisibleMs,
+): number | undefined {
+  if (command.status === 'running' || command.status === 'awaiting-approval') {
+    return undefined;
   }
-
-  const shownAt = current.shownAt ?? now;
-  const waitMs = minimumDisplayMs - (now - shownAt);
-  if (waitMs > 0) return { display: current, waitMs };
-
-  return {
-    display: latest
-      ? { command: latest, shownAt: now }
-      : { command: undefined, shownAt: undefined },
-  };
+  return Math.max(0, minimumVisibleMs - (now - shownAt));
 }
 
 function isGroupableReadOnlyCommand(command: CommandRecord): boolean {

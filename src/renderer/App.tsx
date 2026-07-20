@@ -70,10 +70,11 @@ export function App(): React.JSX.Element {
     if (selectedProjectId) return { kind: 'project', projectId: selectedProjectId };
     return undefined;
   }, [selectedProjectId, selectedWorktreeId, selectedWorktreeProjectId]);
-  const { commands, contextKey: selectedContextKey } = useCommandLogs(
-    selectedContext,
-    setError,
-  );
+  const {
+    commands,
+    contextKey: selectedContextKey,
+    latestActivity,
+  } = useCommandLogs(selectedContext, setError);
   const { details, status: worktreeStatus } = useWorktreeInspection(
     selectedWorktreeId,
     selectedWorktree?.branch,
@@ -250,6 +251,7 @@ export function App(): React.JSX.Element {
         key={selectedContextKey ?? 'no-command-context'}
         open={logsOpen}
         commands={commands}
+        latestActivity={latestActivity}
         settings={snapshot.settings}
         systemLocale={snapshot.systemLocale}
         contextLabel={selectedWorktree?.displayName ?? selectedProject?.name}

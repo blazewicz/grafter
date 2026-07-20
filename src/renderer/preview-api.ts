@@ -231,6 +231,8 @@ let commands: CommandRecord[] = [
     output: [],
   },
 ];
+const commandListeners = new Set<(record: CommandRecord) => void>();
+let previewCommandSequence = 0;
 
 const details: Record<string, WorktreeDetails> = {
   'grafter:main': {
@@ -291,6 +293,7 @@ const details: Record<string, WorktreeDetails> = {
 
 function updateCommand(record: CommandRecord): void {
   commands = [record, ...commands.filter((item) => item.id !== record.id)];
+  for (const listener of commandListeners) listener(structuredClone(record));
 }
 
 async function copyPreviewText(text: string): Promise<void> {
@@ -431,8 +434,49 @@ export const previewApi: GrafterApi = {
       .find((worktree) => worktree.id === worktreeId)?.pullRequest;
     return Promise.resolve(pullRequest ? structuredClone(pullRequest) : undefined);
   },
-  getWorktreeStatus: (worktreeId) =>
-    Promise.resolve(worktreeId === 'grafter:audit' ? 'dirty' : 'clean'),
+  getWorktreeStatus: (worktreeId) => {
+    const worktree = snapshot.projects
+      .flatMap((project) => project.worktrees)
+      .find((item) => item.id === worktreeId);
+    if (!worktree) return Promise.reject(new Error('Worktree not found.'));
+
+    previewCommandSequence += 1;
+    const startedAt = new Date().toISOString();
+    const command: CommandRecord = {
+      id: `preview-status-${previewCommandSequence}`,
+      context: {
+        kind: 'worktree',
+        projectId: worktree.projectId,
+        worktreeId: worktree.id,
+      },
+      tool: 'git',
+      executable: 'git',
+      args: ['status', '--porcelain=v1', '--untracked-files=normal'],
+      cwd: worktree.path,
+      displayCommand: 'git status --porcelain=v1 --untracked-files=normal',
+      purpose: `Check ${worktree.branch} worktree status`,
+      isReadOnly: true,
+      status: 'running',
+      requiresApproval: false,
+      startedAt,
+      output: [],
+    };
+    updateCommand(command);
+
+    return new Promise<'clean' | 'dirty'>((resolve) => {
+      window.setTimeout(() => {
+        const finishedAt = new Date().toISOString();
+        updateCommand({
+          ...command,
+          status: 'succeeded',
+          finishedAt,
+          durationMs: 240,
+          exitCode: 0,
+        });
+        resolve(worktreeId === 'grafter:audit' ? 'dirty' : 'clean');
+      }, 240);
+    });
+  },
   updateSettings: (settings) => {
     snapshot = { ...snapshot, settings };
     return Promise.resolve(structuredClone(snapshot));
@@ -452,8 +496,7 @@ export const previewApi: GrafterApi = {
   copyText: copyPreviewText,
   onSnapshotUpdate: () => () => undefined,
   onCommandUpdate: (listener) => {
-    void listener;
-    void updateCommand;
-    return () => undefined;
+    commandListeners.add(listener);
+    return () => commandListeners.delete(listener);
   },
 };

@@ -1,4 +1,5 @@
 import {
+  ArrowUp,
   Check,
   ChevronsDownUp,
   ChevronsUpDown,
@@ -9,7 +10,7 @@ import {
   TerminalSquare,
   X,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { CommandRecord, Settings } from '../../../shared/contracts';
 import {
   commandStatusLabel,
@@ -20,12 +21,17 @@ import {
 import type { AuditToolFilter } from '../../command-audit';
 import { formatDateTime, formatTime } from '../../date-time';
 import { api, friendlyError } from '../../grafter-api';
-import { useRunningCommandDisplay } from './useRunningCommandDisplay';
+import { useCommandActivityDisplay } from './useCommandActivityDisplay';
 import styles from './AuditPanel.module.css';
+
+const scrollFollowMs = 600;
+
+type AuditSelection = { mode: 'follow' } | { mode: 'manual'; commandGroupId: string };
 
 export function AuditPanel({
   open,
   commands,
+  latestActivity,
   settings,
   systemLocale,
   contextLabel,
@@ -34,6 +40,7 @@ export function AuditPanel({
 }: {
   open: boolean;
   commands: CommandRecord[];
+  latestActivity: CommandRecord | undefined;
   settings: Settings;
   systemLocale: string;
   contextLabel: string | undefined;
@@ -43,21 +50,107 @@ export function AuditPanel({
   const [copiedCommandId, setCopiedCommandId] = useState<string>();
   const [tool, setTool] = useState<AuditToolFilter>('all');
   const [hideReadOnly, setHideReadOnly] = useState(false);
+  const [selection, setSelection] = useState<AuditSelection>({ mode: 'follow' });
   const filtered = filterAuditCommandGroups(
     groupConsecutiveReadOnlyCommands(commands),
     tool,
     hideReadOnly,
   );
-  const [selectedId, setSelectedId] = useState<string>();
-  const selected = filtered.find((group) => group.id === selectedId) ?? filtered[0];
+  const filteredIds = filtered.map((group) => group.id).join('\0');
+  const manuallySelected =
+    selection.mode === 'manual'
+      ? filtered.find((group) => group.id === selection.commandGroupId)
+      : undefined;
+  const followingLatest = selection.mode === 'follow' || manuallySelected === undefined;
+  const selected = manuallySelected ?? filtered[0];
   const running = summarizeRunningCommands(commands);
-  const displayedRunningCommand = useRunningCommandDisplay(running.latest);
+  const displayedActivity = useCommandActivityDisplay(latestActivity);
+  const baseTitle = contextLabel ? `Command log · ${contextLabel}` : 'Command log';
   const title =
-    !open && displayedRunningCommand
-      ? displayedRunningCommand.purpose
-      : contextLabel
-        ? `Command log · ${contextLabel}`
-        : 'Command log';
+    !open && displayedActivity.command
+      ? `${baseTitle} · ${displayedActivity.command.purpose}`
+      : baseTitle;
+  const commandListRef = useRef<HTMLDivElement>(null);
+  const commandOutputRef = useRef<HTMLDivElement>(null);
+  const listLayoutRef = useRef<ScrollLayout | undefined>(undefined);
+  const outputLayoutRef = useRef<ScrollLayout | undefined>(undefined);
+  const handledActivityIdRef = useRef<string | undefined>(undefined);
+  const listScrollAnimationRef = useRef<number | undefined>(undefined);
+  const outputScrollAnimationRef = useRef<number | undefined>(undefined);
+  const [unseenCommandCount, setUnseenCommandCount] = useState(0);
+
+  useLayoutEffect(() => {
+    const list = commandListRef.current;
+    if (!list) return;
+    const previous = listLayoutRef.current;
+    const activityId = latestActivity?.id;
+    const isNewActivity =
+      activityId !== undefined && activityId !== handledActivityIdRef.current;
+
+    if (isNewActivity) {
+      handledActivityIdRef.current = activityId;
+      const firstGroup = filtered[0];
+      const insertedFirstGroup =
+        previous !== undefined &&
+        firstGroup !== undefined &&
+        firstGroup.calls.some((command) => command.id === activityId) &&
+        !previous.itemIds.has(firstGroup.id);
+
+      if (insertedFirstGroup) {
+        const heightDelta = Math.max(0, list.scrollHeight - previous.scrollHeight);
+        const wasAtTop = previous.scrollTop <= 2;
+        list.scrollTop = previous.scrollTop + heightDelta;
+        if (wasAtTop) {
+          animateScrollToTop(list, listScrollAnimationRef);
+        } else {
+          setUnseenCommandCount((count) => count + 1);
+        }
+      }
+    }
+
+    listLayoutRef.current = {
+      scrollHeight: list.scrollHeight,
+      scrollTop: list.scrollTop,
+      itemIds: new Set(filtered.map((group) => group.id)),
+      firstItemId: filtered[0]?.id,
+    };
+  }, [filtered, filteredIds, latestActivity]);
+
+  const firstSelectedCallId = selected?.calls[0]?.id;
+  useLayoutEffect(() => {
+    const output = commandOutputRef.current;
+    if (!output) return;
+    const previous = outputLayoutRef.current;
+    const callWasPrepended =
+      previous !== undefined &&
+      selected?.id === previous.firstItemId &&
+      firstSelectedCallId !== undefined &&
+      !previous.itemIds.has(firstSelectedCallId);
+
+    if (callWasPrepended) {
+      const heightDelta = Math.max(0, output.scrollHeight - previous.scrollHeight);
+      output.scrollTop = previous.scrollTop + heightDelta;
+      if (previous.scrollTop <= 2) {
+        animateScrollToTop(output, outputScrollAnimationRef);
+      }
+    }
+
+    outputLayoutRef.current = {
+      scrollHeight: output.scrollHeight,
+      scrollTop: output.scrollTop,
+      itemIds: new Set(selected?.calls.map((command) => command.id) ?? []),
+      firstItemId: selected?.id,
+    };
+  }, [firstSelectedCallId, selected]);
+
+  useEffect(
+    () => () => {
+      cancelScrollAnimation(listScrollAnimationRef);
+      cancelScrollAnimation(outputScrollAnimationRef);
+    },
+    [],
+  );
+
   const copyCommand = (command: CommandRecord): void => {
     void api
       .copyText(command.displayCommand)
@@ -84,10 +177,21 @@ export function AuditPanel({
         >
           {open ? <ChevronsDownUp size={14} /> : <ChevronsUpDown size={14} />}
           <TerminalSquare size={15} />
-          <span className={styles.auditTitleText} aria-live="polite" title={title}>
-            {title}
+          <span className={styles.auditTitleText} title={title}>
+            {baseTitle}
           </span>
-          {!open && displayedRunningCommand && running.count > 1 && (
+          {!open && displayedActivity.command && (
+            <span
+              className={`${styles.auditActivity} ${
+                displayedActivity.visible ? styles.visible : ''
+              }`}
+              aria-live="polite"
+            >
+              <span aria-hidden="true">·</span>
+              <span>{displayedActivity.command.purpose}</span>
+            </span>
+          )}
+          {!open && displayedActivity.command && running.count > 1 && (
             <span
               className={styles.auditRunningCount}
               aria-label={`${running.count} commands running`}
@@ -102,7 +206,10 @@ export function AuditPanel({
               <input
                 type="checkbox"
                 checked={hideReadOnly}
-                onChange={(event) => setHideReadOnly(event.target.checked)}
+                onChange={(event) => {
+                  setHideReadOnly(event.target.checked);
+                  setSelection({ mode: 'follow' });
+                }}
               />
               <span>Hide read-only</span>
             </label>
@@ -111,7 +218,7 @@ export function AuditPanel({
               value={tool}
               onChange={(event) => {
                 setTool(event.target.value as AuditToolFilter);
-                setSelectedId(undefined);
+                setSelection({ mode: 'follow' });
               }}
             >
               <option value="all">All</option>
@@ -124,43 +231,102 @@ export function AuditPanel({
       </div>
       {open && (
         <div className={styles.auditBody}>
-          <div className={styles.commandList}>
-            {filtered.map((group) => (
-              <button
-                key={group.id}
-                className={selected?.id === group.id ? styles.active : ''}
-                onClick={() => setSelectedId(group.id)}
-              >
-                <StatusIcon status={group.latest.status} />
-                <div>
-                  <div className={styles.commandListTitle}>
-                    <span>{group.latest.purpose}</span>
-                    {group.calls.length > 1 && (
-                      <span
-                        className={styles.commandCallCount}
-                        aria-label={`${group.calls.length} calls`}
-                      >
-                        ×{group.calls.length}
-                      </span>
-                    )}
+          <div className={styles.commandListPane}>
+            <div
+              ref={commandListRef}
+              className={styles.commandList}
+              onScroll={(event) => {
+                if (listLayoutRef.current) {
+                  listLayoutRef.current.scrollTop = event.currentTarget.scrollTop;
+                }
+                if (event.currentTarget.scrollTop <= 2) setUnseenCommandCount(0);
+              }}
+            >
+              {filtered.map((group) => (
+                <button
+                  key={group.id}
+                  className={selected?.id === group.id ? styles.active : ''}
+                  onClick={() =>
+                    setSelection({ mode: 'manual', commandGroupId: group.id })
+                  }
+                >
+                  <StatusIcon status={group.latest.status} />
+                  <div>
+                    <div className={styles.commandListTitle}>
+                      <span>{group.latest.purpose}</span>
+                      {group.calls.length > 1 && (
+                        <span
+                          className={styles.commandCallCount}
+                          aria-label={`${group.calls.length} calls`}
+                        >
+                          ×{group.calls.length}
+                        </span>
+                      )}
+                    </div>
+                    <code>{group.latest.displayCommand}</code>
                   </div>
-                  <code>{group.latest.displayCommand}</code>
-                </div>
-                <time dateTime={group.latest.startedAt}>
-                  {formatTime(
-                    group.latest.startedAt,
-                    settings.timeFormat,
-                    false,
-                    systemLocale,
-                  )}
-                </time>
+                  <time dateTime={group.latest.startedAt}>
+                    {formatTime(
+                      group.latest.startedAt,
+                      settings.timeFormat,
+                      false,
+                      systemLocale,
+                    )}
+                  </time>
+                </button>
+              ))}
+              {!filtered.length && (
+                <div className={styles.noCommands}>No matching commands.</div>
+              )}
+            </div>
+            {!followingLatest ? (
+              <button
+                type="button"
+                className={styles.followLatest}
+                onClick={() => {
+                  setSelection({ mode: 'follow' });
+                  setUnseenCommandCount(0);
+                  const list = commandListRef.current;
+                  if (list) animateScrollToTop(list, listScrollAnimationRef);
+                }}
+              >
+                <ArrowUp size={11} />
+                <span>Follow latest</span>
+                {unseenCommandCount > 0 && (
+                  <span
+                    className={styles.followLatestCount}
+                    aria-label={`${unseenCommandCount} new ${
+                      unseenCommandCount === 1 ? 'command' : 'commands'
+                    }`}
+                  >
+                    {unseenCommandCount}
+                  </span>
+                )}
               </button>
-            ))}
-            {!filtered.length && (
-              <div className={styles.noCommands}>No matching commands.</div>
-            )}
+            ) : unseenCommandCount > 0 ? (
+              <button
+                type="button"
+                className={styles.newCommands}
+                onClick={() => {
+                  setUnseenCommandCount(0);
+                  const list = commandListRef.current;
+                  if (list) animateScrollToTop(list, listScrollAnimationRef);
+                }}
+              >
+                {unseenCommandCount} new{' '}
+                {unseenCommandCount === 1 ? 'command' : 'commands'}
+              </button>
+            ) : null}
           </div>
-          <div className={styles.commandOutput}>
+          <div
+            ref={commandOutputRef}
+            className={styles.commandOutput}
+            onScroll={(event) => {
+              if (outputLayoutRef.current) {
+                outputLayoutRef.current.scrollTop = event.currentTarget.scrollTop;
+              }
+            }}
+          >
             {selected ? (
               selected.calls.map((command) => (
                 <section className={styles.commandInvocation} key={command.id}>
@@ -223,4 +389,44 @@ function StatusIcon({ status }: { status: CommandRecord['status'] }): React.JSX.
   if (status === 'awaiting-approval')
     return <ShieldCheck className={styles.statusWaiting} size={13} />;
   return <X className={styles.statusError} size={13} />;
+}
+
+interface ScrollLayout {
+  scrollHeight: number;
+  scrollTop: number;
+  itemIds: Set<string>;
+  firstItemId: string | undefined;
+}
+
+function animateScrollToTop(
+  element: HTMLElement,
+  animationRef: React.MutableRefObject<number | undefined>,
+): void {
+  cancelScrollAnimation(animationRef);
+  const start = element.scrollTop;
+  if (start <= 0 || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    element.scrollTop = 0;
+    return;
+  }
+
+  let startedAt: number | undefined;
+  const step = (now: number): void => {
+    startedAt ??= now;
+    const progress = Math.min(1, (now - startedAt) / scrollFollowMs);
+    element.scrollTop = start * Math.pow(1 - progress, 3);
+    if (progress < 1) {
+      animationRef.current = window.requestAnimationFrame(step);
+    } else {
+      animationRef.current = undefined;
+    }
+  };
+  animationRef.current = window.requestAnimationFrame(step);
+}
+
+function cancelScrollAnimation(
+  animationRef: React.MutableRefObject<number | undefined>,
+): void {
+  if (animationRef.current === undefined) return;
+  window.cancelAnimationFrame(animationRef.current);
+  animationRef.current = undefined;
 }
