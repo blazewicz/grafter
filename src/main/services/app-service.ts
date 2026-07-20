@@ -7,6 +7,9 @@ import type {
   ApprovalRequest,
   CommandRecord,
   CreateWorktreeRequest,
+  DiffFilePatch,
+  DiffFileRequest,
+  DiffSession,
   Project,
   ProjectTreeItem,
   PullRequest,
@@ -209,6 +212,21 @@ export class AppService {
     return this.git.details(this.#project(worktree.projectId), worktree);
   }
 
+  async openDiff(worktreeId: string): Promise<DiffSession> {
+    const worktree = this.#worktree(worktreeId);
+    return this.git.openDiff(this.#project(worktree.projectId), worktree);
+  }
+
+  async diffFile(request: unknown): Promise<DiffFilePatch> {
+    if (!isDiffFileRequest(request)) throw new Error('Invalid diff file request.');
+    return this.git.diffFile(request);
+  }
+
+  closeDiff(sessionId: string): void {
+    if (typeof sessionId !== 'string') throw new Error('Invalid diff session.');
+    this.git.closeDiff(sessionId);
+  }
+
   async refreshPullRequest(worktreeId: string): Promise<PullRequest | undefined> {
     return this.#refreshPullRequest(this.#worktree(worktreeId));
   }
@@ -373,6 +391,12 @@ export class AppService {
 
 function pullRequestLookupKey(worktree: Pick<Worktree, 'id' | 'branch'>): string {
   return `${worktree.id}\0${worktree.branch}`;
+}
+
+function isDiffFileRequest(value: unknown): value is DiffFileRequest {
+  if (!value || typeof value !== 'object') return false;
+  const request = value as Record<string, unknown>;
+  return typeof request.sessionId === 'string' && typeof request.fileId === 'string';
 }
 
 function pullRequestsEqual(left: PullRequest | undefined, right: PullRequest): boolean {

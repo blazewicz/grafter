@@ -37,6 +37,7 @@ export function displayCommand(executable: string, args: string[]): string {
 
 export class CommandRunner {
   static readonly recordsPerContext = 200;
+  static readonly auditedOutputCharacterLimit = 128_000;
 
   readonly #records = new Map<string, CommandRecord>();
   readonly #recordIdsByContext = new Map<string, string[]>();
@@ -98,12 +99,40 @@ export class CommandRunner {
       });
       let stdout = '';
       let stderr = '';
+      let auditedOutputCharacters = 0;
+      let auditOutputTruncated = false;
 
       const append = (stream: 'stdout' | 'stderr', chunk: Buffer): void => {
         const text = chunk.toString();
         if (stream === 'stdout') stdout += text;
         else stderr += text;
-        record.output.push({ stream, text, timestamp: new Date().toISOString() });
+
+        const remaining =
+          CommandRunner.auditedOutputCharacterLimit - auditedOutputCharacters;
+        if (remaining <= 0) {
+          if (!auditOutputTruncated) {
+            auditOutputTruncated = true;
+            record.output.push({
+              stream: 'system',
+              text: `Command output truncated after ${CommandRunner.auditedOutputCharacterLimit.toLocaleString('en-US')} characters.\n`,
+              timestamp: new Date().toISOString(),
+            });
+            this.#save(record);
+          }
+          return;
+        }
+        const auditedText = text.slice(0, remaining);
+        auditedOutputCharacters += auditedText.length;
+        const timestamp = new Date().toISOString();
+        if (auditedText) record.output.push({ stream, text: auditedText, timestamp });
+        if (auditedText.length < text.length && !auditOutputTruncated) {
+          auditOutputTruncated = true;
+          record.output.push({
+            stream: 'system',
+            text: `Command output truncated after ${CommandRunner.auditedOutputCharacterLimit.toLocaleString('en-US')} characters.\n`,
+            timestamp,
+          });
+        }
         this.#save(record);
       };
 

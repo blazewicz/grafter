@@ -55,6 +55,7 @@ describe('WorktreeDetails copy controls', () => {
         status: 'clean',
         onSnapshot: () => undefined,
         onSelectProject: () => undefined,
+        onOpenDiff: () => undefined,
         onError: () => undefined,
       }),
     );
@@ -79,6 +80,8 @@ describe('WorktreeDetails copy controls', () => {
     expect(html).not.toContain('Show commit message');
     expect(html).not.toContain('<pre');
     expect(html).toContain('lucide-folder-open');
+    expect(html).toContain('View diff');
+    expect(html).toContain('lucide-file-diff');
     expect(html).toContain('repo</button>');
     expect(html).toContain('aria-label="Open repo project details"');
     expect(html).toContain('<h1>feature-worktree</h1>');

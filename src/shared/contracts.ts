@@ -74,6 +74,59 @@ export interface DiffStats {
   deletions: number;
 }
 
+export type DiffFileStatus =
+  'added' | 'copied' | 'deleted' | 'modified' | 'renamed' | 'type-changed';
+
+export interface DiffFileSummary {
+  id: string;
+  path: string;
+  previousPath?: string;
+  status: DiffFileStatus;
+  additions?: number;
+  deletions?: number;
+  binary: boolean;
+}
+
+export interface DiffSession {
+  id: string;
+  worktreeId: string;
+  branch: string;
+  targetBranch: string;
+  baseSha: string;
+  headSha: string;
+  stats: DiffStats;
+  files: DiffFileSummary[];
+}
+
+export type DiffLineKind = 'context' | 'addition' | 'deletion' | 'annotation';
+
+export interface DiffLine {
+  kind: DiffLineKind;
+  text: string;
+  oldLine?: number;
+  newLine?: number;
+}
+
+export interface DiffHunk {
+  header: string;
+  oldStart: number;
+  oldLines: number;
+  newStart: number;
+  newLines: number;
+  lines: DiffLine[];
+}
+
+export interface DiffFilePatch {
+  fileId: string;
+  binary: boolean;
+  hunks: DiffHunk[];
+}
+
+export interface DiffFileRequest {
+  sessionId: string;
+  fileId: string;
+}
+
 export interface CommitDetails {
   hash: string;
   title: string;
@@ -151,6 +204,9 @@ export interface GrafterApi {
   approveCommand(approvalId: string): Promise<AppSnapshot>;
   rejectCommand(approvalId: string): Promise<AppSnapshot>;
   getWorktreeDetails(worktreeId: string): Promise<WorktreeDetails>;
+  openDiff(worktreeId: string): Promise<DiffSession>;
+  getDiffFile(request: DiffFileRequest): Promise<DiffFilePatch>;
+  closeDiff(sessionId: string): Promise<void>;
   refreshPullRequest(worktreeId: string): Promise<PullRequest | undefined>;
   getWorktreeStatus(worktreeId: string): Promise<WorktreeStatus>;
   updateSettings(settings: Settings): Promise<AppSnapshot>;

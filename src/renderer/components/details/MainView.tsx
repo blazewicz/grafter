@@ -25,6 +25,8 @@ export function MainView({
   onAdd,
   onSelectProject,
   onSelectWorktree,
+  diffOpening,
+  onOpenDiff,
   onError,
 }: {
   homeDirectory: string;
@@ -39,6 +41,8 @@ export function MainView({
   onAdd: () => void;
   onSelectProject: (projectId: string) => void;
   onSelectWorktree: (worktreeId: string) => void;
+  diffOpening: boolean;
+  onOpenDiff: (worktreeId: string) => void;
   onError: (message: string) => void;
 }): React.JSX.Element {
   return (
@@ -53,6 +57,8 @@ export function MainView({
           status={status}
           onSnapshot={onSnapshot}
           onSelectProject={onSelectProject}
+          diffOpening={diffOpening}
+          onOpenDiff={() => onOpenDiff(details.id)}
           onError={onError}
         />
       ) : selectedWorktree ? (

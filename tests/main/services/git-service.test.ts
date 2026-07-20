@@ -326,3 +326,122 @@ describe('GitService worktree details', () => {
     expect(runner.recordsFor(worktreeCommandContext(worktree))).toEqual([]);
   });
 });
+
+describe('GitService committed diff sessions', () => {
+  const project: Project = {
+    id: 'project',
+    name: 'repo',
+    path: '/repo',
+  };
+  const worktree: Worktree = {
+    id: 'project:/repo.worktrees/feature',
+    projectId: project.id,
+    displayName: 'feature',
+    path: '/repo.worktrees/feature',
+    branch: 'feature/diff-viewer',
+    head: '2222222',
+    isMain: false,
+    locked: false,
+  };
+
+  it('pins the comparison revisions and loads validated files individually', async () => {
+    const runner = new StubCommandRunner((spec) => {
+      if (spec.args[0] === 'symbolic-ref') return { stdout: 'origin/main\n' };
+      if (spec.args[0] === 'rev-parse') return { stdout: 'head-sha\n' };
+      if (spec.args[0] === 'merge-base') return { stdout: 'base-sha\n' };
+      if (spec.args.includes('--name-status')) {
+        return {
+          stdout:
+            'M\0src/renderer/App.tsx\0R090\0src/old name.ts\0src/new name.ts\0A\0assets/image.png\0',
+        };
+      }
+      if (spec.args.includes('--numstat')) {
+        return {
+          stdout:
+            '4\t1\tsrc/renderer/App.tsx\0' +
+            '2\t2\t\0src/old name.ts\0src/new name.ts\0' +
+            '-\t-\tassets/image.png\0',
+        };
+      }
+      if (spec.args.includes('--unified=3')) {
+        return {
+          stdout: `@@ -1,2 +1,2 @@
+-import { old } from './old';
++import { next } from './next';
+ export {};
+`,
+        };
+      }
+      throw new Error(`Unexpected command: ${spec.args.join(' ')}`);
+    });
+    const service = new GitService(runner);
+
+    const session = await service.openDiff(project, worktree);
+    expect(session).toMatchObject({
+      worktreeId: worktree.id,
+      branch: 'feature/diff-viewer',
+      targetBranch: 'main',
+      baseSha: 'base-sha',
+      headSha: 'head-sha',
+      stats: { files: 3, additions: 6, deletions: 3 },
+    });
+    expect(session.files[1]).toMatchObject({
+      path: 'src/new name.ts',
+      previousPath: 'src/old name.ts',
+      status: 'renamed',
+    });
+
+    await expect(
+      service.diffFile({ sessionId: session.id, fileId: 'file-1' }),
+    ).resolves.toMatchObject({
+      fileId: 'file-1',
+      hunks: [
+        {
+          oldStart: 1,
+          newStart: 1,
+          lines: [
+            { kind: 'deletion', oldLine: 1 },
+            { kind: 'addition', newLine: 1 },
+            { kind: 'context', oldLine: 2, newLine: 2 },
+          ],
+        },
+      ],
+    });
+    expect(runner.commands.at(-1)?.args.slice(-3)).toEqual([
+      '--',
+      'src/old name.ts',
+      'src/new name.ts',
+    ]);
+
+    const commandCount = runner.commands.length;
+    await expect(
+      service.diffFile({ sessionId: session.id, fileId: 'file-2' }),
+    ).resolves.toEqual({ fileId: 'file-2', binary: true, hunks: [] });
+    expect(runner.commands).toHaveLength(commandCount);
+  });
+
+  it('rejects files outside the immutable session and expires closed sessions', async () => {
+    const runner = new StubCommandRunner((spec) => {
+      if (spec.args[0] === 'symbolic-ref') return { stdout: 'origin/main\n' };
+      if (spec.args[0] === 'rev-parse') return { stdout: 'head-sha\n' };
+      if (spec.args[0] === 'merge-base') return { stdout: 'base-sha\n' };
+      if (spec.args.includes('--name-status')) {
+        return { stdout: 'M\0src/example.ts\0' };
+      }
+      if (spec.args.includes('--numstat')) {
+        return { stdout: '1\t0\tsrc/example.ts\0' };
+      }
+      throw new Error(`Unexpected command: ${spec.args.join(' ')}`);
+    });
+    const service = new GitService(runner);
+    const session = await service.openDiff(project, worktree);
+
+    await expect(
+      service.diffFile({ sessionId: session.id, fileId: '../../etc/passwd' }),
+    ).rejects.toThrow('not part of this diff');
+    service.closeDiff(session.id);
+    await expect(
+      service.diffFile({ sessionId: session.id, fileId: 'file-0' }),
+    ).rejects.toThrow('session expired');
+  });
+});
