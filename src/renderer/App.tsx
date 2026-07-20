@@ -196,7 +196,7 @@ export function App(): React.JSX.Element {
     <div className={styles.appShell} style={appShellStyle}>
       <AppTitlebar
         projectName={activeProject?.name ?? snapshot.projects[0]?.name ?? 'Worktrees'}
-        worktreeName={selectedWorktreeDisplayName}
+        worktree={selectedWorktree}
         canGoBack={canGoBack}
         canGoForward={canGoForward}
         onBack={goBack}

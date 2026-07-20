@@ -2,15 +2,18 @@ import {
   ChevronLeft,
   ChevronRight,
   FolderOpen,
+  FolderGit2,
+  FolderRoot,
   LoaderCircle,
   RefreshCw,
 } from 'lucide-react';
 import controls from '../../styles/controls.module.css';
+import type { Worktree } from '../../../shared/contracts';
 import styles from './AppTitlebar.module.css';
 
 export function AppTitlebar({
   projectName,
-  worktreeName,
+  worktree,
   canGoBack,
   canGoForward,
   onBack,
@@ -20,7 +23,7 @@ export function AppTitlebar({
   onRefresh,
 }: {
   projectName: string;
-  worktreeName: string | undefined;
+  worktree: Worktree | undefined;
   canGoBack: boolean;
   canGoForward: boolean;
   onBack: () => void;
@@ -66,10 +69,11 @@ export function AppTitlebar({
           ) : (
             <span className={styles.titleProject}>{projectName}</span>
           )}
-          {worktreeName && (
+          {worktree && (
             <>
               <ChevronRight size={13} />
-              <span className={styles.titleWorktree}>{worktreeName}</span>
+              {worktree?.isMain ? <FolderRoot size={14} /> : <FolderGit2 size={14} />}
+              <span className={styles.titleWorktree}>{worktree?.name}</span>
             </>
           )}
         </div>
