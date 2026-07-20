@@ -26,7 +26,7 @@ import type {
 import { displayWorktreePath } from '../../../shared/path-display';
 import { api, friendlyError } from '../../grafter-api';
 import { BranchPicker } from '../branches/BranchPicker';
-import { VisualStudioCodeMark } from '../ui/BrandMarks';
+import { FinderMark, VisualStudioCodeMark } from '../ui/BrandMarks';
 import styles from './details.module.css';
 import { LatestCommitCard } from './LatestCommitCard';
 
@@ -341,7 +341,7 @@ export function WorktreeDetails({
             aria-label="Open worktree directory"
             onClick={() => reportActionError(api.openWorktreeDirectory(details.id))}
           >
-            <FolderOpen size={16} />
+            <FinderMark />
           </button>
           <div className={styles.editorPicker} ref={editorMenuRef}>
             <div className={styles.editorSplitButton}>

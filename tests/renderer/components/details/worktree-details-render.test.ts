@@ -63,6 +63,8 @@ describe('WorktreeDetails copy controls', () => {
     expect(html).toContain('aria-label="Switch checked-out branch"');
     expect(html).toContain('aria-haspopup="dialog"');
     expect(html).toContain('aria-label="Copy worktree path"');
+    expect(html).toContain('data-brand-mark="finder"');
+    expect(html).toContain('data-brand-mark="visual-studio-code"');
     expect(html).toContain('aria-label="Copy full commit hash"');
     expect(html).toContain('<code title="1234567890abcdef">1234567</code>');
     expect(html).toContain('Add commit details');
