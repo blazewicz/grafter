@@ -2,9 +2,9 @@ import {
   ChevronDown,
   ChevronRight,
   FolderGit2,
+  FolderOpen,
   FolderMinus,
   FolderRoot,
-  GitBranch,
   Plus,
   Trash2,
 } from 'lucide-react';
@@ -72,7 +72,7 @@ export function ProjectNode({
           onClick={() => onSelect(project.id)}
           onPointerUp={releasePointerFocus}
         >
-          <FolderGit2 size={15} />
+          <FolderOpen size={15} />
           <span>{project.name}</span>
         </button>
         <div className={styles.rowActions}>
@@ -158,7 +158,7 @@ function WorktreeRow({
         onClick={() => onSelect(worktree.id)}
         onPointerUp={releasePointerFocus}
       >
-        {worktree.isMain ? <FolderRoot size={13} /> : <GitBranch size={13} />}
+        {worktree.isMain ? <FolderRoot size={13} /> : <FolderGit2 size={13} />}
         <SidebarTooltip
           className={styles.worktreeNameWrap}
           label={displayName}
