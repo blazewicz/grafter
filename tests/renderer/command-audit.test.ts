@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { CommandRecord } from '../../src/shared/contracts';
 import {
+  commandActivityHideDelay,
   commandStatusLabel,
   combineCommandRecords,
   filterAuditCommandGroups,
   groupConsecutiveReadOnlyCommands,
   mergeCommandRecord,
   summarizeRunningCommands,
-  transitionRunningCommandDisplay,
 } from '../../src/renderer/command-audit';
 
 function command(id: string, overrides: Partial<CommandRecord> = {}): CommandRecord {
@@ -235,37 +235,23 @@ describe('running command activity', () => {
     });
   });
 
-  it('keeps each displayed command visible for the minimum interval', () => {
-    const first = command('first', { status: 'running' });
-    const latest = command('latest', {
-      status: 'running',
-      startedAt: '2026-07-17T10:00:01.000Z',
-    });
-    const initial = transitionRunningCommandDisplay(
-      { command: undefined, shownAt: undefined },
-      first,
-      100,
-      800,
-    ).display;
-    const throttled = transitionRunningCommandDisplay(initial, latest, 500, 800);
-
-    expect(throttled).toEqual({ display: initial, waitMs: 400 });
-    expect(transitionRunningCommandDisplay(initial, latest, 900, 800).display).toEqual({
-      command: latest,
-      shownAt: 900,
-    });
+  it('keeps running and approval activity visible', () => {
+    expect(
+      commandActivityHideDelay(command('running', { status: 'running' }), 100, 900),
+    ).toBeUndefined();
+    expect(
+      commandActivityHideDelay(
+        command('approval', { status: 'awaiting-approval' }),
+        100,
+        900,
+      ),
+    ).toBeUndefined();
   });
 
-  it('holds the final label until its minimum display time has elapsed', () => {
-    const running = command('running', { status: 'running' });
-    const display = { command: running, shownAt: 100 };
+  it('holds completed activity for the remaining minimum interval', () => {
+    const completed = command('completed');
 
-    expect(transitionRunningCommandDisplay(display, undefined, 600, 800)).toEqual({
-      display,
-      waitMs: 300,
-    });
-    expect(transitionRunningCommandDisplay(display, undefined, 900, 800).display).toEqual(
-      { command: undefined, shownAt: undefined },
-    );
+    expect(commandActivityHideDelay(completed, 100, 600, 1_500)).toBe(1_000);
+    expect(commandActivityHideDelay(completed, 100, 1_700, 1_500)).toBe(0);
   });
 });

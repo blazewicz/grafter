@@ -15,6 +15,7 @@
 
 .audit-title {
   min-width: 0;
+  max-width: 100%;
   height: 100%;
   display: flex;
   align-items: center;
@@ -27,9 +28,56 @@
 }
 
 .audit-title-text {
+  flex: 0 1 auto;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.audit-activity {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  overflow: hidden;
+  color: #858892;
+  opacity: 0;
+  transform: translateY(2px);
+}
+
+.audit-activity.visible {
+  opacity: 1;
+  transform: translateY(0);
+  animation: audit-activity-in 350ms ease both;
+}
+
+.audit-activity.exiting {
+  animation: audit-activity-out 800ms ease forwards;
+}
+
+.audit-activity > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@keyframes audit-activity-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+}
+
+@keyframes audit-activity-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
 }
 
 .audit-running-count {
@@ -84,9 +132,16 @@
   border-top: 1px solid var(--line);
 }
 
-.command-list {
-  overflow: auto;
+.command-list-pane {
+  min-width: 0;
+  position: relative;
+  overflow: hidden;
   border-right: 1px solid var(--line);
+}
+
+.command-list {
+  height: 100%;
+  overflow: auto;
   padding: 5px;
 }
 
@@ -183,6 +238,56 @@
   color: var(--faint);
   font-size: 10.5px;
   text-align: center;
+}
+
+.follow-latest,
+.new-commands {
+  position: absolute;
+  top: 7px;
+  left: 50%;
+  z-index: 1;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 10px;
+  border: 1px solid rgba(255, 255, 255, 0.085);
+  border-radius: 12px;
+  background: rgba(42, 43, 49, 0.88);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.24);
+  color: #aeb1c2;
+  font-size: 9.5px;
+  transform: translateX(-50%);
+  backdrop-filter: blur(8px);
+  animation: new-commands-in 180ms ease both;
+}
+
+.follow-latest:hover,
+.new-commands:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(51, 52, 59, 0.94);
+  color: #d0d2dc;
+}
+
+.follow-latest-count {
+  min-width: 15px;
+  height: 15px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: rgba(139, 144, 190, 0.18);
+  color: #b9bdd9;
+  font-size: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes new-commands-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -3px);
+  }
 }
 
 .command-output {
