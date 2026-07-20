@@ -183,7 +183,7 @@ export function AuditPanel({
           {!open && displayedActivity.command && (
             <span
               className={`${styles.auditActivity} ${
-                displayedActivity.visible ? styles.visible : ''
+                displayedActivity.visible ? styles.visible : styles.exiting
               }`}
               aria-live="polite"
             >

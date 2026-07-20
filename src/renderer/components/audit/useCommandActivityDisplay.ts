@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import type { CommandRecord } from '../../../shared/contracts';
 import { commandActivityHideDelay, type CommandActivityLabel } from '../../command-audit';
 
-export const commandActivityExitMs = 600;
+export const commandActivityExitMs = 900;
 
 export interface CommandActivityDisplay {
   command: CommandActivityLabel | undefined;

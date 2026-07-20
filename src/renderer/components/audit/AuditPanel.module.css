@@ -43,15 +43,16 @@
   color: #858892;
   opacity: 0;
   transform: translateY(2px);
-  transition:
-    opacity 600ms ease,
-    transform 600ms ease;
 }
 
 .audit-activity.visible {
   opacity: 1;
   transform: translateY(0);
   animation: audit-activity-in 350ms ease both;
+}
+
+.audit-activity.exiting {
+  animation: audit-activity-out 800ms ease forwards;
 }
 
 .audit-activity > span:last-child {
@@ -64,6 +65,18 @@
   from {
     opacity: 0;
     transform: translateY(2px);
+  }
+}
+
+@keyframes audit-activity-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(-2px);
   }
 }
 
@@ -359,11 +372,5 @@
 @media (max-width: 900px) {
   .audit-body {
     grid-template-columns: 42% 1fr;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .audit-activity {
-    transition-duration: 0.01ms;
   }
 }
