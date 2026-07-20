@@ -18,7 +18,12 @@ import type {
   DiffSession,
 } from '../../../shared/contracts';
 import { api, friendlyError } from '../../grafter-api';
-import { buildDiffTree, diffDirectoryPaths, filterDiffFiles } from './diff-tree';
+import {
+  buildDiffTree,
+  diffDirectoryPaths,
+  filterDiffFiles,
+  flattenDiffTree,
+} from './diff-tree';
 import type { DiffTreeNode } from './diff-tree';
 import styles from './DiffViewer.module.css';
 
@@ -41,7 +46,7 @@ export function DiffViewer({
   const [patches, setPatches] = useState<Map<string, DiffFilePatch>>(new Map());
   const [loading, setLoading] = useState<Set<string>>(new Set());
   const [fileErrors, setFileErrors] = useState<Map<string, string>>(new Map());
-  const [activeFileId, setActiveFileId] = useState(session.files[0]?.id);
+  const [activeFileId, setActiveFileId] = useState<string>();
   const [copiedFileId, setCopiedFileId] = useState<string>();
   const copyResetTimer = useRef<number | undefined>(undefined);
   const filteredFiles = useMemo(
@@ -49,11 +54,12 @@ export function DiffViewer({
     [query, session.files],
   );
   const tree = useMemo(() => buildDiffTree(filteredFiles), [filteredFiles]);
+  const orderedFiles = useMemo(() => flattenDiffTree(tree), [tree]);
   const filtering = query.trim().length > 0;
   const displayedActiveFileId =
-    activeFileId && filteredFiles.some((file) => file.id === activeFileId)
+    activeFileId && orderedFiles.some((file) => file.id === activeFileId)
       ? activeFileId
-      : filteredFiles[0]?.id;
+      : orderedFiles[0]?.id;
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -90,7 +96,7 @@ export function DiffViewer({
 
     pane.addEventListener('scroll', updateActiveFile, { passive: true });
     return () => pane.removeEventListener('scroll', updateActiveFile);
-  }, [filteredFiles]);
+  }, [orderedFiles]);
 
   const requestPatch = useCallback(
     (file: DiffFileSummary): void => {
@@ -174,7 +180,7 @@ export function DiffViewer({
           <div className={styles.toolbarTitle}>
             <GitCompareArrows size={16} />
             <div>
-              <strong>Committed changes</strong>
+              <strong>Comparing</strong>
               <span>
                 <code>{session.branch}</code>
                 <ChevronRight size={12} />
@@ -231,8 +237,8 @@ export function DiffViewer({
           </aside>
 
           <div ref={diffPaneRef} className={styles.diffPane}>
-            {filteredFiles.length ? (
-              filteredFiles.map((file) => (
+            {orderedFiles.length ? (
+              orderedFiles.map((file) => (
                 <DiffFile
                   key={file.id}
                   file={file}

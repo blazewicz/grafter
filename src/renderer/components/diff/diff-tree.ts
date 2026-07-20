@@ -73,6 +73,12 @@ export function buildDiffTree(files: readonly DiffFileSummary[]): DiffTreeNode[]
   return materializeChildren(root);
 }
 
+export function flattenDiffTree(nodes: readonly DiffTreeNode[]): DiffFileSummary[] {
+  return nodes.flatMap((node) =>
+    node.kind === 'file' ? [node.file] : flattenDiffTree(node.children),
+  );
+}
+
 export function diffDirectoryPaths(files: readonly DiffFileSummary[]): string[] {
   const paths = new Set<string>();
   for (const file of files) {

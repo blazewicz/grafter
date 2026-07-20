@@ -4,6 +4,7 @@ import {
   buildDiffTree,
   diffDirectoryPaths,
   filterDiffFiles,
+  flattenDiffTree,
 } from '../../../../src/renderer/components/diff/diff-tree';
 
 const files: DiffFileSummary[] = [
@@ -36,7 +37,8 @@ const files: DiffFileSummary[] = [
 
 describe('diff file tree', () => {
   it('sorts folders before files and nests path segments', () => {
-    expect(buildDiffTree(files)).toMatchObject([
+    const tree = buildDiffTree(files);
+    expect(tree).toMatchObject([
       {
         kind: 'directory',
         name: 'src',
@@ -55,6 +57,7 @@ describe('diff file tree', () => {
       },
       { kind: 'file', name: 'README.md' },
     ]);
+    expect(flattenDiffTree(tree).map((file) => file.id)).toEqual(['b', 'a', 'c']);
     expect(diffDirectoryPaths(files)).toEqual(['src', 'src/renderer', 'src/main']);
   });
 

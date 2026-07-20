@@ -200,7 +200,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 0 7px 0 calc(5px + var(--tree-depth) * 13px);
+  padding: 0 7px 0 calc(4px + var(--tree-depth) * 6px);
   overflow: hidden;
   border: 0;
   border-radius: 5px;
