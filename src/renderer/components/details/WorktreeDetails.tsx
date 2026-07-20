@@ -3,7 +3,6 @@ import {
   ChevronDown,
   Circle,
   Copy,
-  FolderGit2,
   FolderOpen,
   GitBranch,
   GitCompareArrows,
@@ -232,7 +231,7 @@ export function WorktreeDetails({
         title="Open project details"
         onClick={() => onSelectProject(details.projectId)}
       >
-        <FolderGit2 size={14} /> {details.projectName}
+        <FolderOpen size={14} /> {details.projectName}
       </button>
       <div className={styles.detailsTitleRow}>
         <div>
