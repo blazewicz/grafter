@@ -76,7 +76,7 @@ describe('WorktreeDetails copy controls', () => {
     expect(html).toContain('lucide-ellipsis');
     expect(html).not.toContain('Show commit message');
     expect(html).not.toContain('<pre');
-    expect(html).toContain('lucide-folder-git');
+    expect(html).toContain('lucide-folder-open');
     expect(html).toContain('repo</button>');
     expect(html).toContain('aria-label="Open repo project details"');
     expect(html).toContain('<h1>feature-worktree</h1>');
