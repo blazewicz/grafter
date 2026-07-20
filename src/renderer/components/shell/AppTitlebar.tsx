@@ -1,7 +1,7 @@
 import {
   ChevronLeft,
   ChevronRight,
-  FolderGit2,
+  FolderOpen,
   LoaderCircle,
   RefreshCw,
 } from 'lucide-react';
@@ -54,7 +54,7 @@ export function AppTitlebar({
           </button>
         </div>
         <div className={styles.titleBreadcrumb}>
-          <FolderGit2 size={14} />
+          <FolderOpen size={14} />
           {onSelectProject ? (
             <button
               className={`${styles.titleProject} ${styles.titleProjectButton}`}
