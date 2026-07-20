@@ -87,7 +87,7 @@ export interface CommitDetails {
 export interface Worktree {
   id: string;
   projectId: string;
-  name: string;
+  displayName: string;
   path: string;
   branch: string;
   pullRequest?: PullRequest;

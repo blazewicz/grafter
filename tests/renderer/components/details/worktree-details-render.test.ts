@@ -8,7 +8,7 @@ const details: WorktreeDetailsData = {
   id: 'project:/repo.worktrees/feature',
   projectId: 'project',
   projectName: 'repo',
-  name: 'feature-worktree',
+  displayName: 'feature-worktree',
   path: '/repo.worktrees/feature',
   branch: 'feature/branch',
   head: '1234567890',
@@ -30,7 +30,7 @@ const details: WorktreeDetailsData = {
 const mainWorktree: WorktreeDetailsData = {
   ...details,
   id: 'project:/repo',
-  name: 'repo',
+  displayName: 'main',
   path: '/repo',
   branch: 'main',
   isMain: true,
@@ -211,17 +211,22 @@ describe('WorktreeDetails copy controls', () => {
   });
 
   it('uses the same collision-safe worktree label as the sidebar', () => {
+    const collidingDetails = {
+      ...details,
+      displayName: 'repo.worktrees/feature',
+    };
     const collision = {
       ...details,
       id: 'project:/other/feature',
+      displayName: 'other/feature',
       path: '/other/feature',
     };
     const html = renderToStaticMarkup(
       createElement(WorktreeDetails, {
         homeDirectory: '/repo.worktrees',
         ...displayPreferences,
-        details,
-        projectWorktrees: [mainWorktree, details, collision],
+        details: collidingDetails,
+        projectWorktrees: [mainWorktree, collidingDetails, collision],
         status: 'clean',
         onSnapshot: () => undefined,
         onSelectProject: () => undefined,
@@ -235,7 +240,7 @@ describe('WorktreeDetails copy controls', () => {
   it('expands the heading when the linked worktree matches the main clone name', () => {
     const collidingDetails = {
       ...details,
-      name: 'repo',
+      displayName: 'b77c/repo',
       path: '/worktrees/b77c/repo',
     };
     const html = renderToStaticMarkup(

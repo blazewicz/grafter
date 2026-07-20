@@ -29,7 +29,7 @@ let snapshot: AppSnapshot = {
         {
           id: 'grafter:main',
           projectId: 'grafter',
-          name: 'grafter',
+          displayName: 'main',
           path: '/Users/kasia/Code/grafter',
           branch: 'main',
           head: '3e7cb81',
@@ -39,7 +39,7 @@ let snapshot: AppSnapshot = {
         {
           id: 'grafter:glass',
           projectId: 'grafter',
-          name: 'feature-glass-sidebar',
+          displayName: 'feature-glass-sidebar',
           path: '/Users/kasia/Code/grafter.worktrees/feature-glass-sidebar',
           branch: 'feature/glass-sidebar',
           pullRequest: {
@@ -56,7 +56,7 @@ let snapshot: AppSnapshot = {
         {
           id: 'grafter:audit',
           projectId: 'grafter',
-          name: 'audit-console',
+          displayName: 'audit-console',
           path: '/Users/kasia/Code/grafter.worktrees/audit-console',
           branch: 'audit-console',
           pullRequest: {
@@ -80,7 +80,7 @@ let snapshot: AppSnapshot = {
         {
           id: 'garden:main',
           projectId: 'garden',
-          name: 'garden-api',
+          displayName: 'main',
           path: '/Users/kasia/Code/garden-api',
           branch: 'main',
           head: '051dce3',

@@ -1,51 +1,54 @@
 import type { Worktree } from './contracts';
 
-export interface WorktreeListItem {
-  worktree: Worktree;
-  displayName: string;
-}
+export type WorktreeWithoutDisplayName = Omit<Worktree, 'displayName'>;
 
-export function buildWorktreeList(worktrees: readonly Worktree[]): WorktreeListItem[] {
-  const worktreesByName = new Map<string, Worktree[]>();
-  const mainWorktreeNames = new Set(
+export function resolveWorktreeDisplayNames(
+  worktrees: readonly WorktreeWithoutDisplayName[],
+): Worktree[] {
+  const worktreesByBasename = new Map<string, WorktreeWithoutDisplayName[]>();
+  const mainWorktreeBasenames = new Set(
     worktrees
       .filter((worktree) => worktree.isMain)
-      .map((worktree) => worktree.name.toLocaleLowerCase()),
+      .map((worktree) => worktreeBasename(worktree.path).toLocaleLowerCase()),
   );
   for (const worktree of worktrees) {
     if (worktree.isMain) continue;
-    const matches = worktreesByName.get(worktree.name);
+    const basename = worktreeBasename(worktree.path);
+    const matches = worktreesByBasename.get(basename);
     if (matches) matches.push(worktree);
-    else worktreesByName.set(worktree.name, [worktree]);
+    else worktreesByBasename.set(basename, [worktree]);
   }
 
-  return worktrees
-    .map((worktree) => {
-      const matches = worktreesByName.get(worktree.name) ?? [];
-      if (worktree.isMain) return { worktree, displayName: 'main' };
+  return worktrees.map((worktree) => {
+    if (worktree.isMain) return { ...worktree, displayName: 'main' };
 
-      const requiresPathSuffix =
-        matches.length > 1 ||
-        worktree.name.toLocaleLowerCase() === 'main' ||
-        mainWorktreeNames.has(worktree.name.toLocaleLowerCase());
-      return {
-        worktree,
-        displayName: requiresPathSuffix
-          ? shortestUniquePathSuffix(worktree, matches)
-          : worktree.name,
-      };
-    })
-    .sort(
-      (left, right) =>
-        Number(right.worktree.isMain) - Number(left.worktree.isMain) ||
-        compareText(left.worktree.name, right.worktree.name) ||
-        compareText(left.worktree.path, right.worktree.path),
-    );
+    const basename = worktreeBasename(worktree.path);
+    const matches = worktreesByBasename.get(basename) ?? [];
+    const requiresPathSuffix =
+      matches.length > 1 ||
+      basename.toLocaleLowerCase() === 'main' ||
+      mainWorktreeBasenames.has(basename.toLocaleLowerCase());
+    return {
+      ...worktree,
+      displayName: requiresPathSuffix
+        ? shortestUniquePathSuffix(worktree, matches)
+        : basename,
+    };
+  });
+}
+
+export function sortWorktrees(worktrees: readonly Worktree[]): Worktree[] {
+  return [...worktrees].sort(
+    (left, right) =>
+      Number(right.isMain) - Number(left.isMain) ||
+      compareText(left.displayName, right.displayName) ||
+      compareText(left.path, right.path),
+  );
 }
 
 function shortestUniquePathSuffix(
-  worktree: Worktree,
-  matches: readonly Worktree[],
+  worktree: WorktreeWithoutDisplayName,
+  matches: readonly WorktreeWithoutDisplayName[],
 ): string {
   const segments = pathSegments(worktree.path);
 
@@ -64,6 +67,11 @@ function shortestUniquePathSuffix(
 
 function pathSegments(worktreePath: string): string[] {
   return worktreePath.replace(/\/+$/, '').split('/').filter(Boolean);
+}
+
+function worktreeBasename(worktreePath: string): string {
+  const normalized = worktreePath.replace(/\/+$/, '');
+  return normalized.slice(normalized.lastIndexOf('/') + 1) || worktreePath;
 }
 
 function suffix(segments: readonly string[], length: number): string {

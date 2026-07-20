@@ -8,7 +8,7 @@ const worktrees: Worktree[] = [
   {
     id: 'project:/repo',
     projectId: 'project',
-    name: 'repo',
+    displayName: 'main',
     path: '/repo',
     branch: 'main',
     head: '1111111',
@@ -18,7 +18,7 @@ const worktrees: Worktree[] = [
   {
     id: 'project:/repo.worktrees/feature',
     projectId: 'project',
-    name: 'feature',
+    displayName: 'feature',
     path: '/repo.worktrees/feature',
     branch: 'feature/current',
     head: '2222222',
@@ -42,7 +42,7 @@ describe('BranchPicker', () => {
       'title="Currently checked out in this worktree" aria-label="feature/current: Currently checked out in this worktree"',
     );
     expect(html).toContain(
-      'title="Already checked out in repo" aria-label="main: Already checked out in repo"',
+      'title="Already checked out in main" aria-label="main: Already checked out in main"',
     );
     expect(html).toContain('aria-label="feature/available"');
     expect(html.match(/disabled=""/g)).toHaveLength(2);

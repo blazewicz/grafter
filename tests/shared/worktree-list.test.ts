@@ -1,49 +1,42 @@
 import { describe, expect, it } from 'vitest';
 import type { Worktree } from '../../src/shared/contracts';
-import { buildWorktreeList } from '../../src/shared/worktree-list';
+import {
+  resolveWorktreeDisplayNames,
+  sortWorktrees,
+  type WorktreeWithoutDisplayName,
+} from '../../src/shared/worktree-list';
 
-function worktree(name: string, path: string): Worktree {
+function worktreeCandidate(path: string): WorktreeWithoutDisplayName {
   return {
     id: `project:${path}`,
     projectId: 'project',
-    name,
     path,
-    branch: `branch/${name}`,
-    head: name,
+    branch: `branch/${path}`,
+    head: path,
     isMain: false,
     locked: false,
   };
 }
 
-describe('buildWorktreeList', () => {
-  it('sorts worktrees alphabetically without using branch or pull request data', () => {
-    const beta = worktree('Beta', '/worktrees/Beta');
-    const alpha = worktree('alpha', '/worktrees/alpha');
-    beta.pullRequest = {
-      number: 1,
-      title: 'Stacked branch',
-      url: 'https://github.com/example/repo/pull/1',
-      state: 'OPEN',
-      baseBranch: alpha.branch,
-    };
+function worktree(displayName: string, path: string): Worktree {
+  return {
+    ...worktreeCandidate(path),
+    displayName,
+  };
+}
 
-    expect(buildWorktreeList([beta, alpha])).toEqual([
-      { worktree: alpha, displayName: 'alpha' },
-      { worktree: beta, displayName: 'Beta' },
-    ]);
-  });
-
+describe('resolveWorktreeDisplayNames', () => {
   it('uses the shortest unique parent suffix for duplicate basenames', () => {
     const worktrees = [
-      worktree('grafter', '/Users/kasia/projects/grafter'),
-      worktree('grafter', '/Users/kasia/scratch/grafter'),
-      worktree('grafter', '/Volumes/archive/scratch/grafter'),
-      worktree('other', '/Users/kasia/projects/other'),
+      worktreeCandidate('/Users/kasia/projects/grafter'),
+      worktreeCandidate('/Users/kasia/scratch/grafter'),
+      worktreeCandidate('/Volumes/archive/scratch/grafter'),
+      worktreeCandidate('/Users/kasia/projects/other'),
     ];
 
     expect(
-      buildWorktreeList(worktrees).map(({ worktree: item, displayName }) => ({
-        path: item.path,
+      resolveWorktreeDisplayNames(worktrees).map(({ path, displayName }) => ({
+        path,
         displayName,
       })),
     ).toEqual([
@@ -66,47 +59,80 @@ describe('buildWorktreeList', () => {
     ]);
   });
 
-  it('pins the main worktree and reserves its display label', () => {
-    const main = worktree('repo', '/Users/kasia/projects/repo');
+  it('reserves main for the main worktree', () => {
+    const main = worktreeCandidate('/Users/kasia/projects/repo');
     main.isMain = true;
     main.branch = 'feature/from-main';
-    const linkedMain = worktree('main', '/Users/kasia/scratch/main');
-    const alpha = worktree('alpha', '/Users/kasia/worktrees/alpha');
+    const linkedMain = worktreeCandidate('/Users/kasia/scratch/main');
+    const alpha = worktreeCandidate('/Users/kasia/worktrees/alpha');
 
     expect(
-      buildWorktreeList([linkedMain, alpha, main]).map(
-        ({ worktree: item, displayName }) => ({
-          path: item.path,
+      resolveWorktreeDisplayNames([linkedMain, alpha, main]).map(
+        ({ path, displayName }) => ({
+          path,
           displayName,
         }),
       ),
     ).toEqual([
       {
-        path: '/Users/kasia/projects/repo',
-        displayName: 'main',
+        path: '/Users/kasia/scratch/main',
+        displayName: 'scratch/main',
       },
       {
         path: '/Users/kasia/worktrees/alpha',
         displayName: 'alpha',
       },
       {
-        path: '/Users/kasia/scratch/main',
-        displayName: 'scratch/main',
+        path: '/Users/kasia/projects/repo',
+        displayName: 'main',
       },
     ]);
   });
 
   it('expands a linked worktree that shares the main clone basename', () => {
-    const main = worktree('git-workflow-app', '/Users/kasia/projects/git-workflow-app');
+    const main = worktreeCandidate('/Users/kasia/projects/git-workflow-app');
     main.isMain = true;
-    const linked = worktree(
-      'git-workflow-app',
+    const linked = worktreeCandidate(
       '/Users/kasia/.codex/worktrees/b77c/git-workflow-app',
     );
 
-    expect(buildWorktreeList([linked, main])).toEqual([
-      { worktree: main, displayName: 'main' },
-      { worktree: linked, displayName: 'b77c/git-workflow-app' },
+    expect(resolveWorktreeDisplayNames([linked, main])).toMatchObject([
+      { path: linked.path, displayName: 'b77c/git-workflow-app' },
+      { path: main.path, displayName: 'main' },
     ]);
+  });
+
+  it('recalculates existing labels when a collision is added or removed', () => {
+    const alpha = worktreeCandidate('/worktrees/alpha/repo');
+    const beta = worktreeCandidate('/worktrees/beta/repo');
+
+    expect(resolveWorktreeDisplayNames([alpha])).toMatchObject([
+      { path: alpha.path, displayName: 'repo' },
+    ]);
+    expect(resolveWorktreeDisplayNames([alpha, beta])).toMatchObject([
+      { path: alpha.path, displayName: 'alpha/repo' },
+      { path: beta.path, displayName: 'beta/repo' },
+    ]);
+    expect(resolveWorktreeDisplayNames([beta])).toMatchObject([
+      { path: beta.path, displayName: 'repo' },
+    ]);
+  });
+});
+
+describe('sortWorktrees', () => {
+  it('pins main and sorts by display name without using branch or PR data', () => {
+    const beta = worktree('Beta', '/worktrees/z-path');
+    const alpha = worktree('alpha', '/worktrees/a-path');
+    const main = worktree('main', '/projects/repo');
+    main.isMain = true;
+    beta.pullRequest = {
+      number: 1,
+      title: 'Stacked branch',
+      url: 'https://github.com/example/repo/pull/1',
+      state: 'OPEN',
+      baseBranch: alpha.branch,
+    };
+
+    expect(sortWorktrees([beta, main, alpha])).toEqual([main, alpha, beta]);
   });
 });

@@ -11,7 +11,7 @@ import {
 import { useMemo } from 'react';
 import type { GrafterApi, ProjectTreeItem, Worktree } from '../../../shared/contracts';
 import { displayWorktreePath } from '../../../shared/path-display';
-import { buildWorktreeList } from '../../../shared/worktree-list';
+import { sortWorktrees } from '../../../shared/worktree-list';
 import { NewWorktreeForm } from './NewWorktreeForm';
 import { SidebarTooltip } from './SidebarTooltip';
 import styles from './sidebar.module.css';
@@ -48,8 +48,8 @@ export function ProjectNode({
   onRemoveWorktree: (worktree: Worktree) => void;
   onError: (message: string) => void;
 }): React.JSX.Element {
-  const worktreeItems = useMemo(
-    () => buildWorktreeList(project.worktrees),
+  const sortedWorktrees = useMemo(
+    () => sortWorktrees(project.worktrees),
     [project.worktrees],
   );
 
@@ -96,13 +96,12 @@ export function ProjectNode({
       {expanded && (
         <div>
           <div className={styles.branchList}>
-            {worktreeItems.map(({ worktree, displayName }) => (
+            {sortedWorktrees.map((worktree) => (
               <WorktreeRow
                 key={worktree.id}
                 homeDirectory={homeDirectory}
                 mainClonePath={project.path}
                 worktree={worktree}
-                displayName={displayName}
                 selected={selectedId === worktree.id}
                 onSelect={onSelect}
                 onRemoveWorktree={onRemoveWorktree}
@@ -127,7 +126,6 @@ function WorktreeRow({
   homeDirectory,
   mainClonePath,
   worktree,
-  displayName,
   selected,
   onSelect,
   onRemoveWorktree,
@@ -135,7 +133,6 @@ function WorktreeRow({
   homeDirectory: string;
   mainClonePath: string;
   worktree: Worktree;
-  displayName: string;
   selected: boolean;
   onSelect: (id: string) => void;
   onRemoveWorktree: (worktree: Worktree) => void;
@@ -153,7 +150,7 @@ function WorktreeRow({
         aria-label={
           worktree.isMain
             ? `Main worktree, checked out branch ${worktree.branch}`
-            : `${displayName}, checked out branch ${worktree.branch}`
+            : `${worktree.displayName}, checked out branch ${worktree.branch}`
         }
         onClick={() => onSelect(worktree.id)}
         onPointerUp={releasePointerFocus}
@@ -161,7 +158,7 @@ function WorktreeRow({
         {worktree.isMain ? <FolderRoot size={13} /> : <FolderGit2 size={13} />}
         <SidebarTooltip
           className={styles.worktreeNameWrap}
-          label={displayName}
+          label={worktree.displayName}
           labelClassName={styles.worktreeName}
           tooltip={worktree.isMain ? `Main worktree · ${displayedPath}` : displayedPath}
           data-worktree-path={worktree.path}
@@ -174,7 +171,7 @@ function WorktreeRow({
         <div className={styles.rowActions}>
           <button
             className={styles.dangerAction}
-            aria-label={`Remove ${displayName} worktree`}
+            aria-label={`Remove ${worktree.displayName} worktree`}
             title="Remove worktree"
             onClick={() => onRemoveWorktree(worktree)}
           >

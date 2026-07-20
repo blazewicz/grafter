@@ -105,7 +105,7 @@ export class GitService {
     await this.#git(
       worktree.path,
       ['switch', '--no-guess', '--', branch],
-      `Switch ${worktree.name} to ${branch}`,
+      `Switch ${worktree.displayName} to ${branch}`,
       false,
       worktreeCommandContext(worktree),
     );

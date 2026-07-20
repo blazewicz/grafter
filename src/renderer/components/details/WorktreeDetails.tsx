@@ -25,7 +25,6 @@ import type {
   WorktreeStatus,
 } from '../../../shared/contracts';
 import { displayWorktreePath } from '../../../shared/path-display';
-import { buildWorktreeList } from '../../../shared/worktree-list';
 import { api, friendlyError } from '../../grafter-api';
 import { BranchPicker } from '../branches/BranchPicker';
 import { VisualStudioCodeMark } from '../ui/BrandMarks';
@@ -96,9 +95,6 @@ export function WorktreeDetails({
     editorOptions.find((option) => option.id === editor)?.label ?? 'IDE';
   const pullRequest = details.pullRequest;
   const commit = details.commit;
-  const worktreeDisplayName =
-    buildWorktreeList(projectWorktrees).find(({ worktree }) => worktree.id === details.id)
-      ?.displayName ?? (details.isMain ? 'main' : details.name);
   const mainClonePath =
     projectWorktrees.find((worktree) => worktree.isMain)?.path ?? details.path;
   const statusClass =
@@ -240,7 +236,7 @@ export function WorktreeDetails({
       </button>
       <div className={styles.detailsTitleRow}>
         <div>
-          <h1>{worktreeDisplayName}</h1>
+          <h1>{details.displayName}</h1>
           <div className={styles.checkedOutBranch}>
             <span>Checked-out branch:</span>
             <div className={styles.branchPicker} ref={branchMenuRef}>

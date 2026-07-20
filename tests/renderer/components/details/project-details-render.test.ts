@@ -4,11 +4,16 @@ import { describe, expect, it } from 'vitest';
 import type { ProjectTreeItem, Worktree } from '../../../../src/shared/contracts';
 import { ProjectDetails } from '../../../../src/renderer/components/details/ProjectDetails';
 
-function worktree(name: string, path: string, branch: string, isMain = false): Worktree {
+function worktree(
+  displayName: string,
+  path: string,
+  branch: string,
+  isMain = false,
+): Worktree {
   return {
     id: `project:${path}`,
     projectId: 'project',
-    name,
+    displayName,
     path,
     branch,
     head: branch,
@@ -19,10 +24,10 @@ function worktree(name: string, path: string, branch: string, isMain = false): W
 
 describe('ProjectDetails', () => {
   it('renders concrete home-collapsed worktree paths with full hover labels', () => {
-    const main = worktree('repo', '/Users/kasia/projects/repo', 'main', true);
+    const main = worktree('main', '/Users/kasia/projects/repo', 'main', true);
     const alpha = worktree('alpha', '/Users/kasia/worktrees/alpha', 'feature/alpha');
     const collision = worktree(
-      'repo',
+      'b77c/repo',
       '/Users/kasia/worktrees/b77c/repo',
       'feature/worktree-first',
     );

@@ -73,7 +73,7 @@ export function AppTitlebar({
             <>
               <ChevronRight size={13} />
               {worktree?.isMain ? <FolderRoot size={14} /> : <FolderGit2 size={14} />}
-              <span className={styles.titleWorktree}>{worktree?.name}</span>
+              <span className={styles.titleWorktree}>{worktree.displayName}</span>
             </>
           )}
         </div>

@@ -8,7 +8,16 @@ describe('AppTitlebar', () => {
     const html = renderToStaticMarkup(
       createElement(AppTitlebar, {
         projectName: 'grafter',
-        worktreeName: 'b77c/grafter',
+        worktree: {
+          id: 'project:/worktrees/b77c/grafter',
+          projectId: 'project',
+          displayName: 'b77c/grafter',
+          path: '/worktrees/b77c/grafter',
+          branch: 'feature/icons',
+          head: '1234567',
+          isMain: false,
+          locked: false,
+        },
         canGoBack: false,
         canGoForward: true,
         onBack: () => undefined,

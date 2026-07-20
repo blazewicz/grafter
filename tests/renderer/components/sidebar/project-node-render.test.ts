@@ -4,11 +4,16 @@ import { describe, expect, it } from 'vitest';
 import type { ProjectTreeItem, Worktree } from '../../../../src/shared/contracts';
 import { ProjectNode } from '../../../../src/renderer/components/sidebar/ProjectNode';
 
-function worktree(branch: string, name: string, path: string, isMain = false): Worktree {
+function worktree(
+  branch: string,
+  displayName: string,
+  path: string,
+  isMain = false,
+): Worktree {
   return {
     id: `project:${path}`,
     projectId: 'project',
-    name,
+    displayName,
     path,
     branch,
     head: branch,
@@ -29,7 +34,7 @@ describe('ProjectNode worktree labels', () => {
       'a-stacked-worktree',
       '/repo.worktrees/stacked',
     );
-    const main = worktree('feature/from-main', 'repo', '/repo', true);
+    const main = worktree('feature/from-main', 'main', '/repo', true);
     const project: ProjectTreeItem = {
       id: 'project',
       name: 'repo',
@@ -67,7 +72,7 @@ describe('ProjectNode worktree labels', () => {
     );
     expect(html).toContain('mainWorktreeRow');
     expect(html).toContain('lucide-folder-root');
-    expect(html.match(/lucide-git-branch/g)).toHaveLength(2);
+    expect(html.match(/lucide-folder-git-2/g)).toHaveLength(2);
     expect(html).toContain('>main</span>');
     expect(html).toContain('data-tooltip-content="Main worktree · /repo"');
     expect(html).toContain('data-branch-name="feature/from-main"');
@@ -85,7 +90,7 @@ describe('ProjectNode worktree labels', () => {
   });
 
   it('omits the redundant branch label when the main worktree is on main', () => {
-    const main = worktree('main', 'repo', '/repo', true);
+    const main = worktree('main', 'main', '/repo', true);
     const project: ProjectTreeItem = {
       id: 'project',
       name: 'repo',
