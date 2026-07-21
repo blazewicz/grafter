@@ -137,11 +137,6 @@
   box-shadow: 0 16px 38px rgba(0, 0, 0, 0.46);
 }
 
-.target-branch-menu {
-  right: 0;
-  left: auto;
-}
-
 .branch-button code {
   min-width: 0;
   overflow: hidden;

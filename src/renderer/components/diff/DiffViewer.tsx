@@ -575,7 +575,7 @@ export function DiffViewer({
                   </button>
                   {branchMenu === 'target' && (
                     <div
-                      className={`${styles.branchMenu} ${styles.targetBranchMenu}`}
+                      className={styles.branchMenu}
                       role="dialog"
                       aria-label="Choose destination branch"
                     >
