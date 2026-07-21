@@ -390,6 +390,12 @@ describe('GitService committed diff sessions', () => {
       previousPath: 'src/old name.ts',
       status: 'renamed',
     });
+    expect(service.diffFilePath({ sessionId: session.id, fileId: 'file-0' })).toBe(
+      '/repo.worktrees/feature/src/renderer/App.tsx',
+    );
+    expect(service.diffFilePath({ sessionId: session.id, fileId: 'file-1' })).toBe(
+      '/repo.worktrees/feature/src/new name.ts',
+    );
 
     await expect(
       service.diffFile({ sessionId: session.id, fileId: 'file-1' }),
@@ -439,9 +445,39 @@ describe('GitService committed diff sessions', () => {
     await expect(
       service.diffFile({ sessionId: session.id, fileId: '../../etc/passwd' }),
     ).rejects.toThrow('not part of this diff');
+    expect(() =>
+      service.diffFilePath({ sessionId: session.id, fileId: '../../etc/passwd' }),
+    ).toThrow('not part of this diff');
     service.closeDiff(session.id);
     await expect(
       service.diffFile({ sessionId: session.id, fileId: 'file-0' }),
     ).rejects.toThrow('session expired');
+    expect(() =>
+      service.diffFilePath({ sessionId: session.id, fileId: 'file-0' }),
+    ).toThrow('session expired');
+  });
+
+  it('does not open deleted files or paths outside the worktree', async () => {
+    const runner = new StubCommandRunner((spec) => {
+      if (spec.args[0] === 'symbolic-ref') return { stdout: 'origin/main\n' };
+      if (spec.args[0] === 'rev-parse') return { stdout: 'head-sha\n' };
+      if (spec.args[0] === 'merge-base') return { stdout: 'base-sha\n' };
+      if (spec.args.includes('--name-status')) {
+        return { stdout: 'D\0src/deleted.ts\0M\0../outside.ts\0' };
+      }
+      if (spec.args.includes('--numstat')) {
+        return { stdout: '0\t3\tsrc/deleted.ts\0' + '1\t1\t../outside.ts\0' };
+      }
+      throw new Error(`Unexpected command: ${spec.args.join(' ')}`);
+    });
+    const service = new GitService(runner);
+    const session = await service.openDiff(project, worktree);
+
+    expect(() =>
+      service.diffFilePath({ sessionId: session.id, fileId: 'file-0' }),
+    ).toThrow('Deleted files cannot be opened');
+    expect(() =>
+      service.diffFilePath({ sessionId: session.id, fileId: 'file-1' }),
+    ).toThrow('outside its worktree');
   });
 });

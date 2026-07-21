@@ -278,6 +278,27 @@ export class GitService {
     return parseUnifiedDiff(file.id, result.stdout);
   }
 
+  diffFilePath(request: DiffFileRequest): string {
+    const session = this.#diffSessions.get(request.sessionId);
+    if (!session) throw new Error('The diff session expired. Close and reopen it.');
+    const file = session.files.get(request.fileId);
+    if (!file) throw new Error('The requested file is not part of this diff.');
+    if (file.status === 'deleted') {
+      throw new Error('Deleted files cannot be opened in an editor.');
+    }
+
+    const filePath = path.resolve(session.worktreePath, file.path);
+    const relativePath = path.relative(session.worktreePath, filePath);
+    if (
+      relativePath === '..' ||
+      relativePath.startsWith(`..${path.sep}`) ||
+      path.isAbsolute(relativePath)
+    ) {
+      throw new Error('The requested file is outside its worktree.');
+    }
+    return filePath;
+  }
+
   closeDiff(sessionId: string): void {
     this.#diffSessions.delete(sessionId);
   }

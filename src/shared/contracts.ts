@@ -127,6 +127,10 @@ export interface DiffFileRequest {
   fileId: string;
 }
 
+export interface OpenDiffFileRequest extends DiffFileRequest {
+  editor: EditorTool;
+}
+
 export interface CommitDetails {
   hash: string;
   title: string;
@@ -213,6 +217,7 @@ export interface GrafterApi {
   updateProjectSetup(projectId: string, script: string): Promise<AppSnapshot>;
   openWorktreeDirectory(worktreeId: string): Promise<void>;
   openWorktreeInEditor(worktreeId: string, editor: EditorTool): Promise<void>;
+  openDiffFileInEditor(request: OpenDiffFileRequest): Promise<void>;
   openExternal(url: string): Promise<void>;
   copyText(text: string): Promise<void>;
   onSnapshotUpdate(listener: (snapshot: AppSnapshot) => void): () => void;

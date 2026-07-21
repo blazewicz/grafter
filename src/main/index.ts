@@ -20,7 +20,7 @@ import type {
 import { ipc } from '../shared/ipc';
 import { AppService } from './services/app-service';
 import { CommandRunner } from './commands';
-import { launchEditor } from './editors';
+import { editorFileUrl, launchEditor } from './editors';
 import { StateStore } from './store';
 
 let mainWindow: BrowserWindow | undefined;
@@ -160,6 +160,10 @@ function registerIpc(): void {
       await launchEditor(editor, service.worktreePath(worktreeId));
     },
   );
+  ipcMain.handle(ipc.openDiffFileInEditor, async (_event, request: unknown) => {
+    const target = service.diffFileEditorTarget(request);
+    await shell.openExternal(editorFileUrl(target.editor, target.filePath));
+  });
   ipcMain.handle(ipc.openExternal, async (_event, url: string) => {
     const parsed = new URL(url);
     if (parsed.protocol !== 'https:') throw new Error('Only HTTPS links can be opened.');

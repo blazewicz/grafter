@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { editorLaunchSpec } from '../../src/main/editors';
+import { editorFileUrl, editorLaunchSpec } from '../../src/main/editors';
 
 describe('editor launch commands', () => {
   it('opens VS Code in a new window on macOS without requiring code on PATH', () => {
@@ -34,6 +34,23 @@ describe('editor launch commands', () => {
   it('rejects unsupported platforms', () => {
     expect(() => editorLaunchSpec('vscode', '/code/project', 'win32')).toThrow(
       'Opening an IDE is supported only on macOS and Linux.',
+    );
+  });
+});
+
+describe('editor file URLs', () => {
+  it('creates an encoded VS Code file URL from an absolute path', () => {
+    expect(editorFileUrl('vscode', '/code/project/src/a file#1.ts')).toBe(
+      'vscode://file/code/project/src/a%20file%231.ts',
+    );
+  });
+
+  it('rejects relative paths and unsupported editors', () => {
+    expect(() => editorFileUrl('vscode', 'src/App.tsx')).toThrow(
+      'The editor file path must be absolute.',
+    );
+    expect(() => editorFileUrl('unknown' as 'vscode', '/code/App.tsx')).toThrow(
+      'Unsupported IDE.',
     );
   });
 });
