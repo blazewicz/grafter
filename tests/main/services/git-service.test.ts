@@ -369,7 +369,7 @@ describe('GitService committed diff sessions', () => {
     });
     const service = new GitService(runner);
 
-    const session = await service.openCommitDiff(project, worktree, commitHash);
+    const session = await service.openCommitDiff(project, commitHash);
 
     expect(session).toMatchObject({
       kind: 'commit',
@@ -387,6 +387,8 @@ describe('GitService committed diff sessions', () => {
     });
     expect(runner.commands).toContainEqual(
       expect.objectContaining({
+        context: projectCommandContext(project),
+        cwd: project.path,
         args: ['diff', '--name-status', '-z', '--find-renames', firstParent, commitHash],
       }),
     );
@@ -414,11 +416,7 @@ describe('GitService committed diff sessions', () => {
       throw new Error(`Unexpected command: ${spec.args.join(' ')}`);
     });
 
-    const session = await new GitService(runner).openCommitDiff(
-      project,
-      worktree,
-      commitHash,
-    );
+    const session = await new GitService(runner).openCommitDiff(project, commitHash);
 
     expect(session).toMatchObject({
       kind: 'commit',

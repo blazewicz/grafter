@@ -124,7 +124,7 @@ export interface OpenBranchDiffRequest {
 }
 
 export interface OpenCommitDiffRequest {
-  worktreeId: string;
+  projectId: string;
   commitHash: string;
 }
 

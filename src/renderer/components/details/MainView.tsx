@@ -44,7 +44,7 @@ export function MainView({
   onSelectWorktree: (worktreeId: string) => void;
   diffOpening: boolean;
   onOpenDiff: (worktreeId: string) => void;
-  onOpenCommitDiff: (worktreeId: string, commitHash: string) => void;
+  onOpenCommitDiff: (projectId: string, commitHash: string) => void;
   onError: (message: string) => void;
 }): React.JSX.Element {
   return (
@@ -61,7 +61,9 @@ export function MainView({
           onSelectProject={onSelectProject}
           diffOpening={diffOpening}
           onOpenDiff={() => onOpenDiff(details.id)}
-          onOpenCommitDiff={(commitHash) => onOpenCommitDiff(details.id, commitHash)}
+          onOpenCommitDiff={(commitHash) =>
+            onOpenCommitDiff(details.projectId, commitHash)
+          }
           onError={onError}
         />
       ) : selectedWorktree ? (

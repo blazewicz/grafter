@@ -241,12 +241,7 @@ export class AppService {
     if (!isOpenCommitDiffRequest(request)) {
       throw new Error('Invalid commit changes request.');
     }
-    const worktree = this.#worktree(request.worktreeId);
-    return this.git.openCommitDiff(
-      this.#project(worktree.projectId),
-      worktree,
-      request.commitHash,
-    );
+    return this.git.openCommitDiff(this.#project(request.projectId), request.commitHash);
   }
 
   async diffFile(request: unknown): Promise<DiffFilePatch> {
@@ -460,7 +455,7 @@ function isOpenCommitDiffRequest(value: unknown): value is OpenCommitDiffRequest
   if (!value || typeof value !== 'object') return false;
   const request = value as Record<string, unknown>;
   return (
-    typeof request.worktreeId === 'string' &&
+    typeof request.projectId === 'string' &&
     typeof request.commitHash === 'string' &&
     /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/i.test(request.commitHash)
   );

@@ -810,17 +810,19 @@ export const previewApi: GrafterApi = {
       }),
     );
   },
-  openCommitDiff: ({ worktreeId, commitHash }) => {
-    const worktreeDetails = details[worktreeId];
-    if (worktreeDetails?.commit?.hash !== commitHash) {
+  openCommitDiff: ({ projectId, commitHash }) => {
+    const commitDetails = Object.values(details).find(
+      (item) => item.projectId === projectId && item.commit?.hash === commitHash,
+    );
+    if (!commitDetails?.commit) {
       return Promise.reject(new Error('Commit not found.'));
     }
-    const commit = worktreeDetails.commit;
+    const commit = commitDetails.commit;
     return Promise.resolve(
       structuredClone({
         kind: 'commit' as const,
         id: `preview-commit-${commitHash}`,
-        projectId: worktreeDetails.projectId,
+        projectId,
         baseSha: '4fc93b86a45b1a47af174e0b97e422a31eb19db0',
         headSha: commitHash,
         githubRepository: { owner: 'example', name: 'grafter' },

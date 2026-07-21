@@ -176,11 +176,11 @@ export function App(): React.JSX.Element {
       .finally(() => setDiffOpening(false));
   };
 
-  const openCommitDiff = (worktreeId: string, commitHash: string): void => {
+  const openCommitDiff = (projectId: string, commitHash: string): void => {
     setDiffOpening(true);
     setError(undefined);
     void api
-      .openCommitDiff({ worktreeId, commitHash })
+      .openCommitDiff({ projectId, commitHash })
       .then(setDiffSession)
       .catch((caught: unknown) => setError(friendlyError(caught)))
       .finally(() => setDiffOpening(false));

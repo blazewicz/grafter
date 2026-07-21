@@ -209,15 +209,11 @@ export class GitService {
     return this.#openBranchDiff(project, sourceBranch, targetBranch, sourceWorktree);
   }
 
-  async openCommitDiff(
-    project: Project,
-    worktree: Worktree,
-    commitHash: string,
-  ): Promise<DiffSession> {
-    const context = worktreeCommandContext(worktree);
+  async openCommitDiff(project: Project, commitHash: string): Promise<DiffSession> {
+    const context = projectCommandContext(project);
     const headSha = (
       await this.#git(
-        worktree.path,
+        project.path,
         ['rev-parse', '--verify', `${commitHash}^{commit}`],
         'Resolve commit revision',
         true,
@@ -226,14 +222,14 @@ export class GitService {
     ).stdout.trim();
     const [parentsResult, commitResult] = await Promise.all([
       this.#git(
-        worktree.path,
+        project.path,
         ['show', '-s', '--format=%P', headSha],
         'Read commit parents',
         true,
         context,
       ),
       this.#git(
-        worktree.path,
+        project.path,
         [
           'log',
           '-1',
@@ -256,7 +252,7 @@ export class GitService {
       parentShas[0] ??
       (
         await this.#git(
-          worktree.path,
+          project.path,
           ['hash-object', '-t', 'tree', '/dev/null'],
           'Resolve the empty tree',
           true,
@@ -264,7 +260,7 @@ export class GitService {
         )
       ).stdout.trim();
     const contents = await this.#diffContents(
-      worktree.path,
+      project.path,
       baseSha,
       headSha,
       'in commit',
@@ -286,7 +282,7 @@ export class GitService {
       parentShas,
     };
     this.#storeDiffSession(id, {
-      repositoryPath: worktree.path,
+      repositoryPath: project.path,
       context,
       baseSha,
       headSha,

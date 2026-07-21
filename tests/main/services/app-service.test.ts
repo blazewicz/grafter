@@ -545,7 +545,7 @@ describe('AppService commit changes', () => {
     const service = new AppService(store, new StubCommandRunner(() => ({})));
 
     await expect(
-      service.openCommitDiff({ worktreeId: 'worktree', commitHash: 'HEAD' }),
+      service.openCommitDiff({ projectId: 'project', commitHash: 'HEAD' }),
     ).rejects.toThrow('Invalid commit changes request');
   });
 });
