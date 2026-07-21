@@ -31,6 +31,7 @@ import {
   flattenDiffTree,
 } from './diff-tree';
 import type { DiffTreeNode } from './diff-tree';
+import { calculateDiffScrollCorrection } from './diff-scroll';
 import styles from './DiffViewer.module.css';
 
 const diffFileStatusIcon = {
@@ -62,8 +63,10 @@ export function DiffViewer({
   const [loading, setLoading] = useState<Set<string>>(new Set());
   const [fileErrors, setFileErrors] = useState<Map<string, string>>(new Map());
   const [activeFileId, setActiveFileId] = useState<string>();
+  const [pendingTargetId, setPendingTargetId] = useState<string>();
   const [copiedFileId, setCopiedFileId] = useState<string>();
   const copyResetTimer = useRef<number | undefined>(undefined);
+  const loadingFiles = useRef(loading);
   const filteredFiles = useMemo(
     () => filterDiffFiles(session.files, query),
     [query, session.files],
@@ -72,9 +75,11 @@ export function DiffViewer({
   const orderedFiles = useMemo(() => flattenDiffTree(tree), [tree]);
   const filtering = query.trim().length > 0;
   const displayedActiveFileId =
-    activeFileId && orderedFiles.some((file) => file.id === activeFileId)
-      ? activeFileId
-      : orderedFiles[0]?.id;
+    pendingTargetId && orderedFiles.some((file) => file.id === pendingTargetId)
+      ? pendingTargetId
+      : activeFileId && orderedFiles.some((file) => file.id === activeFileId)
+        ? activeFileId
+        : orderedFiles[0]?.id;
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -95,6 +100,10 @@ export function DiffViewer({
   );
 
   useEffect(() => {
+    loadingFiles.current = loading;
+  }, [loading]);
+
+  useEffect(() => {
     const pane = diffPaneRef.current;
     if (!pane) return;
 
@@ -112,6 +121,109 @@ export function DiffViewer({
     pane.addEventListener('scroll', updateActiveFile, { passive: true });
     return () => pane.removeEventListener('scroll', updateActiveFile);
   }, [orderedFiles]);
+
+  useEffect(() => {
+    if (!pendingTargetId) return;
+    const pane = diffPaneRef.current;
+    const targetIndex = orderedFiles.findIndex((file) => file.id === pendingTargetId);
+    const target = document.getElementById(diffFileElementId(pendingTargetId));
+    if (!pane || !target || targetIndex === -1) return;
+
+    const relevantFileIds = new Set(
+      orderedFiles.slice(0, targetIndex + 1).map((file) => file.id),
+    );
+    let active = true;
+    let alignmentFrame: number | undefined;
+    let settleTimer: number | undefined;
+    let quietChecks = 0;
+    let initialResizeDelivered = false;
+
+    const clearScheduledWork = (): void => {
+      if (alignmentFrame !== undefined) window.cancelAnimationFrame(alignmentFrame);
+      if (settleTimer !== undefined) window.clearTimeout(settleTimer);
+    };
+
+    const finishWhenSettled = (): void => {
+      if (!active) return;
+      const relevantFileLoading = [...loadingFiles.current].some((fileId) =>
+        relevantFileIds.has(fileId),
+      );
+      const correction = diffScrollCorrection(pane, target);
+      if (Math.abs(correction) > 1) {
+        quietChecks = 0;
+        pane.scrollTop += correction;
+      } else if (!relevantFileLoading) {
+        quietChecks += 1;
+        if (quietChecks >= 2) {
+          setActiveFileId(pendingTargetId);
+          setPendingTargetId((current) =>
+            current === pendingTargetId ? undefined : current,
+          );
+          return;
+        }
+      } else {
+        quietChecks = 0;
+      }
+      settleTimer = window.setTimeout(finishWhenSettled, 150);
+    };
+
+    const scheduleAlignment = (): void => {
+      quietChecks = 0;
+      if (alignmentFrame !== undefined) window.cancelAnimationFrame(alignmentFrame);
+      if (settleTimer !== undefined) window.clearTimeout(settleTimer);
+      alignmentFrame = window.requestAnimationFrame(() => {
+        alignmentFrame = undefined;
+        if (!active) return;
+        const correction = diffScrollCorrection(pane, target);
+        if (Math.abs(correction) > 1) pane.scrollTop += correction;
+        settleTimer = window.setTimeout(finishWhenSettled, 300);
+      });
+    };
+
+    const resizeObserver = new ResizeObserver(() => {
+      if (!initialResizeDelivered) {
+        initialResizeDelivered = true;
+        settleTimer = window.setTimeout(finishWhenSettled, 400);
+        return;
+      }
+      scheduleAlignment();
+    });
+    for (const file of pane.querySelectorAll<HTMLElement>('[data-diff-file-id]')) {
+      if (!relevantFileIds.has(file.dataset.diffFileId ?? '')) continue;
+      resizeObserver.observe(file);
+    }
+
+    const cancelPendingTarget = (): void => {
+      setPendingTargetId((current) =>
+        current === pendingTargetId ? undefined : current,
+      );
+    };
+    const cancelOnNavigationKey = (event: KeyboardEvent): void => {
+      if (
+        ['ArrowDown', 'ArrowUp', 'End', 'Home', 'PageDown', 'PageUp', ' '].includes(
+          event.key,
+        )
+      ) {
+        cancelPendingTarget();
+      }
+    };
+
+    pane.addEventListener('scrollend', scheduleAlignment);
+    pane.addEventListener('wheel', cancelPendingTarget, { passive: true });
+    pane.addEventListener('pointerdown', cancelPendingTarget, { passive: true });
+    pane.addEventListener('touchstart', cancelPendingTarget, { passive: true });
+    pane.addEventListener('keydown', cancelOnNavigationKey);
+    return () => {
+      active = false;
+      clearScheduledWork();
+      resizeObserver.disconnect();
+      pane.removeEventListener('scrollend', scheduleAlignment);
+      pane.removeEventListener('wheel', cancelPendingTarget);
+      pane.removeEventListener('pointerdown', cancelPendingTarget);
+      pane.removeEventListener('touchstart', cancelPendingTarget);
+      pane.removeEventListener('keydown', cancelOnNavigationKey);
+    };
+  }, [orderedFiles, pendingTargetId]);
 
   const requestPatch = useCallback(
     (file: DiffFileSummary): void => {
@@ -150,6 +262,7 @@ export function DiffViewer({
 
   const selectFile = (fileId: string): void => {
     setActiveFileId(fileId);
+    setPendingTargetId(fileId);
     document
       .getElementById(diffFileElementId(fileId))
       ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -227,7 +340,10 @@ export function DiffViewer({
                 value={query}
                 placeholder="Filter files…"
                 aria-label="Filter changed files"
-                onChange={(event) => setQuery(event.target.value)}
+                onChange={(event) => {
+                  setPendingTargetId(undefined);
+                  setQuery(event.target.value);
+                }}
               />
             </label>
             <div className={styles.fileCount}>
@@ -485,6 +601,21 @@ function DiffLineRow({ line }: { line: DiffLine }): React.JSX.Element {
 
 function diffFileElementId(fileId: string): string {
   return `diff-viewer-${fileId}`;
+}
+
+function diffScrollCorrection(pane: HTMLElement, target: HTMLElement): number {
+  const paneBounds = pane.getBoundingClientRect();
+  const targetBounds = target.getBoundingClientRect();
+  const scrollPaddingTop =
+    Number.parseFloat(getComputedStyle(pane).scrollPaddingTop) || 0;
+  return calculateDiffScrollCorrection({
+    paneTop: paneBounds.top,
+    targetTop: targetBounds.top,
+    scrollTop: pane.scrollTop,
+    scrollHeight: pane.scrollHeight,
+    clientHeight: pane.clientHeight,
+    scrollPaddingTop,
+  });
 }
 
 function statusLabel(file: DiffFileSummary): string {
