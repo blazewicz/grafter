@@ -385,7 +385,8 @@ describe('GitService committed diff sessions', () => {
 
     const session = await service.openDiff(project, worktree);
     expect(session).toMatchObject({
-      worktreeId: worktree.id,
+      projectId: project.id,
+      sourceWorktreeId: worktree.id,
       branch: 'feature/diff-viewer',
       targetBranch: 'main',
       baseSha: 'base-sha',
@@ -441,6 +442,53 @@ describe('GitService committed diff sessions', () => {
       service.diffFile({ sessionId: session.id, fileId: 'file-2' }),
     ).resolves.toEqual({ fileId: 'file-2', binary: true, hunks: [] });
     expect(runner.commands).toHaveLength(commandCount);
+  });
+
+  it('compares arbitrary local branches without inventing an editor worktree', async () => {
+    const runner = new StubCommandRunner((spec) => {
+      if (spec.args[0] === 'rev-parse') return { stdout: 'source-sha\n' };
+      if (spec.args[0] === 'merge-base') return { stdout: 'base-sha\n' };
+      if (spec.args[0] === 'remote') return { stdout: '' };
+      if (spec.args.includes('--name-status')) {
+        return { stdout: 'M\0src/example.ts\0' };
+      }
+      if (spec.args.includes('--numstat')) {
+        return { stdout: '2\t1\tsrc/example.ts\0' };
+      }
+      throw new Error(`Unexpected command: ${spec.args.join(' ')}`);
+    });
+    const service = new GitService(runner);
+
+    const session = await service.openBranchDiff(
+      project,
+      'feature/not-checked-out',
+      'release/next',
+    );
+
+    expect(session).toMatchObject({
+      projectId: project.id,
+      branch: 'feature/not-checked-out',
+      targetBranch: 'release/next',
+      baseSha: 'base-sha',
+      headSha: 'source-sha',
+    });
+    expect(session).not.toHaveProperty('sourceWorktreeId');
+    expect(runner.commands[0]).toMatchObject({
+      context: projectCommandContext(project),
+      cwd: project.path,
+      args: ['rev-parse', '--verify', 'refs/heads/feature/not-checked-out'],
+    });
+    expect(() =>
+      service.diffFilePath({ sessionId: session.id, fileId: 'file-0' }),
+    ).toThrow('Check out the source branch in a worktree');
+  });
+
+  it('rejects a comparison of a branch with itself', async () => {
+    const service = new GitService(new StubCommandRunner(() => ({})));
+
+    await expect(service.openBranchDiff(project, 'main', 'main')).rejects.toThrow(
+      'two different branches',
+    );
   });
 
   it('rejects files outside the immutable session and expires closed sessions', async () => {

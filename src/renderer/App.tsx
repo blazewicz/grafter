@@ -185,6 +185,15 @@ export function App(): React.JSX.Element {
       .catch((caught: unknown) => setError(friendlyError(caught)));
   };
 
+  const replaceDiffSession = (next: DiffSession): void => {
+    const previousId = diffSession?.id;
+    setDiffSession(next);
+    if (!previousId || previousId === next.id) return;
+    void api
+      .closeDiff(previousId)
+      .catch((caught: unknown) => setError(friendlyError(caught)));
+  };
+
   const resolveApproval = (decision: 'approve' | 'reject'): void => {
     if (!approval) return;
     const approvalId = approval.approvalId;
@@ -332,7 +341,13 @@ export function App(): React.JSX.Element {
         />
       )}
       {diffSession && (
-        <DiffViewer session={diffSession} onClose={closeDiff} onError={setError} />
+        <DiffViewer
+          key={diffSession.id}
+          session={diffSession}
+          onSessionChange={replaceDiffSession}
+          onClose={closeDiff}
+          onError={setError}
+        />
       )}
       {error && <ErrorToast message={error} onDismiss={() => setError(undefined)} />}
     </div>

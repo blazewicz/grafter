@@ -134,6 +134,9 @@ function registerIpc(): void {
   ipcMain.handle(ipc.openDiff, (_event, worktreeId: string) =>
     service.openDiff(worktreeId),
   );
+  ipcMain.handle(ipc.openBranchDiff, (_event, request: unknown) =>
+    service.openBranchDiff(request),
+  );
   ipcMain.handle(ipc.diffFile, (_event, request: unknown) => service.diffFile(request));
   ipcMain.handle(ipc.closeDiff, (_event, sessionId: string) =>
     service.closeDiff(sessionId),

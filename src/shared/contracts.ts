@@ -94,7 +94,8 @@ export interface DiffFileSummary {
 
 export interface DiffSession {
   id: string;
-  worktreeId: string;
+  projectId: string;
+  sourceWorktreeId?: string;
   branch: string;
   targetBranch: string;
   baseSha: string;
@@ -102,6 +103,12 @@ export interface DiffSession {
   githubRepository?: GitHubRepository;
   stats: DiffStats;
   files: DiffFileSummary[];
+}
+
+export interface OpenBranchDiffRequest {
+  projectId: string;
+  sourceBranch: string;
+  targetBranch: string;
 }
 
 export type DiffLineKind = 'context' | 'addition' | 'deletion' | 'annotation';
@@ -216,6 +223,7 @@ export interface GrafterApi {
   rejectCommand(approvalId: string): Promise<AppSnapshot>;
   getWorktreeDetails(worktreeId: string): Promise<WorktreeDetails>;
   openDiff(worktreeId: string): Promise<DiffSession>;
+  openBranchDiff(request: OpenBranchDiffRequest): Promise<DiffSession>;
   getDiffFile(request: DiffFileRequest): Promise<DiffFilePatch>;
   closeDiff(sessionId: string): Promise<void>;
   refreshPullRequest(worktreeId: string): Promise<PullRequest | undefined>;

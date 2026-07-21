@@ -47,4 +47,23 @@ describe('BranchPicker', () => {
     expect(html).toContain('aria-label="feature/available"');
     expect(html.match(/disabled=""/g)).toHaveLength(2);
   });
+
+  it('allows checked-out branches for comparisons while disabling the opposite side', () => {
+    const html = renderToStaticMarkup(
+      createElement(BranchPicker, {
+        branches: ['feature/current', 'feature/available', 'main'],
+        worktrees,
+        selectedBranch: 'feature/current',
+        disableCheckedOut: false,
+        disabledBranches: ['main'],
+        onSelect: () => undefined,
+      }),
+    );
+
+    expect(html).toContain('aria-label="feature/current"');
+    expect(html).toContain(
+      'title="Already selected for comparison" aria-label="main: Already selected for comparison"',
+    );
+    expect(html.match(/disabled=""/g)).toHaveLength(1);
+  });
 });

@@ -10,6 +10,7 @@ import type {
   DiffFilePatch,
   DiffFileRequest,
   EditorTool,
+  OpenBranchDiffRequest,
   OpenDiffFileRequest,
   DiffSession,
   Project,
@@ -219,6 +220,22 @@ export class AppService {
     return this.git.openDiff(this.#project(worktree.projectId), worktree);
   }
 
+  async openBranchDiff(request: unknown): Promise<DiffSession> {
+    if (!isOpenBranchDiffRequest(request)) {
+      throw new Error('Invalid branch comparison request.');
+    }
+    const project = this.#project(request.projectId);
+    const sourceBranch = request.sourceBranch.trim();
+    const targetBranch = request.targetBranch.trim();
+    if (!sourceBranch || !targetBranch) {
+      throw new Error('Choose two branches to compare.');
+    }
+    const sourceWorktree = this.#trees
+      .find((item) => item.id === project.id)
+      ?.worktrees.find((worktree) => worktree.branch === sourceBranch);
+    return this.git.openBranchDiff(project, sourceBranch, targetBranch, sourceWorktree);
+  }
+
   async diffFile(request: unknown): Promise<DiffFilePatch> {
     if (!isDiffFileRequest(request)) throw new Error('Invalid diff file request.');
     return this.git.diffFile(request);
@@ -414,6 +431,16 @@ function isDiffFileRequest(value: unknown): value is DiffFileRequest {
   if (!value || typeof value !== 'object') return false;
   const request = value as Record<string, unknown>;
   return typeof request.sessionId === 'string' && typeof request.fileId === 'string';
+}
+
+function isOpenBranchDiffRequest(value: unknown): value is OpenBranchDiffRequest {
+  if (!value || typeof value !== 'object') return false;
+  const request = value as Record<string, unknown>;
+  return (
+    typeof request.projectId === 'string' &&
+    typeof request.sourceBranch === 'string' &&
+    typeof request.targetBranch === 'string'
+  );
 }
 
 function isOpenDiffFileRequest(value: unknown): value is OpenDiffFileRequest {

@@ -1,8 +1,8 @@
 import { mkdtemp } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
-import type { Project } from '../../../src/shared/contracts';
+import { describe, expect, it, vi } from 'vitest';
+import type { DiffSession, Project } from '../../../src/shared/contracts';
 import { AppService } from '../../../src/main/services/app-service';
 import { StateStore } from '../../../src/main/store';
 import { StubCommandRunner } from '../support/stub-command-runner';
@@ -472,5 +472,66 @@ branch refs/heads/release/0.1
         (command) => command.tool === 'github' && command.args[2] === 'release/0.1',
       ),
     ).toBe(true);
+  });
+});
+
+describe('AppService branch comparisons', () => {
+  it('binds editor access only to a worktree checked out on the source branch', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-app-service-'));
+    const store = new StateStore(directory);
+    await store.load();
+    await store.update((state) => state.projects.push(project));
+    const runner = new StubCommandRunner((spec) => {
+      if (spec.tool === 'git' && spec.args[0] === 'worktree') {
+        return { stdout: worktreeOutput };
+      }
+      if (spec.tool === 'github') return { exitCode: 1 };
+      throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
+    });
+    const service = new AppService(store, runner);
+    const snapshot = await service.refresh();
+    const sourceWorktree = snapshot.projects[0]?.worktrees.find(
+      (worktree) => worktree.branch === 'feature/stacked',
+    );
+    if (!sourceWorktree) throw new Error('Expected the feature worktree.');
+    const session: DiffSession = {
+      id: 'session',
+      projectId: project.id,
+      sourceWorktreeId: sourceWorktree.id,
+      branch: sourceWorktree.branch,
+      targetBranch: 'main',
+      baseSha: 'base',
+      headSha: 'head',
+      stats: { files: 0, additions: 0, deletions: 0 },
+      files: [],
+    };
+    const openBranchDiff = vi
+      .spyOn(service.git, 'openBranchDiff')
+      .mockResolvedValue(session);
+
+    await expect(
+      service.openBranchDiff({
+        projectId: project.id,
+        sourceBranch: 'feature/stacked',
+        targetBranch: 'main',
+      }),
+    ).resolves.toEqual(session);
+    expect(openBranchDiff).toHaveBeenCalledWith(
+      project,
+      'feature/stacked',
+      'main',
+      sourceWorktree,
+    );
+  });
+
+  it('rejects malformed comparison requests at the IPC boundary', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-app-service-'));
+    const store = new StateStore(directory);
+    await store.load();
+    const service = new AppService(store, new StubCommandRunner(() => ({})));
+
+    await expect(
+      service.openBranchDiff({ projectId: 'project', sourceBranch: 'main' }),
+    ).rejects.toThrow('Invalid branch comparison request');
   });
 });

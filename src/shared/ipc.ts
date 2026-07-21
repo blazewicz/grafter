@@ -15,6 +15,7 @@ export const ipc = {
   rejectCommand: 'grafter:reject-command',
   worktreeDetails: 'grafter:worktree-details',
   openDiff: 'grafter:open-diff',
+  openBranchDiff: 'grafter:open-branch-diff',
   diffFile: 'grafter:diff-file',
   closeDiff: 'grafter:close-diff',
   refreshPullRequest: 'grafter:refresh-pull-request',
