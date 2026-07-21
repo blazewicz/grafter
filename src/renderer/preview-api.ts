@@ -864,6 +864,7 @@ export const previewApi: GrafterApi = {
   },
   openWorktreeDirectory: () => Promise.resolve(),
   openWorktreeInEditor: () => Promise.resolve(),
+  openDiffFileInEditor: () => Promise.resolve(),
   openExternal: () => Promise.resolve(),
   copyText: copyPreviewText,
   onSnapshotUpdate: () => () => undefined,

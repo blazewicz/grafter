@@ -9,6 +9,8 @@ import type {
   CreateWorktreeRequest,
   DiffFilePatch,
   DiffFileRequest,
+  EditorTool,
+  OpenDiffFileRequest,
   DiffSession,
   Project,
   ProjectTreeItem,
@@ -222,6 +224,19 @@ export class AppService {
     return this.git.diffFile(request);
   }
 
+  diffFileEditorTarget(request: unknown): {
+    editor: EditorTool;
+    filePath: string;
+  } {
+    if (!isOpenDiffFileRequest(request)) {
+      throw new Error('Invalid open diff file request.');
+    }
+    return {
+      editor: request.editor,
+      filePath: this.git.diffFilePath(request),
+    };
+  }
+
   closeDiff(sessionId: string): void {
     if (typeof sessionId !== 'string') throw new Error('Invalid diff session.');
     this.git.closeDiff(sessionId);
@@ -397,6 +412,10 @@ function isDiffFileRequest(value: unknown): value is DiffFileRequest {
   if (!value || typeof value !== 'object') return false;
   const request = value as Record<string, unknown>;
   return typeof request.sessionId === 'string' && typeof request.fileId === 'string';
+}
+
+function isOpenDiffFileRequest(value: unknown): value is OpenDiffFileRequest {
+  return isDiffFileRequest(value) && 'editor' in value && value.editor === 'vscode';
 }
 
 function pullRequestsEqual(left: PullRequest | undefined, right: PullRequest): boolean {

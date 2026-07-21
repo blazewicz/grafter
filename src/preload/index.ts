@@ -6,6 +6,7 @@ import type {
   CreateWorktreeRequest,
   DiffFileRequest,
   GrafterApi,
+  OpenDiffFileRequest,
   Settings,
   SwitchBranchRequest,
 } from '../shared/contracts';
@@ -44,6 +45,8 @@ const api: GrafterApi = {
     ipcRenderer.invoke(ipc.openWorktreeDirectory, worktreeId),
   openWorktreeInEditor: (worktreeId, editor) =>
     ipcRenderer.invoke(ipc.openWorktreeInEditor, worktreeId, editor),
+  openDiffFileInEditor: (request: OpenDiffFileRequest) =>
+    ipcRenderer.invoke(ipc.openDiffFileInEditor, request),
   openExternal: (url) => ipcRenderer.invoke(ipc.openExternal, url),
   copyText: (text) => ipcRenderer.invoke(ipc.copyText, text),
   onSnapshotUpdate: (listener) => {

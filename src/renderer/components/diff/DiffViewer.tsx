@@ -1,19 +1,15 @@
 import {
   Check,
+  ChevronDown,
   ChevronRight,
   Copy,
   FileCode2,
-  FileCode,
-  FilePlus,
-  FileMinus,
-  FileDiff,
   Folder,
   GitCompareArrows,
   LoaderCircle,
   Search,
   X,
 } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, RefObject } from 'react';
 import type {
@@ -21,9 +17,10 @@ import type {
   DiffFileSummary,
   DiffLine,
   DiffSession,
-  DiffFileStatus,
+  EditorTool,
 } from '../../../shared/contracts';
 import { api, friendlyError } from '../../grafter-api';
+import { VisualStudioCodeMark } from '../ui/BrandMarks';
 import {
   buildDiffTree,
   diffDirectoryPaths,
@@ -32,16 +29,12 @@ import {
 } from './diff-tree';
 import type { DiffTreeNode } from './diff-tree';
 import { calculateDiffScrollCorrection } from './diff-scroll';
+import { DiffFileStatusIcon } from './DiffFileStatusIcon';
 import styles from './DiffViewer.module.css';
 
-const diffFileStatusIcon = {
-  added: FilePlus,
-  copied: FileCode,
-  deleted: FileMinus,
-  modified: FileDiff,
-  renamed: FileCode,
-  'type-changed': FileCode,
-} satisfies Record<DiffFileStatus, LucideIcon>;
+const editorOptions: readonly { id: EditorTool; label: string }[] = [
+  { id: 'vscode', label: 'Visual Studio Code' },
+];
 
 export function DiffViewer({
   session,
@@ -62,6 +55,7 @@ export function DiffViewer({
   const [patches, setPatches] = useState<Map<string, DiffFilePatch>>(new Map());
   const [loading, setLoading] = useState<Set<string>>(new Set());
   const [fileErrors, setFileErrors] = useState<Map<string, string>>(new Map());
+  const [collapsedFileIds, setCollapsedFileIds] = useState<Set<string>>(new Set());
   const [activeFileId, setActiveFileId] = useState<string>();
   const [pendingTargetId, setPendingTargetId] = useState<string>();
   const [copiedFileId, setCopiedFileId] = useState<string>();
@@ -260,6 +254,15 @@ export function DiffViewer({
     });
   };
 
+  const toggleFile = (fileId: string): void => {
+    setCollapsedFileIds((current) => {
+      const next = new Set(current);
+      if (next.has(fileId)) next.delete(fileId);
+      else next.add(fileId);
+      return next;
+    });
+  };
+
   const selectFile = (fileId: string): void => {
     setActiveFileId(fileId);
     setPendingTargetId(fileId);
@@ -281,6 +284,12 @@ export function DiffViewer({
           1600,
         );
       })
+      .catch((caught: unknown) => onError(friendlyError(caught)));
+  };
+
+  const openFileInEditor = (file: DiffFileSummary, editor: EditorTool): void => {
+    void api
+      .openDiffFileInEditor({ sessionId: session.id, fileId: file.id, editor })
       .catch((caught: unknown) => onError(friendlyError(caught)));
   };
 
@@ -377,9 +386,12 @@ export function DiffViewer({
                   loading={loading.has(file.id)}
                   error={fileErrors.get(file.id)}
                   copied={copiedFileId === file.id}
+                  expanded={!collapsedFileIds.has(file.id)}
                   scrollRoot={diffPaneRef}
                   onVisible={requestPatch}
                   onCopy={() => copyPath(file)}
+                  onOpenInEditor={(editor) => openFileInEditor(file, editor)}
+                  onToggle={() => toggleFile(file.id)}
                 />
               ))
             ) : (
@@ -445,7 +457,6 @@ function TreeNodes({
           );
         }
 
-        const FileIcon = diffFileStatusIcon[node.file.status];
         return (
           <button
             key={node.file.id}
@@ -457,7 +468,7 @@ function TreeNodes({
             onClick={() => onSelect(node.file.id)}
           >
             <span className={styles.treeSpacer} />
-            <FileIcon size={13} />
+            <DiffFileStatusIcon status={node.file.status} size={13} />
             <span>{node.name}</span>
           </button>
         );
@@ -472,22 +483,35 @@ function DiffFile({
   loading,
   error,
   copied,
+  expanded,
   scrollRoot,
   onVisible,
   onCopy,
+  onOpenInEditor,
+  onToggle,
 }: {
   file: DiffFileSummary;
   patch: DiffFilePatch | undefined;
   loading: boolean;
   error: string | undefined;
   copied: boolean;
+  expanded: boolean;
   scrollRoot: RefObject<HTMLDivElement | null>;
   onVisible: (file: DiffFileSummary) => void;
   onCopy: () => void;
+  onOpenInEditor: (editor: EditorTool) => void;
+  onToggle: () => void;
 }): React.JSX.Element {
   const fileRef = useRef<HTMLElement>(null);
+  const editorMenuRef = useRef<HTMLDivElement>(null);
+  const [editorMenuOpen, setEditorMenuOpen] = useState(false);
+  const [editor, setEditor] = useState<EditorTool>('vscode');
+  const editorUnavailable = file.status === 'deleted';
+  const selectedEditorLabel =
+    editorOptions.find((option) => option.id === editor)?.label ?? 'IDE';
 
   useEffect(() => {
+    if (!expanded) return;
     const element = fileRef.current;
     if (!element) return;
     const preloadObserver = new IntersectionObserver(
@@ -506,7 +530,33 @@ function DiffFile({
     return () => {
       preloadObserver.disconnect();
     };
-  }, [file, onVisible, scrollRoot]);
+  }, [expanded, file, onVisible, scrollRoot]);
+
+  useEffect(() => {
+    if (!editorMenuOpen) return;
+
+    const closeOnOutsideClick = (event: PointerEvent): void => {
+      if (!editorMenuRef.current?.contains(event.target as Node)) {
+        setEditorMenuOpen(false);
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') setEditorMenuOpen(false);
+    };
+
+    document.addEventListener('pointerdown', closeOnOutsideClick);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsideClick);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [editorMenuOpen]);
+
+  const openInEditor = (nextEditor: EditorTool): void => {
+    setEditor(nextEditor);
+    setEditorMenuOpen(false);
+    onOpenInEditor(nextEditor);
+  };
 
   return (
     <section
@@ -515,9 +565,17 @@ function DiffFile({
       className={styles.file}
       data-diff-file-id={file.id}
     >
-      <header className={styles.fileHeader}>
+      <header className={styles.fileHeader} data-expanded={expanded}>
         <div className={styles.filePath} title={file.path}>
-          <FileCode2 size={14} data-status={file.status} />
+          <button
+            className={styles.collapseButton}
+            aria-label={`${expanded ? 'Collapse' : 'Expand'} ${file.path} diff`}
+            aria-expanded={expanded}
+            onClick={onToggle}
+          >
+            <ChevronRight className={styles.fileChevron} data-open={expanded} size={13} />
+          </button>
+          <DiffFileStatusIcon status={file.status} size={14} />
           {file.previousPath && (
             <>
               <code className={styles.previousPath}>{file.previousPath}</code>
@@ -534,55 +592,105 @@ function DiffFile({
             {copied ? <Check size={13} /> : <Copy size={13} />}
           </button>
         </div>
-        <div className={styles.fileStats}>
-          <span className={styles.statusLabel}>{statusLabel(file)}</span>
-          {file.binary ? (
-            <span>binary</span>
-          ) : (
-            <>
-              <strong className={styles.additions}>+{file.additions ?? 0}</strong>
-              <strong className={styles.deletions}>−{file.deletions ?? 0}</strong>
-            </>
-          )}
-        </div>
-      </header>
-      <div className={styles.patch}>
-        {error ? (
-          <div className={styles.patchMessage}>
-            <strong>Could not load this file</strong>
-            <span>{error}</span>
+        <div className={styles.fileHeaderActions}>
+          <div className={styles.fileStats}>
+            {file.binary ? (
+              <span>binary</span>
+            ) : (
+              <>
+                <strong className={styles.additions}>+{file.additions ?? 0}</strong>
+                <strong className={styles.deletions}>−{file.deletions ?? 0}</strong>
+              </>
+            )}
           </div>
-        ) : file.binary || patch?.binary ? (
-          <div className={styles.patchMessage}>
-            <FileCode2 size={18} />
-            <strong>Binary file changed</strong>
-            <span>Grafter cannot display a textual diff for this file.</span>
-          </div>
-        ) : patch ? (
-          patch.hunks.length ? (
-            patch.hunks.map((hunk, index) => (
-              <div className={styles.hunk} key={`${file.id}:${index}`}>
-                <div className={styles.hunkHeader}>
-                  <code>{hunk.header}</code>
-                </div>
-                {hunk.lines.map((line, lineIndex) => (
-                  <DiffLineRow key={`${file.id}:${index}:${lineIndex}`} line={line} />
+          <div className={styles.editorPicker} ref={editorMenuRef}>
+            <div className={styles.editorSplitButton}>
+              <button
+                className={styles.editorOpenButton}
+                disabled={editorUnavailable}
+                title={
+                  editorUnavailable
+                    ? 'Deleted files cannot be opened in an editor'
+                    : `Open in ${selectedEditorLabel}`
+                }
+                aria-label={
+                  editorUnavailable
+                    ? `${file.path} cannot be opened because it was deleted`
+                    : `Open ${file.path} in ${selectedEditorLabel}`
+                }
+                onClick={() => openInEditor(editor)}
+              >
+                <VisualStudioCodeMark />
+              </button>
+              <button
+                className={styles.editorMenuButton}
+                disabled={editorUnavailable}
+                title="Choose IDE"
+                aria-label={`Choose IDE for ${file.path}`}
+                aria-haspopup="menu"
+                aria-expanded={editorMenuOpen}
+                onClick={() => setEditorMenuOpen((menuOpen) => !menuOpen)}
+              >
+                <ChevronDown size={11} />
+              </button>
+            </div>
+            {editorMenuOpen && (
+              <div className={styles.editorMenu} role="menu">
+                {editorOptions.map((option) => (
+                  <button
+                    key={option.id}
+                    role="menuitem"
+                    onClick={() => openInEditor(option.id)}
+                  >
+                    <VisualStudioCodeMark />
+                    <span>{option.label}</span>
+                    {option.id === editor && <Check size={13} />}
+                  </button>
                 ))}
               </div>
-            ))
-          ) : (
-            <div className={styles.patchMessage}>
-              <strong>No textual lines changed</strong>
-              <span>The file mode or metadata changed.</span>
-            </div>
-          )
-        ) : (
-          <div className={styles.patchLoading}>
-            {loading ? <LoaderCircle className="spin" size={16} /> : null}
-            <span>{loading ? 'Loading patch…' : 'Patch will load when visible'}</span>
+            )}
           </div>
-        )}
-      </div>
+        </div>
+      </header>
+      {expanded && (
+        <div className={styles.patch}>
+          {error ? (
+            <div className={styles.patchMessage}>
+              <strong>Could not load this file</strong>
+              <span>{error}</span>
+            </div>
+          ) : file.binary || patch?.binary ? (
+            <div className={styles.patchMessage}>
+              <FileCode2 size={18} />
+              <strong>Binary file changed</strong>
+              <span>Grafter cannot display a textual diff for this file.</span>
+            </div>
+          ) : patch ? (
+            patch.hunks.length ? (
+              patch.hunks.map((hunk, index) => (
+                <div className={styles.hunk} key={`${file.id}:${index}`}>
+                  <div className={styles.hunkHeader}>
+                    <code>{hunk.header}</code>
+                  </div>
+                  {hunk.lines.map((line, lineIndex) => (
+                    <DiffLineRow key={`${file.id}:${index}:${lineIndex}`} line={line} />
+                  ))}
+                </div>
+              ))
+            ) : (
+              <div className={styles.patchMessage}>
+                <strong>No textual lines changed</strong>
+                <span>The file mode or metadata changed.</span>
+              </div>
+            )
+          ) : (
+            <div className={styles.patchLoading}>
+              {loading ? <LoaderCircle className="spin" size={16} /> : null}
+              <span>{loading ? 'Loading patch…' : 'Patch will load when visible'}</span>
+            </div>
+          )}
+        </div>
+      )}
     </section>
   );
 }
@@ -616,8 +724,4 @@ function diffScrollCorrection(pane: HTMLElement, target: HTMLElement): number {
     clientHeight: pane.clientHeight,
     scrollPaddingTop,
   });
-}
-
-function statusLabel(file: DiffFileSummary): string {
-  return file.status.replace('-', ' ');
 }

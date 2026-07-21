@@ -60,3 +60,13 @@ export function launchEditor(editor: EditorTool, directoryPath: string): Promise
     });
   });
 }
+
+export function editorFileUrl(editor: EditorTool, filePath: string): string {
+  if (!path.isAbsolute(filePath))
+    throw new Error('The editor file path must be absolute.');
+  if (editor !== 'vscode') throw new Error('Unsupported IDE.');
+
+  const url = new URL('vscode://file');
+  url.pathname = filePath;
+  return url.toString();
+}

@@ -225,11 +225,11 @@
   color: #777982;
 }
 
-.tree-row[data-status='added'] > svg {
+.tree-row > svg[data-status-tone='positive'] {
   color: var(--green);
 }
 
-.tree-row[data-status='deleted'] > svg {
+.tree-row > svg[data-status-tone='negative'] {
   color: var(--red);
 }
 
@@ -273,7 +273,7 @@
 .file {
   min-width: 560px;
   margin-bottom: 13px;
-  overflow: hidden;
+  overflow: visible;
   border: 1px solid var(--line-strong);
   border-radius: 8px;
   background: #1a1a1c;
@@ -290,6 +290,12 @@
   padding: 0 10px;
   border-bottom: 1px solid var(--line-strong);
   background: #202023;
+  border-radius: 7px 7px 0 0;
+}
+
+.file-header[data-expanded='false'] {
+  border-bottom: 0;
+  border-radius: 7px;
 }
 
 .file-path {
@@ -305,11 +311,11 @@
   color: #8d8f9b;
 }
 
-.file-path > svg[data-status='added'] {
+.file-path > svg[data-status-tone='positive'] {
   color: var(--green);
 }
 
-.file-path > svg[data-status='deleted'] {
+.file-path > svg[data-status-tone='negative'] {
   color: var(--red);
 }
 
@@ -334,17 +340,141 @@
   border-radius: 5px;
 }
 
+.collapse-button,
+.editor-split-button button {
+  border: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--muted);
+}
+
+.collapse-button {
+  width: 22px;
+  height: 25px;
+  flex: 0 0 auto;
+  margin-left: -5px;
+  border-radius: 5px;
+}
+
+.collapse-button:hover,
+.collapse-button:focus-visible {
+  background: rgba(255, 255, 255, 0.065);
+  color: var(--text);
+}
+
+.file-chevron {
+  transition: transform 120ms ease;
+}
+
+.file-chevron[data-open='true'] {
+  transform: rotate(90deg);
+}
+
+.file-header-actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .file-stats {
   flex: 0 0 auto;
 }
 
-.status-label {
-  padding: 3px 5px;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  color: #83838a;
-  font-size: 8px;
-  text-transform: uppercase;
+.editor-picker {
+  position: relative;
+}
+
+.editor-split-button {
+  height: 27px;
+  display: flex;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--muted);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.025);
+}
+
+.editor-split-button:hover {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: var(--surface-strong);
+}
+
+.editor-split-button:focus-within {
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.editor-split-button button:focus-visible {
+  outline: 0;
+}
+
+.editor-split-button button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.055);
+  color: var(--text);
+}
+
+.editor-split-button button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.editor-open-button {
+  width: 29px;
+}
+
+.editor-menu-button {
+  position: relative;
+  width: 21px;
+}
+
+.editor-menu-button::before {
+  content: '';
+  position: absolute;
+  top: 5px;
+  bottom: 5px;
+  left: 0;
+  width: 1px;
+  background: var(--line-strong);
+}
+
+.editor-menu {
+  z-index: 20;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 178px;
+  padding: 5px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: rgba(38, 39, 44, 0.98);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.38);
+}
+
+.editor-menu button {
+  width: 100%;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 7px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #d6d6d8;
+  font-size: 11.5px;
+  text-align: left;
+}
+
+.editor-menu button:hover {
+  background: rgba(255, 255, 255, 0.065);
+}
+
+.editor-menu button span {
+  flex: 1;
 }
 
 .patch {
@@ -500,6 +630,10 @@
   }
 
   .tree-chevron {
+    transition: none;
+  }
+
+  .file-chevron {
     transition: none;
   }
 }

@@ -23,6 +23,7 @@ export const ipc = {
   updateProjectSetup: 'grafter:update-project-setup',
   openWorktreeDirectory: 'grafter:open-worktree-directory',
   openWorktreeInEditor: 'grafter:open-worktree-in-editor',
+  openDiffFileInEditor: 'grafter:open-diff-file-in-editor',
   openExternal: 'grafter:open-external',
   copyText: 'grafter:copy-text',
   commandUpdate: 'grafter:command-update',
