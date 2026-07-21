@@ -143,3 +143,33 @@ describe('command execution timing', () => {
     expect(result.record.durationMs).toBeCloseTo(9.8765);
   });
 });
+
+describe('command output auditing', () => {
+  it('returns complete stdout while bounding the stored audit output', async () => {
+    const outputLength = CommandRunner.auditedOutputCharacterLimit + 2000;
+    const runner = new CommandRunner(() => undefined);
+    const result = await runner.run({
+      context: projectContext,
+      tool: 'git',
+      executable: process.execPath,
+      args: ['-e', `process.stdout.write('x'.repeat(${outputLength}))`],
+      cwd: process.cwd(),
+      purpose: 'Read a large diff',
+      isReadOnly: true,
+    });
+
+    expect(result.stdout).toHaveLength(outputLength);
+    expect(
+      result.record.output.some(
+        (entry) =>
+          entry.stream === 'system' &&
+          entry.text.includes('Command output truncated after'),
+      ),
+    ).toBe(true);
+    expect(
+      result.record.output
+        .filter((entry) => entry.stream === 'stdout')
+        .reduce((total, entry) => total + entry.text.length, 0),
+    ).toBe(CommandRunner.auditedOutputCharacterLimit);
+  });
+});

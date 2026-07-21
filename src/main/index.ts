@@ -131,6 +131,13 @@ function registerIpc(): void {
   ipcMain.handle(ipc.worktreeDetails, (_event, worktreeId: string) =>
     service.details(worktreeId),
   );
+  ipcMain.handle(ipc.openDiff, (_event, worktreeId: string) =>
+    service.openDiff(worktreeId),
+  );
+  ipcMain.handle(ipc.diffFile, (_event, request: unknown) => service.diffFile(request));
+  ipcMain.handle(ipc.closeDiff, (_event, sessionId: string) =>
+    service.closeDiff(sessionId),
+  );
   ipcMain.handle(ipc.refreshPullRequest, (_event, worktreeId: string) =>
     service.refreshPullRequest(worktreeId),
   );

@@ -4,12 +4,14 @@ import {
   Circle,
   Copy,
   FolderOpen,
+  FileDiff,
   GitBranch,
   GitCompareArrows,
   GitMerge,
   GitPullRequest,
   GitPullRequestClosed,
   GitPullRequestDraft,
+  LoaderCircle,
   SquareArrowOutUpRight,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -68,6 +70,8 @@ export function WorktreeDetails({
   status,
   onSnapshot,
   onSelectProject,
+  diffOpening = false,
+  onOpenDiff,
   onError,
 }: {
   homeDirectory: string;
@@ -78,6 +82,8 @@ export function WorktreeDetails({
   status: WorktreeStatus | undefined;
   onSnapshot: (snapshot: AppSnapshot) => void;
   onSelectProject: (projectId: string) => void;
+  diffOpening?: boolean;
+  onOpenDiff?: () => void;
   onError: (message: string) => void;
 }): React.JSX.Element {
   const [editor, setEditor] = useState<EditorTool>('vscode');
@@ -458,6 +464,20 @@ export function WorktreeDetails({
                 Changes against <strong>{details.targetBranch}</strong>
               </span>
             </div>
+            {onOpenDiff && (
+              <button
+                className={styles.viewDiffButton}
+                disabled={diffOpening}
+                onClick={onOpenDiff}
+              >
+                {diffOpening ? (
+                  <LoaderCircle className="spin" size={13} />
+                ) : (
+                  <FileDiff size={13} />
+                )}
+                {diffOpening ? 'Opening…' : 'View diff'}
+              </button>
+            )}
           </div>
           <section className={styles.statsGrid}>
             <div>

@@ -1,10 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
-import type { AppSnapshot, ApprovalRequest, CommandContext } from '../shared/contracts';
+import type {
+  AppSnapshot,
+  ApprovalRequest,
+  CommandContext,
+  DiffSession,
+} from '../shared/contracts';
 import { AuditPanel } from './components/audit/AuditPanel';
 import { useCommandLogs } from './components/audit/useCommandLogs';
 import { MainView } from './components/details/MainView';
 import { useWorktreeInspection } from './components/details/useWorktreeInspection';
+import { DiffViewer } from './components/diff/DiffViewer';
 import { ApprovalDialog } from './components/dialogs/ApprovalDialog';
 import { ProjectRemovalDialog } from './components/dialogs/ProjectRemovalDialog';
 import { SettingsDialog } from './components/dialogs/SettingsDialog';
@@ -33,6 +39,8 @@ export function App(): React.JSX.Element {
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(defaultSidebarWidth);
+  const [diffSession, setDiffSession] = useState<DiffSession>();
+  const [diffOpening, setDiffOpening] = useState(false);
   const {
     selectedId,
     canGoBack,
@@ -158,6 +166,25 @@ export function App(): React.JSX.Element {
     );
   };
 
+  const openDiff = (worktreeId: string): void => {
+    setDiffOpening(true);
+    setError(undefined);
+    void api
+      .openDiff(worktreeId)
+      .then(setDiffSession)
+      .catch((caught: unknown) => setError(friendlyError(caught)))
+      .finally(() => setDiffOpening(false));
+  };
+
+  const closeDiff = (): void => {
+    const sessionId = diffSession?.id;
+    setDiffSession(undefined);
+    if (!sessionId) return;
+    void api
+      .closeDiff(sessionId)
+      .catch((caught: unknown) => setError(friendlyError(caught)));
+  };
+
   const resolveApproval = (decision: 'approve' | 'reject'): void => {
     if (!approval) return;
     const approvalId = approval.approvalId;
@@ -243,6 +270,8 @@ export function App(): React.JSX.Element {
           onAdd={chooseProject}
           onSelectProject={navigate}
           onSelectWorktree={navigate}
+          diffOpening={diffOpening}
+          onOpenDiff={openDiff}
           onError={setError}
         />
       </div>
@@ -301,6 +330,9 @@ export function App(): React.JSX.Element {
             void run(() => api.updateProjectSetup(projectId, script), applySnapshot)
           }
         />
+      )}
+      {diffSession && (
+        <DiffViewer session={diffSession} onClose={closeDiff} onError={setError} />
       )}
       {error && <ErrorToast message={error} onDismiss={() => setError(undefined)} />}
     </div>

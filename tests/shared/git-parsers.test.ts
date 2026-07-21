@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   parseCommitDetails,
+  parseDiffFiles,
   parseNumStat,
+  parseUnifiedDiff,
   parseWorktreePorcelain,
   parseWorktreeStatus,
 } from '../../src/shared/git-parsers';
@@ -99,6 +101,87 @@ describe('parseNumStat', () => {
 
   it('returns empty stats for empty output', () => {
     expect(parseNumStat('')).toEqual({ files: 0, additions: 0, deletions: 0 });
+  });
+});
+
+describe('parseDiffFiles', () => {
+  it('joins NUL-delimited statuses and stats without relying on quoted paths', () => {
+    expect(
+      parseDiffFiles(
+        'M\0src/with spaces.ts\0R087\0old/name.ts\0new/name.ts\0A\0asset.png\0',
+        '3\t1\tsrc/with spaces.ts\0' +
+          '8\t2\t\0old/name.ts\0new/name.ts\0' +
+          '-\t-\tasset.png\0',
+      ),
+    ).toEqual([
+      {
+        id: 'file-0',
+        path: 'src/with spaces.ts',
+        status: 'modified',
+        additions: 3,
+        deletions: 1,
+        binary: false,
+      },
+      {
+        id: 'file-1',
+        path: 'new/name.ts',
+        previousPath: 'old/name.ts',
+        status: 'renamed',
+        additions: 8,
+        deletions: 2,
+        binary: false,
+      },
+      {
+        id: 'file-2',
+        path: 'asset.png',
+        status: 'added',
+        binary: true,
+      },
+    ]);
+  });
+});
+
+describe('parseUnifiedDiff', () => {
+  it('parses hunks into line kinds and assigns both line-number columns', () => {
+    expect(
+      parseUnifiedDiff(
+        'file-3',
+        `diff --git a/src/example.ts b/src/example.ts
+--- a/src/example.ts
++++ b/src/example.ts
+@@ -10,4 +10,5 @@ export function example() {
+ const retained = true;
+-const before = 'old';
++const after = 'new';
++const extra = true;
+ return retained;
+\\ No newline at end of file
+`,
+      ),
+    ).toEqual({
+      fileId: 'file-3',
+      binary: false,
+      hunks: [
+        {
+          header: '@@ -10,4 +10,5 @@ export function example() {',
+          oldStart: 10,
+          oldLines: 4,
+          newStart: 10,
+          newLines: 5,
+          lines: [
+            { kind: 'context', text: 'const retained = true;', oldLine: 10, newLine: 10 },
+            { kind: 'deletion', text: "const before = 'old';", oldLine: 11 },
+            { kind: 'addition', text: "const after = 'new';", newLine: 11 },
+            { kind: 'addition', text: 'const extra = true;', newLine: 12 },
+            { kind: 'context', text: 'return retained;', oldLine: 12, newLine: 13 },
+            {
+              kind: 'annotation',
+              text: 'No newline at end of file',
+            },
+          ],
+        },
+      ],
+    });
   });
 });
 

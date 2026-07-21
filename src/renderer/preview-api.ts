@@ -2,6 +2,8 @@ import type {
   AppSnapshot,
   CommandContext,
   CommandRecord,
+  DiffFilePatch,
+  DiffSession,
   GrafterApi,
   WorktreeDetails,
 } from '../shared/contracts';
@@ -291,6 +293,343 @@ const details: Record<string, WorktreeDetails> = {
   },
 };
 
+const previewDiffFiles: DiffSession['files'] = [
+  {
+    id: 'preview-file-app',
+    path: 'src/renderer/App.tsx',
+    status: 'modified',
+    additions: 124,
+    deletions: 18,
+    binary: false,
+  },
+  {
+    id: 'preview-file-details-css',
+    path: 'src/renderer/components/details/details.module.css',
+    status: 'modified',
+    additions: 296,
+    deletions: 0,
+    binary: false,
+  },
+  {
+    id: 'preview-file-project-node',
+    path: 'src/renderer/components/sidebar/ProjectNode.tsx',
+    status: 'modified',
+    additions: 8,
+    deletions: 4,
+    binary: false,
+  },
+  {
+    id: 'preview-file-test',
+    path: 'tests/renderer/components/details/worktree-details-render.test.ts',
+    status: 'modified',
+    additions: 4,
+    deletions: 3,
+    binary: false,
+  },
+  {
+    id: 'preview-file-path',
+    path: 'src/shared/path-display.ts',
+    previousPath: 'src/shared/display-path.ts',
+    status: 'renamed',
+    additions: 3,
+    deletions: 7,
+    binary: false,
+  },
+  {
+    id: 'preview-file-logo',
+    path: 'assets/grafter-mark.png',
+    status: 'added',
+    binary: true,
+  },
+  {
+    id: 'preview-file-readme',
+    path: 'README.md',
+    status: 'modified',
+    additions: 3,
+    deletions: 9,
+    binary: false,
+  },
+];
+
+const previewPatches = new Map<string, DiffFilePatch>([
+  [
+    'preview-file-app',
+    {
+      fileId: 'preview-file-app',
+      binary: false,
+      hunks: [
+        {
+          header: '@@ -18,7 +18,10 @@ export function App(): React.JSX.Element {',
+          oldStart: 18,
+          oldLines: 7,
+          newStart: 18,
+          newLines: 10,
+          lines: [
+            {
+              kind: 'context',
+              text: '  const [snapshot, setSnapshot] = useState<AppSnapshot | null>(null);',
+              oldLine: 18,
+              newLine: 18,
+            },
+            {
+              kind: 'addition',
+              text: '  const [diffSession, setDiffSession] = useState<DiffSession>();',
+              newLine: 19,
+            },
+            {
+              kind: 'addition',
+              text: '  const [diffOpening, setDiffOpening] = useState(false);',
+              newLine: 20,
+            },
+            {
+              kind: 'context',
+              text: '  const [expanded, setExpanded] = useState<Set<string>>(new Set());',
+              oldLine: 19,
+              newLine: 21,
+            },
+            {
+              kind: 'deletion',
+              text: '  const [logsOpen, setLogsOpen] = useState(false);',
+              oldLine: 20,
+            },
+            {
+              kind: 'addition',
+              text: '  const [logsOpen, setLogsOpen] = useState(true);',
+              newLine: 22,
+            },
+            {
+              kind: 'context',
+              text: '  const [error, setError] = useState<string>();',
+              oldLine: 21,
+              newLine: 23,
+            },
+          ],
+        },
+        {
+          header: '@@ -238,6 +248,12 @@ export function App(): React.JSX.Element {',
+          oldStart: 238,
+          oldLines: 3,
+          newStart: 248,
+          newLines: 6,
+          lines: [
+            {
+              kind: 'context',
+              text: '      <AuditPanel',
+              oldLine: 238,
+              newLine: 248,
+            },
+            {
+              kind: 'addition',
+              text: '      {diffSession && (',
+              newLine: 249,
+            },
+            {
+              kind: 'addition',
+              text: '        <DiffViewer session={diffSession} onClose={closeDiff} />',
+              newLine: 250,
+            },
+            {
+              kind: 'addition',
+              text: '      )}',
+              newLine: 251,
+            },
+            {
+              kind: 'context',
+              text: '    </div>',
+              oldLine: 239,
+              newLine: 252,
+            },
+          ],
+        },
+      ],
+    },
+  ],
+  [
+    'preview-file-details-css',
+    {
+      fileId: 'preview-file-details-css',
+      binary: false,
+      hunks: [
+        {
+          header: '@@ -404,6 +404,14 @@',
+          oldStart: 404,
+          oldLines: 2,
+          newStart: 404,
+          newLines: 10,
+          lines: [
+            {
+              kind: 'context',
+              text: '.section-heading {',
+              oldLine: 404,
+              newLine: 404,
+            },
+            {
+              kind: 'addition',
+              text: '  display: flex;',
+              newLine: 405,
+            },
+            {
+              kind: 'addition',
+              text: '  align-items: center;',
+              newLine: 406,
+            },
+            {
+              kind: 'addition',
+              text: '  justify-content: space-between;',
+              newLine: 407,
+            },
+            {
+              kind: 'context',
+              text: '}',
+              oldLine: 405,
+              newLine: 408,
+            },
+          ],
+        },
+      ],
+    },
+  ],
+  [
+    'preview-file-project-node',
+    {
+      fileId: 'preview-file-project-node',
+      binary: false,
+      hunks: [
+        {
+          header: '@@ -145,3 +145,4 @@',
+          oldStart: 145,
+          oldLines: 3,
+          newStart: 145,
+          newLines: 4,
+          lines: [
+            {
+              kind: 'context',
+              text: '      <button className={styles.worktreeRow}>',
+              oldLine: 145,
+              newLine: 145,
+            },
+            {
+              kind: 'addition',
+              text: '        aria-current={selected ? "page" : undefined}',
+              newLine: 146,
+            },
+            {
+              kind: 'context',
+              text: '        onClick={() => onSelect(worktree.id)}',
+              oldLine: 146,
+              newLine: 147,
+            },
+          ],
+        },
+      ],
+    },
+  ],
+  [
+    'preview-file-test',
+    {
+      fileId: 'preview-file-test',
+      binary: false,
+      hunks: [
+        {
+          header: '@@ -58,2 +58,3 @@',
+          oldStart: 58,
+          oldLines: 2,
+          newStart: 58,
+          newLines: 3,
+          lines: [
+            {
+              kind: 'context',
+              text: "    expect(html).toContain('Changes against');",
+              oldLine: 58,
+              newLine: 58,
+            },
+            {
+              kind: 'addition',
+              text: "    expect(html).toContain('View diff');",
+              newLine: 59,
+            },
+            {
+              kind: 'context',
+              text: '  });',
+              oldLine: 59,
+              newLine: 60,
+            },
+          ],
+        },
+      ],
+    },
+  ],
+  [
+    'preview-file-path',
+    {
+      fileId: 'preview-file-path',
+      binary: false,
+      hunks: [
+        {
+          header: '@@ -1,3 +1,3 @@',
+          oldStart: 1,
+          oldLines: 3,
+          newStart: 1,
+          newLines: 3,
+          lines: [
+            {
+              kind: 'deletion',
+              text: 'export function displayPath(value: string): string {',
+              oldLine: 1,
+            },
+            {
+              kind: 'addition',
+              text: 'export function displayWorktreePath(value: string): string {',
+              newLine: 1,
+            },
+            {
+              kind: 'context',
+              text: '  return value;',
+              oldLine: 2,
+              newLine: 2,
+            },
+          ],
+        },
+      ],
+    },
+  ],
+  [
+    'preview-file-readme',
+    {
+      fileId: 'preview-file-readme',
+      binary: false,
+      hunks: [
+        {
+          header: '@@ -12,3 +12,4 @@',
+          oldStart: 12,
+          oldLines: 3,
+          newStart: 12,
+          newLines: 4,
+          lines: [
+            {
+              kind: 'context',
+              text: 'Grafter keeps Git commands visible.',
+              oldLine: 12,
+              newLine: 12,
+            },
+            {
+              kind: 'addition',
+              text: 'Committed branch changes can be inspected without leaving the app.',
+              newLine: 13,
+            },
+            {
+              kind: 'context',
+              text: '',
+              oldLine: 13,
+              newLine: 14,
+            },
+          ],
+        },
+      ],
+    },
+  ],
+]);
+
 function updateCommand(record: CommandRecord): void {
   commands = [record, ...commands.filter((item) => item.id !== record.id)];
   for (const listener of commandListeners) listener(structuredClone(record));
@@ -428,6 +767,39 @@ export const previewApi: GrafterApi = {
   rejectCommand: () => Promise.resolve(structuredClone(snapshot)),
   getWorktreeDetails: (worktreeId) =>
     Promise.resolve(structuredClone(details[worktreeId]!)),
+  openDiff: (worktreeId) => {
+    const worktreeDetails = details[worktreeId];
+    if (!worktreeDetails?.targetBranch) {
+      return Promise.reject(
+        new Error('This branch does not have a committed comparison target.'),
+      );
+    }
+    return Promise.resolve(
+      structuredClone({
+        id: 'preview-diff',
+        worktreeId,
+        branch: worktreeDetails.branch,
+        targetBranch: worktreeDetails.targetBranch,
+        baseSha: '4fc93b86a45b1a47af174e0b97e422a31eb19db0',
+        headSha: worktreeDetails.head,
+        stats: { files: 7, additions: 438, deletions: 41 },
+        files: previewDiffFiles,
+      }),
+    );
+  },
+  getDiffFile: ({ fileId }) => {
+    const patch = previewPatches.get(fileId);
+    const file = previewDiffFiles.find((item) => item.id === fileId);
+    if (!file) return Promise.reject(new Error('File not found.'));
+    return new Promise((resolve) => {
+      window.setTimeout(
+        () =>
+          resolve(structuredClone(patch ?? { fileId, binary: file.binary, hunks: [] })),
+        80,
+      );
+    });
+  },
+  closeDiff: () => Promise.resolve(),
   refreshPullRequest: (worktreeId) => {
     const pullRequest = snapshot.projects
       .flatMap((project) => project.worktrees)

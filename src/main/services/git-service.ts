@@ -8,6 +8,10 @@ import {
 import type {
   CommitDetails,
   CommandContext,
+  DiffFilePatch,
+  DiffFileRequest,
+  DiffFileSummary,
+  DiffSession,
   DiffStats,
   Project,
   Worktree,
@@ -16,14 +20,29 @@ import type {
 } from '../../shared/contracts';
 import {
   parseCommitDetails,
+  parseDiffFiles,
   parseNumStat,
+  parseUnifiedDiff,
   parseWorktreePorcelain,
   parseWorktreeStatus,
 } from '../../shared/git-parsers';
 import type { CommandResult, CommandSpec } from '../commands';
 import type { CommandRunner } from '../commands';
 
+interface StoredDiffSession {
+  worktreeId: string;
+  worktreePath: string;
+  context: CommandContext;
+  baseSha: string;
+  headSha: string;
+  files: Map<string, DiffFileSummary>;
+}
+
 export class GitService {
+  static readonly maximumDiffSessions = 12;
+
+  readonly #diffSessions = new Map<string, StoredDiffSession>();
+
   constructor(private readonly runner: CommandRunner) {}
 
   async inspectMainClone(selectedPath: string): Promise<Omit<Project, 'id'>> {
@@ -128,9 +147,7 @@ export class GitService {
     const context = worktreeCommandContext(worktree);
     const [commit, targetBranch] = await Promise.all([
       this.#latestCommit(worktree, context),
-      worktree.pullRequest?.baseBranch
-        ? Promise.resolve(worktree.pullRequest.baseBranch)
-        : this.#remoteHeadBranch(project, context),
+      this.#comparisonTargetBranch(project, worktree, context),
     ]);
     const comparableTarget =
       targetBranch &&
@@ -161,6 +178,108 @@ export class GitService {
       context,
     );
     return parseWorktreeStatus(result.stdout);
+  }
+
+  async openDiff(project: Project, worktree: Worktree): Promise<DiffSession> {
+    const context = worktreeCommandContext(worktree);
+    const targetBranch = await this.#comparisonTargetBranch(project, worktree, context);
+    if (
+      !targetBranch ||
+      (worktree.pullRequest === undefined && targetBranch === worktree.branch)
+    ) {
+      throw new Error('This branch does not have a committed comparison target.');
+    }
+
+    const headSha = (
+      await this.#git(
+        worktree.path,
+        ['rev-parse', '--verify', 'HEAD'],
+        `Resolve ${worktree.branch} revision`,
+        true,
+        context,
+      )
+    ).stdout.trim();
+    const baseSha = await this.#mergeBase(worktree.path, targetBranch, headSha, context);
+    const [nameStatus, numStat] = await Promise.all([
+      this.#git(
+        worktree.path,
+        ['diff', '--name-status', '-z', '--find-renames', baseSha, headSha],
+        `List changes against ${targetBranch}`,
+        true,
+        context,
+      ),
+      this.#git(
+        worktree.path,
+        ['diff', '--numstat', '-z', '--find-renames', baseSha, headSha],
+        `Read change stats against ${targetBranch}`,
+        true,
+        context,
+      ),
+    ]);
+    const files = parseDiffFiles(nameStatus.stdout, numStat.stdout);
+    const id = randomUUID();
+    const session: DiffSession = {
+      id,
+      worktreeId: worktree.id,
+      branch: worktree.branch,
+      targetBranch,
+      baseSha,
+      headSha,
+      stats: {
+        files: files.length,
+        additions: files.reduce((total, file) => total + (file.additions ?? 0), 0),
+        deletions: files.reduce((total, file) => total + (file.deletions ?? 0), 0),
+      },
+      files,
+    };
+
+    this.#diffSessions.set(id, {
+      worktreeId: worktree.id,
+      worktreePath: worktree.path,
+      context,
+      baseSha,
+      headSha,
+      files: new Map(files.map((file) => [file.id, file])),
+    });
+    this.#trimDiffSessions();
+    return structuredClone(session);
+  }
+
+  async diffFile(request: DiffFileRequest): Promise<DiffFilePatch> {
+    const session = this.#diffSessions.get(request.sessionId);
+    if (!session) throw new Error('The diff session expired. Close and reopen it.');
+    const file = session.files.get(request.fileId);
+    if (!file) throw new Error('The requested file is not part of this diff.');
+    if (file.binary) return { fileId: file.id, binary: true, hunks: [] };
+
+    const paths = [
+      ...(file.previousPath && file.previousPath !== file.path
+        ? [file.previousPath]
+        : []),
+      file.path,
+    ];
+    const result = await this.#git(
+      session.worktreePath,
+      [
+        'diff',
+        '--no-color',
+        '--no-ext-diff',
+        '--unified=3',
+        '--find-renames',
+        session.baseSha,
+        session.headSha,
+        '--',
+        ...paths,
+      ],
+      `Read diff for ${file.path}`,
+      true,
+      session.context,
+    );
+    return parseUnifiedDiff(file.id, result.stdout);
+  }
+
+  closeDiff(sessionId: string): void {
+    this.#diffSessions.delete(sessionId);
   }
 
   async setupScript(project: Project): Promise<string | undefined> {
@@ -219,6 +338,43 @@ export class GitService {
     return remote.stdout.trim().replace(/^origin\//, '') || undefined;
   }
 
+  #comparisonTargetBranch(
+    project: Project,
+    worktree: Worktree,
+    context: CommandContext,
+  ): Promise<string | undefined> {
+    return worktree.pullRequest?.baseBranch
+      ? Promise.resolve(worktree.pullRequest.baseBranch)
+      : this.#remoteHeadBranch(project, context);
+  }
+
+  async #mergeBase(
+    worktreePath: string,
+    targetBranch: string,
+    headSha: string,
+    context: CommandContext,
+  ): Promise<string> {
+    const local = await this.#gitAllowFailure(
+      worktreePath,
+      ['merge-base', targetBranch, headSha],
+      `Resolve merge base with ${targetBranch}`,
+      true,
+      context,
+    );
+    if (local.record.exitCode === 0 && local.stdout.trim()) return local.stdout.trim();
+
+    const remoteBranch = `origin/${targetBranch}`;
+    return (
+      await this.#git(
+        worktreePath,
+        ['merge-base', remoteBranch, headSha],
+        `Resolve merge base with ${remoteBranch}`,
+        true,
+        context,
+      )
+    ).stdout.trim();
+  }
+
   async #latestCommit(
     worktree: Worktree,
     context: CommandContext,
@@ -262,6 +418,14 @@ export class GitService {
       context,
     );
     return parseNumStat(remoteResult.stdout);
+  }
+
+  #trimDiffSessions(): void {
+    while (this.#diffSessions.size > GitService.maximumDiffSessions) {
+      const oldestId = this.#diffSessions.keys().next().value;
+      if (!oldestId) return;
+      this.#diffSessions.delete(oldestId);
+    }
   }
 
   async #git(

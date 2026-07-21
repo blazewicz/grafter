@@ -401,6 +401,30 @@
   color: #e1e2e6;
 }
 
+.view-diff-button {
+  height: 27px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.025);
+  color: #bfc0c7;
+  font-size: 10.5px;
+}
+
+.view-diff-button:hover:not(:disabled),
+.view-diff-button:focus-visible {
+  border-color: rgba(255, 255, 255, 0.15);
+  background: var(--surface-strong);
+  color: var(--text);
+}
+
+.view-diff-button:disabled {
+  color: var(--faint);
+}
+
 .worktree-count {
   color: var(--faint);
   font-size: 10px;
