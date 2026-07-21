@@ -1,7 +1,11 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import type { DiffFileStatus, DiffSession } from '../../../../src/shared/contracts';
+import type {
+  BranchDiffSession,
+  CommitDiffSession,
+  DiffFileStatus,
+} from '../../../../src/shared/contracts';
 import { DiffViewer } from '../../../../src/renderer/components/diff/DiffViewer';
 
 const expectedPresentation: Record<
@@ -17,7 +21,8 @@ const expectedPresentation: Record<
 };
 
 const statuses = Object.keys(expectedPresentation) as DiffFileStatus[];
-const session: DiffSession = {
+const session: BranchDiffSession = {
+  kind: 'branch',
   id: 'session',
   projectId: 'project',
   sourceWorktreeId: 'worktree',
@@ -47,6 +52,8 @@ describe('DiffViewer file status presentation', () => {
         onSessionChange: () => undefined,
         onClose: () => undefined,
         onError: () => undefined,
+        settings: { dateFormat: 'system', timeFormat: 'system' },
+        systemLocale: 'en-US',
       }),
     );
 
@@ -69,6 +76,8 @@ describe('DiffViewer file status presentation', () => {
         onSessionChange: () => undefined,
         onClose: () => undefined,
         onError: () => undefined,
+        settings: { dateFormat: 'system', timeFormat: 'system' },
+        systemLocale: 'en-US',
       }),
     );
 
@@ -89,6 +98,8 @@ describe('DiffViewer file status presentation', () => {
         onSessionChange: () => undefined,
         onClose: () => undefined,
         onError: () => undefined,
+        settings: { dateFormat: 'system', timeFormat: 'system' },
+        systemLocale: 'en-US',
       }),
     );
 
@@ -99,6 +110,83 @@ describe('DiffViewer file status presentation', () => {
       'title="Check out the source branch in a worktree to open files in an editor"',
     );
     expect(html.match(/disabled=""/g)).toHaveLength(statuses.length * 2);
+  });
+
+  it('renders commit identity without branch or editor controls', () => {
+    const commitSession: CommitDiffSession = {
+      kind: 'commit',
+      id: 'commit-session',
+      projectId: 'project',
+      baseSha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      headSha: '1234567890abcdef1234567890abcdef12345678',
+      stats: session.stats,
+      files: session.files,
+      commit: {
+        hash: '1234567890abcdef1234567890abcdef12345678',
+        title: 'Show commit changes',
+        body: 'Keep the existing diff experience.',
+        authorName: 'Ada Lovelace',
+        authorEmail: 'ada@example.com',
+        authoredAt: '2026-07-21T12:30:00+02:00',
+        stats: session.stats,
+      },
+      parentShas: ['aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'],
+    };
+    const html = renderToStaticMarkup(
+      createElement(DiffViewer, {
+        session: commitSession,
+        onSessionChange: () => undefined,
+        onClose: () => undefined,
+        onError: () => undefined,
+        settings: { dateFormat: 'year-month-day', timeFormat: '24-hour' },
+        systemLocale: 'en-US',
+      }),
+    );
+
+    expect(html).toContain('Show commit changes');
+    expect(html).toContain('>1234567</code>');
+    expect(html).toContain('aria-label="Copy full commit hash"');
+    expect(html).toContain('Ada Lovelace');
+    expect(html).toContain('aria-label="Show commit details"');
+    expect(html).not.toContain('Choose source branch');
+    expect(html).not.toContain('Choose destination branch');
+    expect(html).not.toContain('data-brand-mark="visual-studio-code"');
+    expect(html).not.toContain('Open in VS Code');
+  });
+
+  it('describes a commit with no file changes', () => {
+    const emptyCommitSession: CommitDiffSession = {
+      kind: 'commit',
+      id: 'empty-commit-session',
+      projectId: 'project',
+      baseSha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      headSha: '1234567890abcdef1234567890abcdef12345678',
+      stats: { files: 0, additions: 0, deletions: 0 },
+      files: [],
+      commit: {
+        hash: '1234567890abcdef1234567890abcdef12345678',
+        title: 'Record a release marker',
+        body: '',
+        authorName: 'Ada Lovelace',
+        authoredAt: '2026-07-21T12:30:00+02:00',
+        stats: { files: 0, additions: 0, deletions: 0 },
+      },
+      parentShas: ['aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'],
+    };
+    const html = renderToStaticMarkup(
+      createElement(DiffViewer, {
+        session: emptyCommitSession,
+        onSessionChange: () => undefined,
+        onClose: () => undefined,
+        onError: () => undefined,
+        settings: { dateFormat: 'system', timeFormat: 'system' },
+        systemLocale: 'en-US',
+      }),
+    );
+
+    expect(html).toContain('This commit has no file changes');
+    expect(html).toContain('No changed files');
+    expect(html).not.toContain('No files match');
   });
 });
 

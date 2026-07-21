@@ -176,6 +176,16 @@ export function App(): React.JSX.Element {
       .finally(() => setDiffOpening(false));
   };
 
+  const openCommitDiff = (projectId: string, commitHash: string): void => {
+    setDiffOpening(true);
+    setError(undefined);
+    void api
+      .openCommitDiff({ projectId, commitHash })
+      .then(setDiffSession)
+      .catch((caught: unknown) => setError(friendlyError(caught)))
+      .finally(() => setDiffOpening(false));
+  };
+
   const closeDiff = (): void => {
     const sessionId = diffSession?.id;
     setDiffSession(undefined);
@@ -281,6 +291,7 @@ export function App(): React.JSX.Element {
           onSelectWorktree={navigate}
           diffOpening={diffOpening}
           onOpenDiff={openDiff}
+          onOpenCommitDiff={openCommitDiff}
           onError={setError}
         />
       </div>
@@ -347,6 +358,8 @@ export function App(): React.JSX.Element {
           onSessionChange={replaceDiffSession}
           onClose={closeDiff}
           onError={setError}
+          settings={snapshot.settings}
+          systemLocale={snapshot.systemLocale}
         />
       )}
       {error && <ErrorToast message={error} onDismiss={() => setError(undefined)} />}

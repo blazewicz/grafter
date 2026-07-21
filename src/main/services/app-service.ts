@@ -11,6 +11,7 @@ import type {
   DiffFileRequest,
   EditorTool,
   OpenBranchDiffRequest,
+  OpenCommitDiffRequest,
   OpenDiffFileRequest,
   DiffSession,
   Project,
@@ -236,6 +237,13 @@ export class AppService {
     return this.git.openBranchDiff(project, sourceBranch, targetBranch, sourceWorktree);
   }
 
+  async openCommitDiff(request: unknown): Promise<DiffSession> {
+    if (!isOpenCommitDiffRequest(request)) {
+      throw new Error('Invalid commit changes request.');
+    }
+    return this.git.openCommitDiff(this.#project(request.projectId), request.commitHash);
+  }
+
   async diffFile(request: unknown): Promise<DiffFilePatch> {
     if (!isDiffFileRequest(request)) throw new Error('Invalid diff file request.');
     return this.git.diffFile(request);
@@ -440,6 +448,16 @@ function isOpenBranchDiffRequest(value: unknown): value is OpenBranchDiffRequest
     typeof request.projectId === 'string' &&
     typeof request.sourceBranch === 'string' &&
     typeof request.targetBranch === 'string'
+  );
+}
+
+function isOpenCommitDiffRequest(value: unknown): value is OpenCommitDiffRequest {
+  if (!value || typeof value !== 'object') return false;
+  const request = value as Record<string, unknown>;
+  return (
+    typeof request.projectId === 'string' &&
+    typeof request.commitHash === 'string' &&
+    /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/i.test(request.commitHash)
   );
 }
 

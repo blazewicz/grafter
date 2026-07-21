@@ -7,6 +7,7 @@ import type {
   DiffFileRequest,
   GrafterApi,
   OpenBranchDiffRequest,
+  OpenCommitDiffRequest,
   OpenDiffFileRequest,
   Settings,
   SwitchBranchRequest,
@@ -35,6 +36,8 @@ const api: GrafterApi = {
   openDiff: (worktreeId) => ipcRenderer.invoke(ipc.openDiff, worktreeId),
   openBranchDiff: (request: OpenBranchDiffRequest) =>
     ipcRenderer.invoke(ipc.openBranchDiff, request),
+  openCommitDiff: (request: OpenCommitDiffRequest) =>
+    ipcRenderer.invoke(ipc.openCommitDiff, request),
   getDiffFile: (request: DiffFileRequest) => ipcRenderer.invoke(ipc.diffFile, request),
   closeDiff: (sessionId) => ipcRenderer.invoke(ipc.closeDiff, sessionId),
   refreshPullRequest: (worktreeId) =>

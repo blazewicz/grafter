@@ -92,12 +92,9 @@ export interface DiffFileSummary {
   binary: boolean;
 }
 
-export interface DiffSession {
+interface DiffSessionBase {
   id: string;
   projectId: string;
-  sourceWorktreeId?: string;
-  branch: string;
-  targetBranch: string;
   baseSha: string;
   headSha: string;
   githubRepository?: GitHubRepository;
@@ -105,10 +102,30 @@ export interface DiffSession {
   files: DiffFileSummary[];
 }
 
+export interface BranchDiffSession extends DiffSessionBase {
+  kind: 'branch';
+  sourceWorktreeId?: string;
+  branch: string;
+  targetBranch: string;
+}
+
+export interface CommitDiffSession extends DiffSessionBase {
+  kind: 'commit';
+  commit: CommitDetails;
+  parentShas: string[];
+}
+
+export type DiffSession = BranchDiffSession | CommitDiffSession;
+
 export interface OpenBranchDiffRequest {
   projectId: string;
   sourceBranch: string;
   targetBranch: string;
+}
+
+export interface OpenCommitDiffRequest {
+  projectId: string;
+  commitHash: string;
 }
 
 export type DiffLineKind = 'context' | 'addition' | 'deletion' | 'annotation';
@@ -224,6 +241,7 @@ export interface GrafterApi {
   getWorktreeDetails(worktreeId: string): Promise<WorktreeDetails>;
   openDiff(worktreeId: string): Promise<DiffSession>;
   openBranchDiff(request: OpenBranchDiffRequest): Promise<DiffSession>;
+  openCommitDiff(request: OpenCommitDiffRequest): Promise<DiffSession>;
   getDiffFile(request: DiffFileRequest): Promise<DiffFilePatch>;
   closeDiff(sessionId: string): Promise<void>;
   refreshPullRequest(worktreeId: string): Promise<PullRequest | undefined>;

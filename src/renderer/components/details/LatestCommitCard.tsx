@@ -1,4 +1,11 @@
-import { Check, Copy, Ellipsis, GitCommitHorizontal } from 'lucide-react';
+import {
+  Check,
+  Copy,
+  Ellipsis,
+  FileDiff,
+  GitCommitHorizontal,
+  LoaderCircle,
+} from 'lucide-react';
 import { useId, useState } from 'react';
 import type { CommitDetails, Settings } from '../../../shared/contracts';
 import { formatDate, formatTime } from '../../date-time';
@@ -10,12 +17,16 @@ export function LatestCommitCard({
   systemLocale,
   copied,
   onCopy,
+  opening = false,
+  onViewChanges,
 }: {
   commit: CommitDetails;
   settings: Pick<Settings, 'dateFormat' | 'timeFormat'>;
   systemLocale: string;
   copied: boolean;
   onCopy: () => void;
+  opening?: boolean;
+  onViewChanges?: () => void;
 }): React.JSX.Element {
   const [bodyOpen, setBodyOpen] = useState(false);
   const bodyId = useId();
@@ -91,6 +102,20 @@ export function LatestCommitCard({
         >
           −{commit.stats.deletions}
         </span>
+        {onViewChanges && (
+          <button
+            className={styles.commitViewButton}
+            disabled={opening}
+            onClick={onViewChanges}
+          >
+            {opening ? (
+              <LoaderCircle className="spin" size={12} />
+            ) : (
+              <FileDiff size={12} />
+            )}
+            {opening ? 'Opening…' : 'View changes'}
+          </button>
+        )}
       </div>
     </section>
   );

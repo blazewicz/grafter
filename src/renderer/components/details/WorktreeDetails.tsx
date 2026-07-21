@@ -72,6 +72,7 @@ export function WorktreeDetails({
   onSelectProject,
   diffOpening = false,
   onOpenDiff,
+  onOpenCommitDiff,
   onError,
 }: {
   homeDirectory: string;
@@ -84,6 +85,7 @@ export function WorktreeDetails({
   onSelectProject: (projectId: string) => void;
   diffOpening?: boolean;
   onOpenDiff?: () => void;
+  onOpenCommitDiff?: (commitHash: string) => void;
   onError: (message: string) => void;
 }): React.JSX.Element {
   const [editor, setEditor] = useState<EditorTool>('vscode');
@@ -396,6 +398,10 @@ export function WorktreeDetails({
           systemLocale={systemLocale}
           copied={copiedText === commit.hash}
           onCopy={() => copyText(commit.hash)}
+          opening={diffOpening}
+          {...(onOpenCommitDiff
+            ? { onViewChanges: () => onOpenCommitDiff(commit.hash) }
+            : {})}
         />
       )}
       {pullRequest ? (

@@ -7,6 +7,7 @@ import {
   FileCode2,
   Folder,
   GitCompareArrows,
+  GitCommitHorizontal,
   LoaderCircle,
   Search,
   X,
@@ -18,9 +19,12 @@ import type {
   DiffFileSummary,
   DiffLine,
   DiffSession,
+  CommitDiffSession,
   EditorTool,
+  Settings,
 } from '../../../shared/contracts';
 import { api, friendlyError } from '../../grafter-api';
+import { formatDate, formatTime } from '../../date-time';
 import { githubFileUrl } from '../../../shared/github';
 import { VisualStudioCodeMark } from '../ui/BrandMarks';
 import { BranchPicker } from '../branches/BranchPicker';
@@ -57,15 +61,20 @@ export function DiffViewer({
   onSessionChange,
   onClose,
   onError,
+  settings,
+  systemLocale,
 }: {
   session: DiffSession;
   onSessionChange: (session: DiffSession) => void;
   onClose: () => void;
   onError: (message: string) => void;
+  settings: Pick<Settings, 'dateFormat' | 'timeFormat'>;
+  systemLocale: string;
 }): React.JSX.Element {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const diffPaneRef = useRef<HTMLDivElement>(null);
   const branchControlsRef = useRef<HTMLDivElement>(null);
+  const commitControlsRef = useRef<HTMLDivElement>(null);
   const requestedFiles = useRef(new Set<string>());
   const [query, setQuery] = useState('');
   const [expanded, setExpanded] = useState(
@@ -84,7 +93,10 @@ export function DiffViewer({
   const [branches, setBranches] = useState<string[]>([]);
   const [loadingBranches, setLoadingBranches] = useState(false);
   const [comparing, setComparing] = useState(false);
+  const [commitDetailsOpen, setCommitDetailsOpen] = useState(false);
+  const [commitHashCopied, setCommitHashCopied] = useState(false);
   const copyResetTimer = useRef<number | undefined>(undefined);
+  const commitCopyResetTimer = useRef<number | undefined>(undefined);
   const loadingFiles = useRef(loading);
   const filteredFiles = useMemo(
     () => filterDiffFiles(session.files, query),
@@ -110,18 +122,24 @@ export function DiffViewer({
   }, []);
 
   useEffect(() => {
-    if (!branchMenu) return;
+    if (!branchMenu && !commitDetailsOpen) return;
     const closeOnOutsideClick = (event: PointerEvent): void => {
-      if (!branchControlsRef.current?.contains(event.target as Node)) {
+      if (branchMenu && !branchControlsRef.current?.contains(event.target as Node)) {
         setBranchMenu(undefined);
+      }
+      if (
+        commitDetailsOpen &&
+        !commitControlsRef.current?.contains(event.target as Node)
+      ) {
+        setCommitDetailsOpen(false);
       }
     };
     document.addEventListener('pointerdown', closeOnOutsideClick);
     return () => document.removeEventListener('pointerdown', closeOnOutsideClick);
-  }, [branchMenu]);
+  }, [branchMenu, commitDetailsOpen]);
 
   useEffect(() => {
-    if (!branchMenu || branches.length) return;
+    if (session.kind !== 'branch' || !branchMenu || branches.length) return;
     let active = true;
     void api
       .listBranches(session.projectId)
@@ -137,12 +155,15 @@ export function DiffViewer({
     return () => {
       active = false;
     };
-  }, [branchMenu, branches.length, onError, session.projectId]);
+  }, [branchMenu, branches.length, onError, session]);
 
   useEffect(
     () => () => {
       if (copyResetTimer.current !== undefined) {
         window.clearTimeout(copyResetTimer.current);
+      }
+      if (commitCopyResetTimer.current !== undefined) {
+        window.clearTimeout(commitCopyResetTimer.current);
       }
     },
     [],
@@ -361,6 +382,7 @@ export function DiffViewer({
 
   const compareBranches = (sourceBranch: string, targetBranch: string): void => {
     setBranchMenu(undefined);
+    if (session.kind !== 'branch') return;
     if (
       comparing ||
       (sourceBranch === session.branch && targetBranch === session.targetBranch)
@@ -377,6 +399,23 @@ export function DiffViewer({
       .then(onSessionChange)
       .catch((caught: unknown) => onError(friendlyError(caught)))
       .finally(() => setComparing(false));
+  };
+
+  const copyCommitHash = (): void => {
+    if (session.kind !== 'commit') return;
+    void api
+      .copyText(session.commit.hash)
+      .then(() => {
+        setCommitHashCopied(true);
+        if (commitCopyResetTimer.current !== undefined) {
+          window.clearTimeout(commitCopyResetTimer.current);
+        }
+        commitCopyResetTimer.current = window.setTimeout(
+          () => setCommitHashCopied(false),
+          1600,
+        );
+      })
+      .catch((caught: unknown) => onError(friendlyError(caught)));
   };
 
   const toggleBranchMenu = (menu: 'source' | 'target'): void => {
@@ -401,7 +440,8 @@ export function DiffViewer({
       ...(session.githubRepository
         ? { githubUrl: githubFileUrl(session.githubRepository, revision, path) }
         : {}),
-      editorAvailable: !deleted && session.sourceWorktreeId !== undefined,
+      editorAvailable:
+        session.kind === 'branch' && !deleted && session.sourceWorktreeId !== undefined,
     });
   };
 
@@ -458,7 +498,9 @@ export function DiffViewer({
           }
         : {}),
       editorAvailable:
-        file.status !== 'deleted' && session.sourceWorktreeId !== undefined,
+        session.kind === 'branch' &&
+        file.status !== 'deleted' &&
+        session.sourceWorktreeId !== undefined,
     });
   };
 
@@ -491,7 +533,11 @@ export function DiffViewer({
     <dialog
       ref={dialogRef}
       className={styles.dialog}
-      aria-label={`Committed changes from ${session.branch} against ${session.targetBranch}`}
+      aria-label={
+        session.kind === 'branch'
+          ? `Committed changes from ${session.branch} against ${session.targetBranch}`
+          : `Changes in commit ${session.commit.hash}`
+      }
       onCancel={(event) => {
         event.preventDefault();
         onClose();
@@ -504,6 +550,10 @@ export function DiffViewer({
           setBranchMenu(undefined);
           return;
         }
+        if (commitDetailsOpen) {
+          setCommitDetailsOpen(false);
+          return;
+        }
         onClose();
       }}
       onMouseDown={(event) => {
@@ -512,89 +562,153 @@ export function DiffViewer({
     >
       <section className={styles.surface}>
         <header className={styles.toolbar}>
-          <div className={styles.toolbarTitle}>
-            <GitCompareArrows size={16} />
-            <div>
-              <strong>Comparing</strong>
-              <div className={styles.branchControls} ref={branchControlsRef}>
-                <div className={styles.branchControl}>
-                  <button
-                    className={styles.branchButton}
-                    aria-label="Choose source branch"
-                    aria-haspopup="dialog"
-                    aria-expanded={branchMenu === 'source'}
-                    disabled={comparing}
-                    onClick={() => toggleBranchMenu('source')}
-                  >
-                    <code>{session.branch}</code>
-                    <ChevronDown size={11} />
-                  </button>
-                  {branchMenu === 'source' && (
-                    <div
-                      className={styles.branchMenu}
-                      role="dialog"
+          {session.kind === 'branch' ? (
+            <div className={styles.toolbarTitle}>
+              <GitCompareArrows size={16} />
+              <div>
+                <strong>Comparing</strong>
+                <div className={styles.branchControls} ref={branchControlsRef}>
+                  <div className={styles.branchControl}>
+                    <button
+                      className={styles.branchButton}
                       aria-label="Choose source branch"
+                      aria-haspopup="dialog"
+                      aria-expanded={branchMenu === 'source'}
+                      disabled={comparing}
+                      onClick={() => toggleBranchMenu('source')}
                     >
-                      <BranchPicker
-                        branches={branches}
-                        selectedBranch={session.branch}
-                        disabledBranches={[session.targetBranch]}
-                        disableCheckedOut={false}
-                        loading={loadingBranches}
-                        onSelect={(branch) =>
-                          compareBranches(branch, session.targetBranch)
-                        }
-                      />
-                    </div>
-                  )}
-                </div>
-                <button
-                  className={styles.swapBranchesButton}
-                  aria-label="Swap source and destination branches"
-                  title="Swap branches"
-                  disabled={comparing}
-                  onClick={() => compareBranches(session.targetBranch, session.branch)}
-                >
-                  {comparing ? (
-                    <LoaderCircle className="spin" size={11} />
-                  ) : (
-                    <ArrowLeftRight size={11} />
-                  )}
-                </button>
-                <div className={styles.branchControl}>
+                      <code>{session.branch}</code>
+                      <ChevronDown size={11} />
+                    </button>
+                    {branchMenu === 'source' && (
+                      <div
+                        className={styles.branchMenu}
+                        role="dialog"
+                        aria-label="Choose source branch"
+                      >
+                        <BranchPicker
+                          branches={branches}
+                          selectedBranch={session.branch}
+                          disabledBranches={[session.targetBranch]}
+                          disableCheckedOut={false}
+                          loading={loadingBranches}
+                          onSelect={(branch) =>
+                            compareBranches(branch, session.targetBranch)
+                          }
+                        />
+                      </div>
+                    )}
+                  </div>
                   <button
-                    className={styles.branchButton}
-                    aria-label="Choose destination branch"
-                    aria-haspopup="dialog"
-                    aria-expanded={branchMenu === 'target'}
+                    className={styles.swapBranchesButton}
+                    aria-label="Swap source and destination branches"
+                    title="Swap branches"
                     disabled={comparing}
-                    onClick={() => toggleBranchMenu('target')}
+                    onClick={() => compareBranches(session.targetBranch, session.branch)}
                   >
-                    <code>{session.targetBranch}</code>
-                    <ChevronDown size={11} />
+                    {comparing ? (
+                      <LoaderCircle className="spin" size={11} />
+                    ) : (
+                      <ArrowLeftRight size={11} />
+                    )}
                   </button>
-                  {branchMenu === 'target' && (
-                    <div
-                      className={styles.branchMenu}
-                      role="dialog"
+                  <div className={styles.branchControl}>
+                    <button
+                      className={styles.branchButton}
                       aria-label="Choose destination branch"
+                      aria-haspopup="dialog"
+                      aria-expanded={branchMenu === 'target'}
+                      disabled={comparing}
+                      onClick={() => toggleBranchMenu('target')}
                     >
-                      <BranchPicker
-                        branches={branches}
-                        selectedBranch={session.targetBranch}
-                        disabledBranches={[session.branch]}
-                        disableCheckedOut={false}
-                        loading={loadingBranches}
-                        onSelect={(branch) => compareBranches(session.branch, branch)}
-                      />
-                    </div>
-                  )}
+                      <code>{session.targetBranch}</code>
+                      <ChevronDown size={11} />
+                    </button>
+                    {branchMenu === 'target' && (
+                      <div
+                        className={styles.branchMenu}
+                        role="dialog"
+                        aria-label="Choose destination branch"
+                      >
+                        <BranchPicker
+                          branches={branches}
+                          selectedBranch={session.targetBranch}
+                          disabledBranches={[session.branch]}
+                          disableCheckedOut={false}
+                          loading={loadingBranches}
+                          onSelect={(branch) => compareBranches(session.branch, branch)}
+                        />
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          ) : (
+            <div className={styles.toolbarTitle}>
+              <GitCommitHorizontal size={16} />
+              <div className={styles.commitToolbarCopy} ref={commitControlsRef}>
+                <div className={styles.commitToolbarPrimary}>
+                  <strong title={session.commit.title}>
+                    {session.commit.title || 'Untitled commit'}
+                  </strong>
+                  <code title={session.commit.hash}>
+                    {session.commit.hash.slice(0, 7)}
+                  </code>
+                  <button
+                    className={styles.toolbarIconButton}
+                    aria-label={
+                      commitHashCopied ? 'Commit hash copied' : 'Copy full commit hash'
+                    }
+                    title={
+                      commitHashCopied ? 'Commit hash copied' : 'Copy full commit hash'
+                    }
+                    onClick={copyCommitHash}
+                  >
+                    {commitHashCopied ? <Check size={12} /> : <Copy size={12} />}
+                  </button>
+                </div>
+                <div className={styles.commitToolbarMeta}>
+                  <span>{session.commit.authorName}</span>
+                  <span aria-hidden="true">·</span>
+                  <time
+                    dateTime={session.commit.authoredAt}
+                    title={session.commit.authoredAt}
+                  >
+                    {formatDate(
+                      session.commit.authoredAt,
+                      settings.dateFormat,
+                      systemLocale,
+                    )}{' '}
+                    at{' '}
+                    {formatTime(
+                      session.commit.authoredAt,
+                      settings.timeFormat,
+                      false,
+                      systemLocale,
+                    )}
+                  </time>
+                  <button
+                    className={styles.commitDetailsButton}
+                    aria-controls={`commit-details-${session.id}`}
+                    aria-expanded={commitDetailsOpen}
+                    aria-label={
+                      commitDetailsOpen ? 'Hide commit details' : 'Show commit details'
+                    }
+                    onClick={() => setCommitDetailsOpen((open) => !open)}
+                  >
+                    Details
+                    <ChevronDown size={10} />
+                  </button>
+                </div>
+                {commitDetailsOpen && <CommitDetailsPopover session={session} />}
+              </div>
+            </div>
+          )}
           <div className={styles.totalStats} aria-label="Diff totals">
-            <span>{session.stats.files} files</span>
+            <span>
+              {session.stats.files} {session.stats.files === 1 ? 'file' : 'files'}
+            </span>
             <strong className={styles.additions}>+{session.stats.additions}</strong>
             <strong className={styles.deletions}>−{session.stats.deletions}</strong>
           </div>
@@ -648,7 +762,9 @@ export function DiffViewer({
                   onContextMenu={openFileContextMenu}
                 />
               ) : (
-                <div className={styles.emptyTree}>No matching files</div>
+                <div className={styles.emptyTree}>
+                  {filtering ? 'No matching files' : 'No changed files'}
+                </div>
               )}
             </nav>
           </aside>
@@ -670,7 +786,10 @@ export function DiffViewer({
                   copied={copiedFileId === file.id}
                   contextLineId={lineContextMenu?.lineId}
                   expanded={!collapsedFileIds.has(file.id)}
-                  editorAvailable={session.sourceWorktreeId !== undefined}
+                  editorAvailable={
+                    session.kind === 'branch' && session.sourceWorktreeId !== undefined
+                  }
+                  showEditorControls={session.kind === 'branch'}
                   scrollRoot={diffPaneRef}
                   onVisible={requestPatch}
                   onCopy={() => copyPath(file)}
@@ -683,9 +802,22 @@ export function DiffViewer({
               ))
             ) : (
               <div className={styles.emptyDiff}>
-                <Search size={20} />
-                <strong>No files match “{query.trim()}”</strong>
-                <span>Try another path or file name.</span>
+                {filtering ? (
+                  <>
+                    <Search size={20} />
+                    <strong>No files match “{query.trim()}”</strong>
+                    <span>Try another path or file name.</span>
+                  </>
+                ) : (
+                  <>
+                    <GitCommitHorizontal size={20} />
+                    <strong>
+                      {session.kind === 'commit'
+                        ? 'This commit has no file changes'
+                        : 'These branches have no committed changes'}
+                    </strong>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -710,6 +842,40 @@ export function DiffViewer({
         )}
       </section>
     </dialog>
+  );
+}
+
+function CommitDetailsPopover({
+  session,
+}: {
+  session: CommitDiffSession;
+}): React.JSX.Element {
+  const author = session.commit.authorEmail
+    ? `${session.commit.authorName} <${session.commit.authorEmail}>`
+    : session.commit.authorName;
+  const comparison = session.parentShas.length
+    ? `Compared with first parent ${session.parentShas[0]?.slice(0, 7)}${
+        session.parentShas.length > 1 ? ` · ${session.parentShas.length} parents` : ''
+      }`
+    : 'Root commit · compared with the empty tree';
+
+  return (
+    <section
+      className={styles.commitDetailsPopover}
+      id={`commit-details-${session.id}`}
+      aria-label="Commit details"
+    >
+      <div className={styles.commitDetailsIdentity}>
+        <span title={author}>{author}</span>
+        <code>{session.commit.hash}</code>
+        <span>{comparison}</span>
+      </div>
+      {session.commit.body.trim() ? (
+        <div className={styles.commitMessage}>{session.commit.body}</div>
+      ) : (
+        <div className={styles.commitMessageEmpty}>No additional commit message.</div>
+      )}
+    </section>
   );
 }
 
@@ -802,6 +968,7 @@ function DiffFile({
   contextLineId,
   expanded,
   editorAvailable,
+  showEditorControls,
   scrollRoot,
   onVisible,
   onCopy,
@@ -817,6 +984,7 @@ function DiffFile({
   contextLineId: string | undefined;
   expanded: boolean;
   editorAvailable: boolean;
+  showEditorControls: boolean;
   scrollRoot: RefObject<HTMLDivElement | null>;
   onVisible: (file: DiffFileSummary) => void;
   onCopy: () => void;
@@ -934,53 +1102,55 @@ function DiffFile({
               </>
             )}
           </div>
-          <div className={styles.editorPicker} ref={editorMenuRef}>
-            <div className={styles.editorSplitButton}>
-              <button
-                className={styles.editorOpenButton}
-                disabled={editorUnavailableReason !== undefined}
-                title={editorUnavailableReason ?? `Open in ${selectedEditorLabel}`}
-                aria-label={
-                  editorUnavailableReason === undefined
-                    ? `Open ${file.path} in ${selectedEditorLabel}`
-                    : `${file.path}: ${editorUnavailableReason}`
-                }
-                onClick={() => openInEditor(editor)}
-              >
-                <VisualStudioCodeMark />
-              </button>
-              <button
-                className={styles.editorMenuButton}
-                disabled={editorUnavailableReason !== undefined}
-                title={editorUnavailableReason ?? 'Choose IDE'}
-                aria-label={
-                  editorUnavailableReason
-                    ? `${file.path}: ${editorUnavailableReason}`
-                    : `Choose IDE for ${file.path}`
-                }
-                aria-haspopup="menu"
-                aria-expanded={editorMenuOpen}
-                onClick={() => setEditorMenuOpen((menuOpen) => !menuOpen)}
-              >
-                <ChevronDown size={11} />
-              </button>
-            </div>
-            {editorMenuOpen && (
-              <div className={styles.editorMenu} role="menu">
-                {editorOptions.map((option) => (
-                  <button
-                    key={option.id}
-                    role="menuitem"
-                    onClick={() => openInEditor(option.id)}
-                  >
-                    <VisualStudioCodeMark />
-                    <span>{option.label}</span>
-                    {option.id === editor && <Check size={13} />}
-                  </button>
-                ))}
+          {showEditorControls && (
+            <div className={styles.editorPicker} ref={editorMenuRef}>
+              <div className={styles.editorSplitButton}>
+                <button
+                  className={styles.editorOpenButton}
+                  disabled={editorUnavailableReason !== undefined}
+                  title={editorUnavailableReason ?? `Open in ${selectedEditorLabel}`}
+                  aria-label={
+                    editorUnavailableReason === undefined
+                      ? `Open ${file.path} in ${selectedEditorLabel}`
+                      : `${file.path}: ${editorUnavailableReason}`
+                  }
+                  onClick={() => openInEditor(editor)}
+                >
+                  <VisualStudioCodeMark />
+                </button>
+                <button
+                  className={styles.editorMenuButton}
+                  disabled={editorUnavailableReason !== undefined}
+                  title={editorUnavailableReason ?? 'Choose IDE'}
+                  aria-label={
+                    editorUnavailableReason
+                      ? `${file.path}: ${editorUnavailableReason}`
+                      : `Choose IDE for ${file.path}`
+                  }
+                  aria-haspopup="menu"
+                  aria-expanded={editorMenuOpen}
+                  onClick={() => setEditorMenuOpen((menuOpen) => !menuOpen)}
+                >
+                  <ChevronDown size={11} />
+                </button>
               </div>
-            )}
-          </div>
+              {editorMenuOpen && (
+                <div className={styles.editorMenu} role="menu">
+                  {editorOptions.map((option) => (
+                    <button
+                      key={option.id}
+                      role="menuitem"
+                      onClick={() => openInEditor(option.id)}
+                    >
+                      <VisualStudioCodeMark />
+                      <span>{option.label}</span>
+                      {option.id === editor && <Check size={13} />}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </header>
       {expanded && (
