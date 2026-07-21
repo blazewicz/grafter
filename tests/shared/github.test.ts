@@ -30,5 +30,14 @@ describe('GitHub remotes', () => {
     expect(
       githubFileUrl({ owner: 'example', name: 'repo' }, 'abc123', 'src/a file#1.ts', 42),
     ).toBe('https://github.com/example/repo/blob/abc123/src/a%20file%231.ts#L42');
+    expect(
+      githubFileUrl(
+        { owner: 'example', name: 'repo' },
+        'abc123',
+        'src/a file#1.ts',
+        20,
+        25,
+      ),
+    ).toBe('https://github.com/example/repo/blob/abc123/src/a%20file%231.ts#L20-L25');
   });
 });

@@ -1,7 +1,11 @@
 import { Code2, Copy, ExternalLink, FileText, Hash, Link2 } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import type { CSSProperties, KeyboardEvent } from 'react';
-import type { DiffLineTarget } from './diff-line-context';
+import {
+  diffLineReference,
+  type DiffLineRange,
+  type DiffLineTarget,
+} from './diff-line-context';
 import styles from './DiffViewer.module.css';
 
 export interface DiffLineContextMenuState {
@@ -9,6 +13,8 @@ export interface DiffLineContextMenuState {
   y: number;
   copyText: string;
   fileId: string;
+  lineId: string;
+  range: DiffLineRange;
   target: DiffLineTarget;
   githubUrl?: string;
   editorAvailable: boolean;
@@ -34,15 +40,12 @@ export function DiffLineContextMenu({
     const closeOnPointerDown = (event: PointerEvent): void => {
       if (!menuRef.current?.contains(event.target as Node)) onClose();
     };
-    const closeOnScroll = (): void => onClose();
     const closeOnResize = (): void => onClose();
     document.addEventListener('pointerdown', closeOnPointerDown);
-    document.addEventListener('scroll', closeOnScroll, true);
     window.addEventListener('resize', closeOnResize);
     window.addEventListener('blur', onClose);
     return () => {
       document.removeEventListener('pointerdown', closeOnPointerDown);
-      document.removeEventListener('scroll', closeOnScroll, true);
       window.removeEventListener('resize', closeOnResize);
       window.removeEventListener('blur', onClose);
     };
@@ -101,7 +104,7 @@ export function DiffLineContextMenu({
       <ContextMenuItem
         icon={<Hash size={14} />}
         label="Copy Line Reference"
-        onClick={() => run(() => onCopy(`${state.target.path}:${state.target.line}`))}
+        onClick={() => run(() => onCopy(diffLineReference(state.target, state.range)))}
       />
       {(state.editorAvailable || state.githubUrl) && (
         <div className={styles.lineContextSeparator} role="separator" />

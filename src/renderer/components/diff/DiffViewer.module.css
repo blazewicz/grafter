@@ -538,9 +538,21 @@
 }
 
 .line-marker {
+  border-right: 1px solid rgba(255, 255, 255, 0.035);
   color: #77777e;
   text-align: center;
   user-select: none;
+}
+
+.line[data-selected='true'] .line-marker {
+  border-right-color: rgba(169, 173, 215, 0.48);
+  box-shadow: 1px 0 rgba(169, 173, 215, 0.08);
+}
+
+.line[data-context-menu-anchor='true'] .line-marker,
+.diff-pane:not([data-context-menu-open='true']) .line:hover .line-marker {
+  border-right-color: rgba(196, 200, 244, 0.82);
+  box-shadow: 1px 0 rgba(196, 200, 244, 0.16);
 }
 
 .line[data-kind='addition'] .line-marker {
