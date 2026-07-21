@@ -7,17 +7,21 @@ const maximumVisibleBranches = 7;
 
 export function BranchPicker({
   branches,
-  worktrees,
+  worktrees = [],
   currentWorktreeId,
   selectedBranch,
+  disableCheckedOut = true,
+  disabledBranches = [],
   loading = false,
   onQueryChange,
   onSelect,
 }: {
   branches: readonly string[];
-  worktrees: readonly Worktree[];
+  worktrees?: readonly Worktree[];
   currentWorktreeId?: string;
   selectedBranch?: string;
+  disableCheckedOut?: boolean;
+  disabledBranches?: readonly string[];
   loading?: boolean;
   onQueryChange?: () => void;
   onSelect: (branch: string) => void;
@@ -33,8 +37,12 @@ export function BranchPicker({
   }, [branches, query]);
   const available = useMemo(
     () =>
-      filtered.filter((branch) => checkedOutWorktree(worktrees, branch) === undefined),
-    [filtered, worktrees],
+      filtered.filter(
+        (branch) =>
+          !disabledBranches.includes(branch) &&
+          (!disableCheckedOut || checkedOutWorktree(worktrees, branch) === undefined),
+      ),
+    [disableCheckedOut, disabledBranches, filtered, worktrees],
   );
 
   useEffect(() => {
@@ -45,7 +53,12 @@ export function BranchPicker({
     activeBranch && available.includes(activeBranch) ? activeBranch : available[0];
 
   const choose = (branch: string): void => {
-    if (checkedOutWorktree(worktrees, branch)) return;
+    if (
+      disabledBranches.includes(branch) ||
+      (disableCheckedOut && checkedOutWorktree(worktrees, branch))
+    ) {
+      return;
+    }
     onSelect(branch);
   };
 
@@ -91,11 +104,13 @@ export function BranchPicker({
       <div className={styles.results}>
         {filtered.map((branch) => {
           const checkedOut = checkedOutWorktree(worktrees, branch);
-          const disabledReason = checkedOut
-            ? checkedOut.id === currentWorktreeId
-              ? 'Currently checked out in this worktree'
-              : `Already checked out in ${checkedOut.displayName}`
-            : undefined;
+          const disabledReason = disabledBranches.includes(branch)
+            ? 'Already selected for comparison'
+            : disableCheckedOut && checkedOut
+              ? checkedOut.id === currentWorktreeId
+                ? 'Currently checked out in this worktree'
+                : `Already checked out in ${checkedOut.displayName}`
+              : undefined;
           return (
             <button
               key={branch}

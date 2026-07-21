@@ -31,8 +31,8 @@ import type { CommandResult, CommandSpec } from '../commands';
 import type { CommandRunner } from '../commands';
 
 interface StoredDiffSession {
-  worktreeId: string;
-  worktreePath: string;
+  repositoryPath: string;
+  editorWorktreePath?: string;
   context: CommandContext;
   baseSha: string;
   headSha: string;
@@ -182,8 +182,11 @@ export class GitService {
   }
 
   async openDiff(project: Project, worktree: Worktree): Promise<DiffSession> {
-    const context = worktreeCommandContext(worktree);
-    const targetBranch = await this.#comparisonTargetBranch(project, worktree, context);
+    const targetBranch = await this.#comparisonTargetBranch(
+      project,
+      worktree,
+      worktreeCommandContext(worktree),
+    );
     if (
       !targetBranch ||
       (worktree.pullRequest === undefined && targetBranch === worktree.branch)
@@ -191,39 +194,66 @@ export class GitService {
       throw new Error('This branch does not have a committed comparison target.');
     }
 
+    return this.#openBranchDiff(project, worktree.branch, targetBranch, worktree);
+  }
+
+  async openBranchDiff(
+    project: Project,
+    sourceBranch: string,
+    targetBranch: string,
+    sourceWorktree?: Worktree,
+  ): Promise<DiffSession> {
+    if (sourceBranch === targetBranch) {
+      throw new Error('Choose two different branches to compare.');
+    }
+    return this.#openBranchDiff(project, sourceBranch, targetBranch, sourceWorktree);
+  }
+
+  async #openBranchDiff(
+    project: Project,
+    sourceBranch: string,
+    targetBranch: string,
+    sourceWorktree?: Worktree,
+  ): Promise<DiffSession> {
+    const context = sourceWorktree
+      ? worktreeCommandContext(sourceWorktree)
+      : projectCommandContext(project);
+    const repositoryPath = sourceWorktree?.path ?? project.path;
+
     const headSha = (
       await this.#git(
-        worktree.path,
-        ['rev-parse', '--verify', 'HEAD'],
-        `Resolve ${worktree.branch} revision`,
+        repositoryPath,
+        ['rev-parse', '--verify', `refs/heads/${sourceBranch}`],
+        `Resolve ${sourceBranch} revision`,
         true,
         context,
       )
     ).stdout.trim();
-    const baseSha = await this.#mergeBase(worktree.path, targetBranch, headSha, context);
+    const baseSha = await this.#mergeBase(repositoryPath, targetBranch, headSha, context);
     const [nameStatus, numStat, githubRepository] = await Promise.all([
       this.#git(
-        worktree.path,
+        repositoryPath,
         ['diff', '--name-status', '-z', '--find-renames', baseSha, headSha],
         `List changes against ${targetBranch}`,
         true,
         context,
       ),
       this.#git(
-        worktree.path,
+        repositoryPath,
         ['diff', '--numstat', '-z', '--find-renames', baseSha, headSha],
         `Read change stats against ${targetBranch}`,
         true,
         context,
       ),
-      this.#githubRepository(worktree.path, context),
+      this.#githubRepository(repositoryPath, context),
     ]);
     const files = parseDiffFiles(nameStatus.stdout, numStat.stdout);
     const id = randomUUID();
     const session: DiffSession = {
       id,
-      worktreeId: worktree.id,
-      branch: worktree.branch,
+      projectId: project.id,
+      ...(sourceWorktree ? { sourceWorktreeId: sourceWorktree.id } : {}),
+      branch: sourceBranch,
       targetBranch,
       baseSha,
       headSha,
@@ -237,8 +267,8 @@ export class GitService {
     };
 
     this.#diffSessions.set(id, {
-      worktreeId: worktree.id,
-      worktreePath: worktree.path,
+      repositoryPath,
+      ...(sourceWorktree ? { editorWorktreePath: sourceWorktree.path } : {}),
       context,
       baseSha,
       headSha,
@@ -262,7 +292,7 @@ export class GitService {
       file.path,
     ];
     const result = await this.#git(
-      session.worktreePath,
+      session.repositoryPath,
       [
         'diff',
         '--no-color',
@@ -290,8 +320,14 @@ export class GitService {
       throw new Error('Deleted files cannot be opened in an editor.');
     }
 
-    const filePath = path.resolve(session.worktreePath, file.path);
-    const relativePath = path.relative(session.worktreePath, filePath);
+    if (!session.editorWorktreePath) {
+      throw new Error(
+        'Check out the source branch in a worktree to open files in an editor.',
+      );
+    }
+
+    const filePath = path.resolve(session.editorWorktreePath, file.path);
+    const relativePath = path.relative(session.editorWorktreePath, filePath);
     if (
       relativePath === '..' ||
       relativePath.startsWith(`..${path.sep}`) ||

@@ -19,7 +19,8 @@ const expectedPresentation: Record<
 const statuses = Object.keys(expectedPresentation) as DiffFileStatus[];
 const session: DiffSession = {
   id: 'session',
-  worktreeId: 'worktree',
+  projectId: 'project',
+  sourceWorktreeId: 'worktree',
   branch: 'feature/diff-icons',
   targetBranch: 'main',
   baseSha: 'base',
@@ -43,6 +44,7 @@ describe('DiffViewer file status presentation', () => {
     const html = renderToStaticMarkup(
       createElement(DiffViewer, {
         session,
+        onSessionChange: () => undefined,
         onClose: () => undefined,
         onError: () => undefined,
       }),
@@ -64,6 +66,7 @@ describe('DiffViewer file status presentation', () => {
     const html = renderToStaticMarkup(
       createElement(DiffViewer, {
         session,
+        onSessionChange: () => undefined,
         onClose: () => undefined,
         onError: () => undefined,
       }),
@@ -75,6 +78,27 @@ describe('DiffViewer file status presentation', () => {
     );
     expect(html).not.toContain('>MODIFIED<');
     expect(html).not.toContain('>RENAMED<');
+  });
+
+  it('exposes branch comparison controls and disables editors without a source worktree', () => {
+    const detachedSession = structuredClone(session);
+    delete detachedSession.sourceWorktreeId;
+    const html = renderToStaticMarkup(
+      createElement(DiffViewer, {
+        session: detachedSession,
+        onSessionChange: () => undefined,
+        onClose: () => undefined,
+        onError: () => undefined,
+      }),
+    );
+
+    expect(html).toContain('aria-label="Choose source branch"');
+    expect(html).toContain('aria-label="Choose destination branch"');
+    expect(html).toContain('aria-label="Swap source and destination branches"');
+    expect(html).toContain(
+      'title="Check out the source branch in a worktree to open files in an editor"',
+    );
+    expect(html.match(/disabled=""/g)).toHaveLength(statuses.length * 2);
   });
 });
 

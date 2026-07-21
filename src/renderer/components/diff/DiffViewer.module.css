@@ -69,16 +69,75 @@
   font-weight: 620;
 }
 
-.toolbar-title span {
+.branch-controls {
   min-width: 0;
   display: flex;
   align-items: center;
   gap: 5px;
-  overflow: hidden;
   color: var(--faint);
+  -webkit-app-region: no-drag;
 }
 
-.toolbar-title code {
+.branch-control {
+  min-width: 0;
+  position: relative;
+}
+
+.branch-button,
+.swap-branches-button {
+  height: 25px;
+  border: 0;
+  border-radius: 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: #9698a5;
+}
+
+.branch-button {
+  max-width: min(24vw, 270px);
+  gap: 4px;
+  padding: 0 5px;
+}
+
+.branch-button:hover:not(:disabled),
+.branch-button:focus-visible,
+.swap-branches-button:hover:not(:disabled),
+.swap-branches-button:focus-visible {
+  outline: 0;
+  background: rgba(255, 255, 255, 0.065);
+  color: var(--text);
+}
+
+.branch-button:disabled,
+.swap-branches-button:disabled {
+  opacity: 0.55;
+}
+
+.branch-button svg {
+  flex: 0 0 auto;
+}
+
+.swap-branches-button {
+  width: 23px;
+  flex: 0 0 auto;
+}
+
+.branch-menu {
+  z-index: 50;
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  width: 270px;
+  padding: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  background: rgba(38, 39, 44, 0.99);
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.46);
+}
+
+.branch-button code {
   min-width: 0;
   overflow: hidden;
   color: #9698a5;

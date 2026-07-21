@@ -777,11 +777,31 @@ export const previewApi: GrafterApi = {
     return Promise.resolve(
       structuredClone({
         id: 'preview-diff',
-        worktreeId,
+        projectId: worktreeDetails.projectId,
+        sourceWorktreeId: worktreeId,
         branch: worktreeDetails.branch,
         targetBranch: worktreeDetails.targetBranch,
         baseSha: '4fc93b86a45b1a47af174e0b97e422a31eb19db0',
         headSha: worktreeDetails.head,
+        githubRepository: { owner: 'example', name: 'grafter' },
+        stats: { files: 7, additions: 438, deletions: 41 },
+        files: previewDiffFiles,
+      }),
+    );
+  },
+  openBranchDiff: ({ projectId, sourceBranch, targetBranch }) => {
+    const sourceWorktree = snapshot.projects
+      .find((project) => project.id === projectId)
+      ?.worktrees.find((worktree) => worktree.branch === sourceBranch);
+    return Promise.resolve(
+      structuredClone({
+        id: `preview-diff-${sourceBranch}-${targetBranch}`,
+        projectId,
+        ...(sourceWorktree ? { sourceWorktreeId: sourceWorktree.id } : {}),
+        branch: sourceBranch,
+        targetBranch,
+        baseSha: '4fc93b86a45b1a47af174e0b97e422a31eb19db0',
+        headSha: sourceWorktree?.head ?? '7a81a663bc1be77168cf1b4745c3658c860db6de',
         githubRepository: { owner: 'example', name: 'grafter' },
         stats: { files: 7, additions: 438, deletions: 41 },
         files: previewDiffFiles,
