@@ -43,6 +43,9 @@ describe('editor file URLs', () => {
     expect(editorFileUrl('vscode', '/code/project/src/a file#1.ts')).toBe(
       'vscode://file/code/project/src/a%20file%231.ts',
     );
+    expect(editorFileUrl('vscode', '/code/project/src/a file.ts', 42)).toBe(
+      'vscode://file/code/project/src/a%20file.ts:42',
+    );
   });
 
   it('rejects relative paths and unsupported editors', () => {
@@ -51,6 +54,9 @@ describe('editor file URLs', () => {
     );
     expect(() => editorFileUrl('unknown' as 'vscode', '/code/App.tsx')).toThrow(
       'Unsupported IDE.',
+    );
+    expect(() => editorFileUrl('vscode', '/code/App.tsx', 0)).toThrow(
+      'The editor line must be a positive integer.',
     );
   });
 });

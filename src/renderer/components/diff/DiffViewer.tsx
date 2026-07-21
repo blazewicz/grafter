@@ -11,7 +11,7 @@ import {
   X,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { CSSProperties, RefObject } from 'react';
+import type { CSSProperties, MouseEvent as ReactMouseEvent, RefObject } from 'react';
 import type {
   DiffFilePatch,
   DiffFileSummary,
@@ -20,6 +20,7 @@ import type {
   EditorTool,
 } from '../../../shared/contracts';
 import { api, friendlyError } from '../../grafter-api';
+import { githubFileUrl } from '../../../shared/github';
 import { VisualStudioCodeMark } from '../ui/BrandMarks';
 import {
   buildDiffTree,
@@ -30,6 +31,11 @@ import {
 import type { DiffTreeNode } from './diff-tree';
 import { calculateDiffScrollCorrection } from './diff-scroll';
 import { DiffFileStatusIcon } from './DiffFileStatusIcon';
+import {
+  DiffLineContextMenu,
+  type DiffLineContextMenuState,
+} from './DiffLineContextMenu';
+import { diffLineCopyText, diffLineTarget } from './diff-line-context';
 import styles from './DiffViewer.module.css';
 
 const editorOptions: readonly { id: EditorTool; label: string }[] = [
@@ -59,6 +65,7 @@ export function DiffViewer({
   const [activeFileId, setActiveFileId] = useState<string>();
   const [pendingTargetId, setPendingTargetId] = useState<string>();
   const [copiedFileId, setCopiedFileId] = useState<string>();
+  const [lineContextMenu, setLineContextMenu] = useState<DiffLineContextMenuState>();
   const copyResetTimer = useRef<number | undefined>(undefined);
   const loadingFiles = useRef(loading);
   const filteredFiles = useMemo(
@@ -293,6 +300,60 @@ export function DiffViewer({
       .catch((caught: unknown) => onError(friendlyError(caught)));
   };
 
+  const openLineContextMenu = (
+    event: ReactMouseEvent<HTMLDivElement>,
+    file: DiffFileSummary,
+    line: DiffLine,
+  ): void => {
+    const target = diffLineTarget(session, file, line);
+    if (!target) return;
+    event.preventDefault();
+    const selection = selectionWithinFile(event.currentTarget);
+    const position = lineContextMenuPosition(event);
+    setLineContextMenu({
+      ...position,
+      fileId: file.id,
+      target,
+      copyText: diffLineCopyText(line.text, selection),
+      ...(session.githubRepository
+        ? {
+            githubUrl: githubFileUrl(
+              session.githubRepository,
+              target.revision,
+              target.path,
+              target.line,
+            ),
+          }
+        : {}),
+      editorAvailable: file.status !== 'deleted',
+    });
+  };
+
+  const closeLineContextMenu = useCallback(() => setLineContextMenu(undefined), []);
+
+  const copyContextText = (text: string): void => {
+    void api.copyText(text).catch((caught: unknown) => onError(friendlyError(caught)));
+  };
+
+  const openContextLineInEditor = (): void => {
+    if (!lineContextMenu) return;
+    void api
+      .openDiffFileInEditor({
+        sessionId: session.id,
+        fileId: lineContextMenu.fileId,
+        editor: 'vscode',
+        line: lineContextMenu.target.line,
+      })
+      .catch((caught: unknown) => onError(friendlyError(caught)));
+  };
+
+  const openContextLineOnGitHub = (): void => {
+    if (!lineContextMenu?.githubUrl) return;
+    void api
+      .openExternal(lineContextMenu.githubUrl)
+      .catch((caught: unknown) => onError(friendlyError(caught)));
+  };
+
   return (
     <dialog
       ref={dialogRef}
@@ -351,6 +412,7 @@ export function DiffViewer({
                 aria-label="Filter changed files"
                 onChange={(event) => {
                   setPendingTargetId(undefined);
+                  setLineContextMenu(undefined);
                   setQuery(event.target.value);
                 }}
               />
@@ -392,6 +454,9 @@ export function DiffViewer({
                   onCopy={() => copyPath(file)}
                   onOpenInEditor={(editor) => openFileInEditor(file, editor)}
                   onToggle={() => toggleFile(file.id)}
+                  onLineContextMenu={(event, line) =>
+                    openLineContextMenu(event, file, line)
+                  }
                 />
               ))
             ) : (
@@ -403,6 +468,15 @@ export function DiffViewer({
             )}
           </div>
         </div>
+        {lineContextMenu && (
+          <DiffLineContextMenu
+            state={lineContextMenu}
+            onClose={closeLineContextMenu}
+            onCopy={copyContextText}
+            onOpenEditor={openContextLineInEditor}
+            onOpenGitHub={openContextLineOnGitHub}
+          />
+        )}
       </section>
     </dialog>
   );
@@ -489,6 +563,7 @@ function DiffFile({
   onCopy,
   onOpenInEditor,
   onToggle,
+  onLineContextMenu,
 }: {
   file: DiffFileSummary;
   patch: DiffFilePatch | undefined;
@@ -501,6 +576,7 @@ function DiffFile({
   onCopy: () => void;
   onOpenInEditor: (editor: EditorTool) => void;
   onToggle: () => void;
+  onLineContextMenu: (event: ReactMouseEvent<HTMLDivElement>, line: DiffLine) => void;
 }): React.JSX.Element {
   const fileRef = useRef<HTMLElement>(null);
   const editorMenuRef = useRef<HTMLDivElement>(null);
@@ -673,7 +749,11 @@ function DiffFile({
                     <code>{hunk.header}</code>
                   </div>
                   {hunk.lines.map((line, lineIndex) => (
-                    <DiffLineRow key={`${file.id}:${index}:${lineIndex}`} line={line} />
+                    <DiffLineRow
+                      key={`${file.id}:${index}:${lineIndex}`}
+                      line={line}
+                      onContextMenu={(event) => onLineContextMenu(event, line)}
+                    />
                   ))}
                 </div>
               ))
@@ -695,16 +775,56 @@ function DiffFile({
   );
 }
 
-function DiffLineRow({ line }: { line: DiffLine }): React.JSX.Element {
+function DiffLineRow({
+  line,
+  onContextMenu,
+}: {
+  line: DiffLine;
+  onContextMenu: (event: ReactMouseEvent<HTMLDivElement>) => void;
+}): React.JSX.Element {
   const marker = line.kind === 'addition' ? '+' : line.kind === 'deletion' ? '−' : ' ';
   return (
-    <div className={styles.line} data-kind={line.kind}>
+    <div
+      className={styles.line}
+      data-kind={line.kind}
+      data-diff-line={line.newLine ?? line.oldLine}
+      onContextMenu={onContextMenu}
+    >
       <span className={styles.lineNumber}>{line.oldLine}</span>
       <span className={styles.lineNumber}>{line.newLine}</span>
       <span className={styles.lineMarker}>{marker}</span>
       <code>{line.text || ' '}</code>
     </div>
   );
+}
+
+function selectionWithinFile(lineElement: HTMLElement): string | undefined {
+  const selection = window.getSelection();
+  const file = lineElement.closest<HTMLElement>('[data-diff-file-id]');
+  if (
+    !selection ||
+    selection.isCollapsed ||
+    !selection.anchorNode ||
+    !selection.focusNode ||
+    !file?.contains(selection.anchorNode) ||
+    !file.contains(selection.focusNode)
+  ) {
+    return undefined;
+  }
+  return selection.toString() || undefined;
+}
+
+function lineContextMenuPosition(event: ReactMouseEvent<HTMLDivElement>): {
+  x: number;
+  y: number;
+} {
+  const bounds = event.currentTarget.getBoundingClientRect();
+  const requestedX = event.clientX || bounds.left + 72;
+  const requestedY = event.clientY || bounds.top + bounds.height;
+  return {
+    x: Math.max(8, Math.min(requestedX, window.innerWidth - 236)),
+    y: Math.max(8, Math.min(requestedY, window.innerHeight - 214)),
+  };
 }
 
 function diffFileElementId(fileId: string): string {

@@ -782,6 +782,7 @@ export const previewApi: GrafterApi = {
         targetBranch: worktreeDetails.targetBranch,
         baseSha: '4fc93b86a45b1a47af174e0b97e422a31eb19db0',
         headSha: worktreeDetails.head,
+        githubRepository: { owner: 'example', name: 'grafter' },
         stats: { files: 7, additions: 438, deletions: 41 },
         files: previewDiffFiles,
       }),

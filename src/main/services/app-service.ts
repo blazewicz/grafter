@@ -227,6 +227,7 @@ export class AppService {
   diffFileEditorTarget(request: unknown): {
     editor: EditorTool;
     filePath: string;
+    line?: number;
   } {
     if (!isOpenDiffFileRequest(request)) {
       throw new Error('Invalid open diff file request.');
@@ -234,6 +235,7 @@ export class AppService {
     return {
       editor: request.editor,
       filePath: this.git.diffFilePath(request),
+      ...(request.line === undefined ? {} : { line: request.line }),
     };
   }
 
@@ -415,7 +417,16 @@ function isDiffFileRequest(value: unknown): value is DiffFileRequest {
 }
 
 function isOpenDiffFileRequest(value: unknown): value is OpenDiffFileRequest {
-  return isDiffFileRequest(value) && 'editor' in value && value.editor === 'vscode';
+  return (
+    isDiffFileRequest(value) &&
+    'editor' in value &&
+    value.editor === 'vscode' &&
+    (!('line' in value) ||
+      value.line === undefined ||
+      (typeof value.line === 'number' &&
+        Number.isSafeInteger(value.line) &&
+        value.line > 0))
+  );
 }
 
 function pullRequestsEqual(left: PullRequest | undefined, right: PullRequest): boolean {

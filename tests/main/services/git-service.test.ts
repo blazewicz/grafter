@@ -349,6 +349,13 @@ describe('GitService committed diff sessions', () => {
       if (spec.args[0] === 'symbolic-ref') return { stdout: 'origin/main\n' };
       if (spec.args[0] === 'rev-parse') return { stdout: 'head-sha\n' };
       if (spec.args[0] === 'merge-base') return { stdout: 'base-sha\n' };
+      if (spec.args[0] === 'remote') {
+        return {
+          stdout:
+            'origin\tgit@github.com:example/grafter.git (fetch)\n' +
+            'origin\tgit@github.com:example/grafter.git (push)\n',
+        };
+      }
       if (spec.args.includes('--name-status')) {
         return {
           stdout:
@@ -383,12 +390,22 @@ describe('GitService committed diff sessions', () => {
       targetBranch: 'main',
       baseSha: 'base-sha',
       headSha: 'head-sha',
+      githubRepository: { owner: 'example', name: 'grafter' },
       stats: { files: 3, additions: 6, deletions: 3 },
     });
     expect(session.files[1]).toMatchObject({
       path: 'src/new name.ts',
       previousPath: 'src/old name.ts',
       status: 'renamed',
+    });
+    expect(runner.commands).toContainEqual({
+      context: worktreeCommandContext(worktree),
+      tool: 'git',
+      executable: 'git',
+      args: ['remote', '-v'],
+      cwd: worktree.path,
+      purpose: 'Find GitHub remote',
+      isReadOnly: true,
     });
     expect(service.diffFilePath({ sessionId: session.id, fileId: 'file-0' })).toBe(
       '/repo.worktrees/feature/src/renderer/App.tsx',
@@ -431,6 +448,7 @@ describe('GitService committed diff sessions', () => {
       if (spec.args[0] === 'symbolic-ref') return { stdout: 'origin/main\n' };
       if (spec.args[0] === 'rev-parse') return { stdout: 'head-sha\n' };
       if (spec.args[0] === 'merge-base') return { stdout: 'base-sha\n' };
+      if (spec.args[0] === 'remote') return { exitCode: 2 };
       if (spec.args.includes('--name-status')) {
         return { stdout: 'M\0src/example.ts\0' };
       }
@@ -462,6 +480,7 @@ describe('GitService committed diff sessions', () => {
       if (spec.args[0] === 'symbolic-ref') return { stdout: 'origin/main\n' };
       if (spec.args[0] === 'rev-parse') return { stdout: 'head-sha\n' };
       if (spec.args[0] === 'merge-base') return { stdout: 'base-sha\n' };
+      if (spec.args[0] === 'remote') return { stdout: '' };
       if (spec.args.includes('--name-status')) {
         return { stdout: 'D\0src/deleted.ts\0M\0../outside.ts\0' };
       }
