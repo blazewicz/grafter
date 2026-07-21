@@ -162,7 +162,7 @@ function registerIpc(): void {
   );
   ipcMain.handle(ipc.openDiffFileInEditor, async (_event, request: unknown) => {
     const target = service.diffFileEditorTarget(request);
-    await shell.openExternal(editorFileUrl(target.editor, target.filePath));
+    await shell.openExternal(editorFileUrl(target.editor, target.filePath, target.line));
   });
   ipcMain.handle(ipc.openExternal, async (_event, url: string) => {
     const parsed = new URL(url);

@@ -74,6 +74,11 @@ export interface DiffStats {
   deletions: number;
 }
 
+export interface GitHubRepository {
+  owner: string;
+  name: string;
+}
+
 export type DiffFileStatus =
   'added' | 'copied' | 'deleted' | 'modified' | 'renamed' | 'type-changed';
 
@@ -94,6 +99,7 @@ export interface DiffSession {
   targetBranch: string;
   baseSha: string;
   headSha: string;
+  githubRepository?: GitHubRepository;
   stats: DiffStats;
   files: DiffFileSummary[];
 }
@@ -129,6 +135,7 @@ export interface DiffFileRequest {
 
 export interface OpenDiffFileRequest extends DiffFileRequest {
   editor: EditorTool;
+  line?: number;
 }
 
 export interface CommitDetails {

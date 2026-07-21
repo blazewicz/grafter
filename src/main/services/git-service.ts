@@ -26,6 +26,7 @@ import {
   parseWorktreePorcelain,
   parseWorktreeStatus,
 } from '../../shared/git-parsers';
+import { parseGitHubRepositoryFromRemotes } from '../../shared/github';
 import type { CommandResult, CommandSpec } from '../commands';
 import type { CommandRunner } from '../commands';
 
@@ -200,7 +201,7 @@ export class GitService {
       )
     ).stdout.trim();
     const baseSha = await this.#mergeBase(worktree.path, targetBranch, headSha, context);
-    const [nameStatus, numStat] = await Promise.all([
+    const [nameStatus, numStat, githubRepository] = await Promise.all([
       this.#git(
         worktree.path,
         ['diff', '--name-status', '-z', '--find-renames', baseSha, headSha],
@@ -215,6 +216,7 @@ export class GitService {
         true,
         context,
       ),
+      this.#githubRepository(worktree.path, context),
     ]);
     const files = parseDiffFiles(nameStatus.stdout, numStat.stdout);
     const id = randomUUID();
@@ -225,6 +227,7 @@ export class GitService {
       targetBranch,
       baseSha,
       headSha,
+      ...(githubRepository ? { githubRepository } : {}),
       stats: {
         files: files.length,
         additions: files.reduce((total, file) => total + (file.additions ?? 0), 0),
@@ -357,6 +360,22 @@ export class GitService {
     );
     if (remote.record.exitCode !== 0) return undefined;
     return remote.stdout.trim().replace(/^origin\//, '') || undefined;
+  }
+
+  async #githubRepository(
+    worktreePath: string,
+    context: CommandContext,
+  ): Promise<ReturnType<typeof parseGitHubRepositoryFromRemotes>> {
+    const remotes = await this.#gitAllowFailure(
+      worktreePath,
+      ['remote', '-v'],
+      'Find GitHub remote',
+      true,
+      context,
+    );
+    return remotes.record.exitCode === 0
+      ? parseGitHubRepositoryFromRemotes(remotes.stdout)
+      : undefined;
   }
 
   #comparisonTargetBranch(
