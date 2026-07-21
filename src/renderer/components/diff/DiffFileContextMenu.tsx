@@ -1,34 +1,26 @@
-import { Code2, Copy, ExternalLink, FileText, Hash, Link2 } from 'lucide-react';
+import { Code2, ExternalLink, FileText, Link2 } from 'lucide-react';
 import {
   ContextMenu,
   ContextMenuItem,
   ContextMenuSeparator,
   type ContextMenuPosition,
 } from './ContextMenu';
-import {
-  diffLineReference,
-  type DiffLineRange,
-  type DiffLineTarget,
-} from './diff-line-context';
 
-export interface DiffLineContextMenuState extends ContextMenuPosition {
-  copyText: string;
+export interface DiffFileContextMenuState extends ContextMenuPosition {
   fileId: string;
-  lineId: string;
-  range: DiffLineRange;
-  target: DiffLineTarget;
+  path: string;
   githubUrl?: string;
   editorAvailable: boolean;
 }
 
-export function DiffLineContextMenu({
+export function DiffFileContextMenu({
   state,
   onClose,
   onCopy,
   onOpenEditor,
   onOpenGitHub,
 }: {
-  state: DiffLineContextMenuState;
+  state: DiffFileContextMenuState;
   onClose: () => void;
   onCopy: (text: string) => void;
   onOpenEditor: () => void;
@@ -40,27 +32,17 @@ export function DiffLineContextMenu({
   };
 
   return (
-    <ContextMenu position={state} ariaLabel="Diff line actions" onClose={onClose}>
-      <ContextMenuItem
-        icon={<Copy size={14} />}
-        label="Copy"
-        onClick={() => run(() => onCopy(state.copyText))}
-      />
+    <ContextMenu position={state} ariaLabel="Diff file actions" onClose={onClose}>
       <ContextMenuItem
         icon={<FileText size={14} />}
         label="Copy Relative Path"
-        onClick={() => run(() => onCopy(state.target.path))}
-      />
-      <ContextMenuItem
-        icon={<Hash size={14} />}
-        label="Copy Line Reference"
-        onClick={() => run(() => onCopy(diffLineReference(state.target, state.range)))}
+        onClick={() => run(() => onCopy(state.path))}
       />
       {(state.editorAvailable || state.githubUrl) && <ContextMenuSeparator />}
       {state.editorAvailable && (
         <ContextMenuItem
           icon={<Code2 size={14} />}
-          label="Open in VS Code at Line"
+          label="Open in VS Code"
           onClick={() => run(onOpenEditor)}
         />
       )}

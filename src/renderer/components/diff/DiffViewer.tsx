@@ -30,6 +30,10 @@ import {
 } from './diff-tree';
 import type { DiffTreeNode } from './diff-tree';
 import { calculateDiffScrollCorrection } from './diff-scroll';
+import {
+  DiffFileContextMenu,
+  type DiffFileContextMenuState,
+} from './DiffFileContextMenu';
 import { DiffFileStatusIcon } from './DiffFileStatusIcon';
 import {
   DiffLineContextMenu,
@@ -41,6 +45,10 @@ import styles from './DiffViewer.module.css';
 const editorOptions: readonly { id: EditorTool; label: string }[] = [
   { id: 'vscode', label: 'Visual Studio Code' },
 ];
+const contextMenuWidth = 228;
+const contextMenuMargin = 8;
+const fileContextMenuHeight = 147;
+const lineContextMenuHeight = 214;
 
 export function DiffViewer({
   session,
@@ -65,6 +73,7 @@ export function DiffViewer({
   const [activeFileId, setActiveFileId] = useState<string>();
   const [pendingTargetId, setPendingTargetId] = useState<string>();
   const [copiedFileId, setCopiedFileId] = useState<string>();
+  const [fileContextMenu, setFileContextMenu] = useState<DiffFileContextMenuState>();
   const [lineContextMenu, setLineContextMenu] = useState<DiffLineContextMenuState>();
   const copyResetTimer = useRef<number | undefined>(undefined);
   const loadingFiles = useRef(loading);
@@ -281,6 +290,7 @@ export function DiffViewer({
   };
 
   const selectFile = (fileId: string): void => {
+    setFileContextMenu(undefined);
     setActiveFileId(fileId);
     setPendingTargetId(fileId);
     document
@@ -310,6 +320,47 @@ export function DiffViewer({
       .catch((caught: unknown) => onError(friendlyError(caught)));
   };
 
+  const openFileContextMenu = (
+    event: ReactMouseEvent<HTMLButtonElement>,
+    file: DiffFileSummary,
+  ): void => {
+    event.preventDefault();
+    const position = contextMenuPosition(event, fileContextMenuHeight);
+    const deleted = file.status === 'deleted';
+    const path = deleted ? (file.previousPath ?? file.path) : file.path;
+    const revision = deleted ? session.baseSha : session.headSha;
+    setLineContextMenu(undefined);
+    setFileContextMenu({
+      ...position,
+      fileId: file.id,
+      path,
+      ...(session.githubRepository
+        ? { githubUrl: githubFileUrl(session.githubRepository, revision, path) }
+        : {}),
+      editorAvailable: !deleted,
+    });
+  };
+
+  const closeFileContextMenu = useCallback(() => setFileContextMenu(undefined), []);
+
+  const openContextFileInEditor = (): void => {
+    if (!fileContextMenu) return;
+    void api
+      .openDiffFileInEditor({
+        sessionId: session.id,
+        fileId: fileContextMenu.fileId,
+        editor: 'vscode',
+      })
+      .catch((caught: unknown) => onError(friendlyError(caught)));
+  };
+
+  const openContextFileOnGitHub = (): void => {
+    if (!fileContextMenu?.githubUrl) return;
+    void api
+      .openExternal(fileContextMenu.githubUrl)
+      .catch((caught: unknown) => onError(friendlyError(caught)));
+  };
+
   const openLineContextMenu = (
     event: ReactMouseEvent<HTMLDivElement>,
     file: DiffFileSummary,
@@ -321,8 +372,9 @@ export function DiffViewer({
     event.preventDefault();
     const lineId = event.currentTarget.dataset.diffLineId;
     if (!lineId) return;
-    const position = lineContextMenuPosition(event);
+    const position = contextMenuPosition(event, lineContextMenuHeight);
     const range = diffLineRange(target, selection?.lines);
+    setFileContextMenu(undefined);
     setLineContextMenu({
       ...position,
       fileId: file.id,
@@ -428,6 +480,7 @@ export function DiffViewer({
                 aria-label="Filter changed files"
                 onChange={(event) => {
                   setPendingTargetId(undefined);
+                  setFileContextMenu(undefined);
                   setLineContextMenu(undefined);
                   setQuery(event.target.value);
                 }}
@@ -437,7 +490,12 @@ export function DiffViewer({
               {filteredFiles.length} of {session.files.length}{' '}
               {session.files.length === 1 ? 'file' : 'files'}
             </div>
-            <nav className={styles.fileTree} aria-label="Changed file tree">
+            <nav
+              className={styles.fileTree}
+              aria-label="Changed file tree"
+              data-context-menu-open={fileContextMenu ? 'true' : undefined}
+              onScroll={closeFileContextMenu}
+            >
               {tree.length ? (
                 <TreeNodes
                   nodes={tree}
@@ -445,8 +503,10 @@ export function DiffViewer({
                   expanded={expanded}
                   forceExpanded={filtering}
                   activeFileId={displayedActiveFileId}
+                  contextFileId={fileContextMenu?.fileId}
                   onToggle={toggleDirectory}
                   onSelect={selectFile}
+                  onContextMenu={openFileContextMenu}
                 />
               ) : (
                 <div className={styles.emptyTree}>No matching files</div>
@@ -490,6 +550,15 @@ export function DiffViewer({
             )}
           </div>
         </div>
+        {fileContextMenu && (
+          <DiffFileContextMenu
+            state={fileContextMenu}
+            onClose={closeFileContextMenu}
+            onCopy={copyContextText}
+            onOpenEditor={openContextFileInEditor}
+            onOpenGitHub={openContextFileOnGitHub}
+          />
+        )}
         {lineContextMenu && (
           <DiffLineContextMenu
             state={lineContextMenu}
@@ -510,16 +579,23 @@ function TreeNodes({
   expanded,
   forceExpanded,
   activeFileId,
+  contextFileId,
   onToggle,
   onSelect,
+  onContextMenu,
 }: {
   nodes: DiffTreeNode[];
   depth: number;
   expanded: Set<string>;
   forceExpanded: boolean;
   activeFileId: string | undefined;
+  contextFileId: string | undefined;
   onToggle: (path: string) => void;
   onSelect: (fileId: string) => void;
+  onContextMenu: (
+    event: ReactMouseEvent<HTMLButtonElement>,
+    file: DiffFileSummary,
+  ) => void;
 }): React.JSX.Element {
   return (
     <>
@@ -545,8 +621,10 @@ function TreeNodes({
                   expanded={expanded}
                   forceExpanded={forceExpanded}
                   activeFileId={activeFileId}
+                  contextFileId={contextFileId}
                   onToggle={onToggle}
                   onSelect={onSelect}
+                  onContextMenu={onContextMenu}
                 />
               )}
             </div>
@@ -559,9 +637,11 @@ function TreeNodes({
             className={styles.treeRow}
             style={{ '--tree-depth': depth } as CSSProperties}
             data-active={node.file.id === activeFileId}
+            data-context-menu-anchor={node.file.id === contextFileId}
             data-status={node.file.status}
             title={node.file.path}
             onClick={() => onSelect(node.file.id)}
+            onContextMenu={(event) => onContextMenu(event, node.file)}
           >
             <span className={styles.treeSpacer} />
             <DiffFileStatusIcon status={node.file.status} size={13} />
@@ -939,7 +1019,10 @@ function diffLineRowId(fileId: string, hunkIndex: number, lineIndex: number): st
   return `${fileId}:${hunkIndex}:${lineIndex}`;
 }
 
-function lineContextMenuPosition(event: ReactMouseEvent<HTMLDivElement>): {
+function contextMenuPosition(
+  event: ReactMouseEvent<HTMLElement>,
+  menuHeight: number,
+): {
   x: number;
   y: number;
 } {
@@ -947,8 +1030,14 @@ function lineContextMenuPosition(event: ReactMouseEvent<HTMLDivElement>): {
   const requestedX = event.clientX || bounds.left + 72;
   const requestedY = event.clientY || bounds.top + bounds.height;
   return {
-    x: Math.max(8, Math.min(requestedX, window.innerWidth - 236)),
-    y: Math.max(8, Math.min(requestedY, window.innerHeight - 214)),
+    x: Math.max(
+      contextMenuMargin,
+      Math.min(requestedX, window.innerWidth - contextMenuWidth - contextMenuMargin),
+    ),
+    y: Math.max(
+      contextMenuMargin,
+      Math.min(requestedY, window.innerHeight - menuHeight - contextMenuMargin),
+    ),
   };
 }
 

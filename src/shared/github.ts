@@ -30,11 +30,14 @@ export function githubFileUrl(
   repository: GitHubRepository,
   revision: string,
   filePath: string,
-  startLine: number,
+  startLine?: number,
   endLine?: number,
 ): string {
   const encodedPath = filePath.split('/').map(encodeURIComponent).join('/');
-  const fragment = `#L${startLine}${endLine === undefined ? '' : `-L${endLine}`}`;
+  const fragment =
+    startLine === undefined
+      ? ''
+      : `#L${startLine}${endLine === undefined ? '' : `-L${endLine}`}`;
   return `https://github.com/${encodeURIComponent(repository.owner)}/${encodeURIComponent(repository.name)}/blob/${encodeURIComponent(revision)}/${encodedPath}${fragment}`;
 }
 

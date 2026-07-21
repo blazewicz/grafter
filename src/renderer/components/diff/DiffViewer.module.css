@@ -210,7 +210,8 @@
   text-align: left;
 }
 
-.tree-row:hover {
+.file-tree:not([data-context-menu-open='true']) .tree-row:hover,
+.tree-row[data-context-menu-anchor='true'] {
   background: rgba(255, 255, 255, 0.045);
   color: #d2d2d6;
 }
@@ -218,6 +219,10 @@
 .tree-row[data-active='true'] {
   background: rgba(119, 122, 156, 0.2);
   color: #e0e0e4;
+}
+
+.tree-row[data-context-menu-anchor='true'] {
+  box-shadow: inset 2px 0 rgba(196, 200, 244, 0.72);
 }
 
 .tree-row > svg {
@@ -568,7 +573,7 @@
   white-space: pre;
 }
 
-.line-context-menu {
+.context-menu {
   z-index: 1000;
   position: fixed;
   top: var(--context-y);
@@ -583,7 +588,7 @@
     inset 0 1px rgba(255, 255, 255, 0.035);
 }
 
-.line-context-menu button {
+.context-menu button {
   width: 100%;
   height: 29px;
   display: flex;
@@ -598,19 +603,19 @@
   text-align: left;
 }
 
-.line-context-menu button:hover,
-.line-context-menu button:focus-visible {
+.context-menu button:hover,
+.context-menu button:focus-visible {
   outline: 0;
   background: rgba(118, 123, 168, 0.24);
   color: #f0f0f3;
 }
 
-.line-context-menu button > svg {
+.context-menu button > svg {
   flex: 0 0 auto;
   color: #92949f;
 }
 
-.line-context-separator {
+.context-menu-separator {
   height: 1px;
   margin: 5px 4px;
   background: var(--line-strong);

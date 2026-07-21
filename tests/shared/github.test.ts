@@ -28,6 +28,9 @@ describe('GitHub remotes', () => {
 
   it('builds encoded, commit-pinned file URLs', () => {
     expect(
+      githubFileUrl({ owner: 'example', name: 'repo' }, 'abc123', 'src/a file#1.ts'),
+    ).toBe('https://github.com/example/repo/blob/abc123/src/a%20file%231.ts');
+    expect(
       githubFileUrl({ owner: 'example', name: 'repo' }, 'abc123', 'src/a file#1.ts', 42),
     ).toBe('https://github.com/example/repo/blob/abc123/src/a%20file%231.ts#L42');
     expect(
