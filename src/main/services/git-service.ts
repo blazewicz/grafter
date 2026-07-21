@@ -209,6 +209,92 @@ export class GitService {
     return this.#openBranchDiff(project, sourceBranch, targetBranch, sourceWorktree);
   }
 
+  async openCommitDiff(
+    project: Project,
+    worktree: Worktree,
+    commitHash: string,
+  ): Promise<DiffSession> {
+    const context = worktreeCommandContext(worktree);
+    const headSha = (
+      await this.#git(
+        worktree.path,
+        ['rev-parse', '--verify', `${commitHash}^{commit}`],
+        'Resolve commit revision',
+        true,
+        context,
+      )
+    ).stdout.trim();
+    const [parentsResult, commitResult] = await Promise.all([
+      this.#git(
+        worktree.path,
+        ['show', '-s', '--format=%P', headSha],
+        'Read commit parents',
+        true,
+        context,
+      ),
+      this.#git(
+        worktree.path,
+        [
+          'log',
+          '-1',
+          '--numstat',
+          '--diff-merges=first-parent',
+          '--format=%H%n%an%n%ae%n%aI%n%s%n%b%x00',
+          headSha,
+        ],
+        'Read commit details',
+        true,
+        context,
+      ),
+    ]);
+    const commit = parseCommitDetails(commitResult.stdout);
+    if (commit?.hash !== headSha) {
+      throw new Error('Could not read the requested commit.');
+    }
+    const parentShas = parentsResult.stdout.trim().split(/\s+/).filter(Boolean);
+    const baseSha =
+      parentShas[0] ??
+      (
+        await this.#git(
+          worktree.path,
+          ['hash-object', '-t', 'tree', '/dev/null'],
+          'Resolve the empty tree',
+          true,
+          context,
+        )
+      ).stdout.trim();
+    const contents = await this.#diffContents(
+      worktree.path,
+      baseSha,
+      headSha,
+      'in commit',
+      context,
+    );
+    const id = randomUUID();
+    const session: DiffSession = {
+      kind: 'commit',
+      id,
+      projectId: project.id,
+      baseSha,
+      headSha,
+      ...(contents.githubRepository
+        ? { githubRepository: contents.githubRepository }
+        : {}),
+      stats: contents.stats,
+      files: contents.files,
+      commit: { ...commit, stats: contents.stats },
+      parentShas,
+    };
+    this.#storeDiffSession(id, {
+      repositoryPath: worktree.path,
+      context,
+      baseSha,
+      headSha,
+      files: new Map(contents.files.map((file) => [file.id, file])),
+    });
+    return structuredClone(session);
+  }
+
   async #openBranchDiff(
     project: Project,
     sourceBranch: string,
@@ -230,26 +316,16 @@ export class GitService {
       )
     ).stdout.trim();
     const baseSha = await this.#mergeBase(repositoryPath, targetBranch, headSha, context);
-    const [nameStatus, numStat, githubRepository] = await Promise.all([
-      this.#git(
-        repositoryPath,
-        ['diff', '--name-status', '-z', '--find-renames', baseSha, headSha],
-        `List changes against ${targetBranch}`,
-        true,
-        context,
-      ),
-      this.#git(
-        repositoryPath,
-        ['diff', '--numstat', '-z', '--find-renames', baseSha, headSha],
-        `Read change stats against ${targetBranch}`,
-        true,
-        context,
-      ),
-      this.#githubRepository(repositoryPath, context),
-    ]);
-    const files = parseDiffFiles(nameStatus.stdout, numStat.stdout);
+    const contents = await this.#diffContents(
+      repositoryPath,
+      baseSha,
+      headSha,
+      `against ${targetBranch}`,
+      context,
+    );
     const id = randomUUID();
     const session: DiffSession = {
+      kind: 'branch',
       id,
       projectId: project.id,
       ...(sourceWorktree ? { sourceWorktreeId: sourceWorktree.id } : {}),
@@ -257,25 +333,67 @@ export class GitService {
       targetBranch,
       baseSha,
       headSha,
-      ...(githubRepository ? { githubRepository } : {}),
-      stats: {
-        files: files.length,
-        additions: files.reduce((total, file) => total + (file.additions ?? 0), 0),
-        deletions: files.reduce((total, file) => total + (file.deletions ?? 0), 0),
-      },
-      files,
+      ...(contents.githubRepository
+        ? { githubRepository: contents.githubRepository }
+        : {}),
+      stats: contents.stats,
+      files: contents.files,
     };
 
-    this.#diffSessions.set(id, {
+    this.#storeDiffSession(id, {
       repositoryPath,
       ...(sourceWorktree ? { editorWorktreePath: sourceWorktree.path } : {}),
       context,
       baseSha,
       headSha,
-      files: new Map(files.map((file) => [file.id, file])),
+      files: new Map(contents.files.map((file) => [file.id, file])),
     });
-    this.#trimDiffSessions();
     return structuredClone(session);
+  }
+
+  async #diffContents(
+    repositoryPath: string,
+    baseSha: string,
+    headSha: string,
+    description: string,
+    context: CommandContext,
+  ): Promise<{
+    files: DiffFileSummary[];
+    stats: DiffStats;
+    githubRepository?: { owner: string; name: string };
+  }> {
+    const [nameStatus, numStat, githubRepository] = await Promise.all([
+      this.#git(
+        repositoryPath,
+        ['diff', '--name-status', '-z', '--find-renames', baseSha, headSha],
+        `List changes ${description}`,
+        true,
+        context,
+      ),
+      this.#git(
+        repositoryPath,
+        ['diff', '--numstat', '-z', '--find-renames', baseSha, headSha],
+        `Read change stats ${description}`,
+        true,
+        context,
+      ),
+      this.#githubRepository(repositoryPath, context),
+    ]);
+    const files = parseDiffFiles(nameStatus.stdout, numStat.stdout);
+    return {
+      files,
+      stats: {
+        files: files.length,
+        additions: files.reduce((total, file) => total + (file.additions ?? 0), 0),
+        deletions: files.reduce((total, file) => total + (file.deletions ?? 0), 0),
+      },
+      ...(githubRepository ? { githubRepository } : {}),
+    };
+  }
+
+  #storeDiffSession(id: string, session: StoredDiffSession): void {
+    this.#diffSessions.set(id, session);
+    this.#trimDiffSessions();
   }
 
   async diffFile(request: DiffFileRequest): Promise<DiffFilePatch> {

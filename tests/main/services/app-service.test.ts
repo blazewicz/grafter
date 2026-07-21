@@ -495,6 +495,7 @@ describe('AppService branch comparisons', () => {
     );
     if (!sourceWorktree) throw new Error('Expected the feature worktree.');
     const session: DiffSession = {
+      kind: 'branch',
       id: 'session',
       projectId: project.id,
       sourceWorktreeId: sourceWorktree.id,
@@ -533,5 +534,18 @@ describe('AppService branch comparisons', () => {
     await expect(
       service.openBranchDiff({ projectId: 'project', sourceBranch: 'main' }),
     ).rejects.toThrow('Invalid branch comparison request');
+  });
+});
+
+describe('AppService commit changes', () => {
+  it('rejects malformed commit requests at the IPC boundary', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-app-service-'));
+    const store = new StateStore(directory);
+    await store.load();
+    const service = new AppService(store, new StubCommandRunner(() => ({})));
+
+    await expect(
+      service.openCommitDiff({ worktreeId: 'worktree', commitHash: 'HEAD' }),
+    ).rejects.toThrow('Invalid commit changes request');
   });
 });

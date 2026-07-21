@@ -344,6 +344,91 @@ describe('GitService committed diff sessions', () => {
     locked: false,
   };
 
+  it('opens an exact commit against its first parent without editor access', async () => {
+    const commitHash = '1234567890abcdef1234567890abcdef12345678';
+    const firstParent = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    const secondParent = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+    const runner = new StubCommandRunner((spec) => {
+      if (spec.args[0] === 'rev-parse') return { stdout: `${commitHash}\n` };
+      if (spec.args[0] === 'show') {
+        return { stdout: `${firstParent} ${secondParent}\n` };
+      }
+      if (spec.args[0] === 'log') {
+        return {
+          stdout: `${commitHash}\nAda Lovelace\nada@example.com\n2026-07-21T12:30:00+02:00\nMerge the viewer\nExplain the merge.\n\u0000\n9\t2\tsrc/viewer.ts\n`,
+        };
+      }
+      if (spec.args[0] === 'remote') return { stdout: '' };
+      if (spec.args.includes('--name-status')) {
+        return { stdout: 'M\0src/viewer.ts\0' };
+      }
+      if (spec.args.includes('--numstat')) {
+        return { stdout: '9\t2\tsrc/viewer.ts\0' };
+      }
+      throw new Error(`Unexpected command: ${spec.args.join(' ')}`);
+    });
+    const service = new GitService(runner);
+
+    const session = await service.openCommitDiff(project, worktree, commitHash);
+
+    expect(session).toMatchObject({
+      kind: 'commit',
+      projectId: project.id,
+      baseSha: firstParent,
+      headSha: commitHash,
+      parentShas: [firstParent, secondParent],
+      stats: { files: 1, additions: 9, deletions: 2 },
+      commit: {
+        hash: commitHash,
+        title: 'Merge the viewer',
+        body: 'Explain the merge.',
+        stats: { files: 1, additions: 9, deletions: 2 },
+      },
+    });
+    expect(runner.commands).toContainEqual(
+      expect.objectContaining({
+        args: ['diff', '--name-status', '-z', '--find-renames', firstParent, commitHash],
+      }),
+    );
+    expect(() =>
+      service.diffFilePath({ sessionId: session.id, fileId: 'file-0' }),
+    ).toThrow('Check out the source branch in a worktree');
+  });
+
+  it('opens a root commit against the repository empty tree', async () => {
+    const commitHash = '1234567890abcdef1234567890abcdef12345678';
+    const emptyTree = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
+    const runner = new StubCommandRunner((spec) => {
+      if (spec.args[0] === 'rev-parse') return { stdout: `${commitHash}\n` };
+      if (spec.args[0] === 'show') return { stdout: '\n' };
+      if (spec.args[0] === 'log') {
+        return {
+          stdout: `${commitHash}\nAda Lovelace\nada@example.com\n2026-07-21T12:30:00+02:00\nInitial commit\n\u0000\n`,
+        };
+      }
+      if (spec.args[0] === 'hash-object') return { stdout: `${emptyTree}\n` };
+      if (spec.args[0] === 'remote') return { stdout: '' };
+      if (spec.args.includes('--name-status') || spec.args.includes('--numstat')) {
+        return { stdout: '' };
+      }
+      throw new Error(`Unexpected command: ${spec.args.join(' ')}`);
+    });
+
+    const session = await new GitService(runner).openCommitDiff(
+      project,
+      worktree,
+      commitHash,
+    );
+
+    expect(session).toMatchObject({
+      kind: 'commit',
+      baseSha: emptyTree,
+      headSha: commitHash,
+      parentShas: [],
+      stats: { files: 0, additions: 0, deletions: 0 },
+    });
+  });
+
   it('pins the comparison revisions and loads validated files individually', async () => {
     const runner = new StubCommandRunner((spec) => {
       if (spec.args[0] === 'symbolic-ref') return { stdout: 'origin/main\n' };

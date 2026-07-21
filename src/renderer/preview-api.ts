@@ -776,6 +776,7 @@ export const previewApi: GrafterApi = {
     }
     return Promise.resolve(
       structuredClone({
+        kind: 'branch' as const,
         id: 'preview-diff',
         projectId: worktreeDetails.projectId,
         sourceWorktreeId: worktreeId,
@@ -795,6 +796,7 @@ export const previewApi: GrafterApi = {
       ?.worktrees.find((worktree) => worktree.branch === sourceBranch);
     return Promise.resolve(
       structuredClone({
+        kind: 'branch' as const,
         id: `preview-diff-${sourceBranch}-${targetBranch}`,
         projectId,
         ...(sourceWorktree ? { sourceWorktreeId: sourceWorktree.id } : {}),
@@ -805,6 +807,30 @@ export const previewApi: GrafterApi = {
         githubRepository: { owner: 'example', name: 'grafter' },
         stats: { files: 7, additions: 438, deletions: 41 },
         files: previewDiffFiles,
+      }),
+    );
+  },
+  openCommitDiff: ({ worktreeId, commitHash }) => {
+    const worktreeDetails = details[worktreeId];
+    if (worktreeDetails?.commit?.hash !== commitHash) {
+      return Promise.reject(new Error('Commit not found.'));
+    }
+    const commit = worktreeDetails.commit;
+    return Promise.resolve(
+      structuredClone({
+        kind: 'commit' as const,
+        id: `preview-commit-${commitHash}`,
+        projectId: worktreeDetails.projectId,
+        baseSha: '4fc93b86a45b1a47af174e0b97e422a31eb19db0',
+        headSha: commitHash,
+        githubRepository: { owner: 'example', name: 'grafter' },
+        stats: { files: 7, additions: 438, deletions: 41 },
+        files: previewDiffFiles,
+        commit: {
+          ...commit,
+          stats: { files: 7, additions: 438, deletions: 41 },
+        },
+        parentShas: ['4fc93b86a45b1a47af174e0b97e422a31eb19db0'],
       }),
     );
   },
