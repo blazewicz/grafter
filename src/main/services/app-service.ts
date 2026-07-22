@@ -60,6 +60,7 @@ export class AppService {
   readonly #backgroundPullRequestLookupsLimit = pLimit(
     AppService.maximumConcurrentBackgroundPullRequestLookups,
   );
+  readonly #projectOperationLimits = new Map<string, ReturnType<typeof pLimit>>();
   readonly #pullRequestRefreshedAt = new Map<string, number>();
   readonly #projectRefreshVersions = new Map<string, number>();
 
@@ -121,7 +122,9 @@ export class AppService {
       (project) => previousTrees.get(project.id) ?? { ...project, worktrees: [] },
     );
     for (const project of this.store.state.projects) {
-      await this.#refreshProject(project, true);
+      await this.#runProjectOperationSerialized(project.id, () =>
+        this.#refreshProject(project, true),
+      );
     }
     const worktrees = this.#trees.flatMap((project) => project.worktrees);
     this.#prunePullRequestCache(worktrees);
@@ -131,7 +134,9 @@ export class AppService {
 
   async refreshProject(projectId: string): Promise<AppSnapshot> {
     const project = this.#project(projectId);
-    await this.#refreshProject(project, false);
+    await this.#runProjectOperationSerialized(project.id, () =>
+      this.#refreshProject(project, false),
+    );
     this.#prunePullRequestCache(this.#trees.flatMap((item) => item.worktrees));
     return this.snapshot();
   }
@@ -154,20 +159,29 @@ export class AppService {
     snapshot: AppSnapshot;
     setupApproval?: ApprovalRequest;
   }> {
-    const project = this.#project(request.projectId);
     if (!request.branch.trim()) throw new Error('Choose a branch first.');
     if (!path.isAbsolute(request.path))
       throw new Error('The worktree path must be absolute.');
-    await this.git.addWorktree(project, request.path, request.branch);
+
+    const { project, createdWorktree } = await this.#runProjectOperationSerialized(
+      request.projectId,
+      async () => {
+        const project = this.#project(request.projectId);
+        await this.git.addWorktree(project, request.path, request.branch);
+        await this.#refreshProject(project, false);
+        this.#prunePullRequestCache(this.#trees.flatMap((item) => item.worktrees));
+        const createdWorktree = this.#trees
+          .find((item) => item.id === project.id)
+          ?.worktrees.find((item) => item.path === request.path);
+        if (!createdWorktree) {
+          throw new Error('The new worktree could not be found after creation.');
+        }
+        return { project, createdWorktree };
+      },
+    );
     const snapshot = await this.refresh();
     const script = await this.git.setupScript(project);
     if (!script) return { snapshot };
-    const createdWorktree = this.#trees
-      .find((item) => item.id === project.id)
-      ?.worktrees.find((item) => item.path === request.path);
-    if (!createdWorktree) {
-      throw new Error('The new worktree could not be found after creation.');
-    }
     const setupApproval = this.approvals.prepare(
       this.git.setupSpec(createdWorktree, script),
       'This project requested a setup script. Review the exact shell command before running it.',
@@ -178,22 +192,25 @@ export class AppService {
   async switchBranch(request: SwitchBranchRequest): Promise<AppSnapshot> {
     const branch = request.branch.trim();
     if (!branch) throw new Error('Choose a branch first.');
-    const worktree = this.#worktree(request.worktreeId);
-    if (branch === worktree.branch) {
-      throw new Error(`${branch} is already checked out in this worktree.`);
-    }
+    const projectId = this.#worktree(request.worktreeId).projectId;
+    return this.#runProjectOperationSerialized(projectId, async () => {
+      const worktree = this.#worktree(request.worktreeId);
+      if (branch === worktree.branch) {
+        throw new Error(`${branch} is already checked out in this worktree.`);
+      }
 
-    const project = this.#project(worktree.projectId);
-    await this.git.switchBranch(worktree, branch);
-    const worktrees = await this.#refreshProject(project, false);
-    this.#prunePullRequestCache(this.#trees.flatMap((item) => item.worktrees));
+      const project = this.#project(worktree.projectId);
+      await this.git.switchBranch(worktree, branch);
+      const worktrees = await this.#refreshProject(project, false);
+      this.#prunePullRequestCache(this.#trees.flatMap((item) => item.worktrees));
 
-    const switched = worktrees.find((item) => item.id === worktree.id);
-    if (switched?.branch !== branch) {
-      throw new Error('The worktree branch could not be confirmed after switching.');
-    }
-    void this.#refreshPullRequest(switched).catch(() => undefined);
-    return this.snapshot();
+      const switched = worktrees.find((item) => item.id === worktree.id);
+      if (switched?.branch !== branch) {
+        throw new Error('The worktree branch could not be confirmed after switching.');
+      }
+      void this.#refreshPullRequest(switched).catch(() => undefined);
+      return this.snapshot();
+    });
   }
 
   prepareRemove(worktreeId: string): ApprovalRequest {
@@ -203,10 +220,13 @@ export class AppService {
     const project = this.#project(worktree.projectId);
     return this.approvals.prepare(
       this.git.removeSpec(project, worktree),
-      `This permanently removes the ${worktree.branch} worktree directory. Dirty worktrees are refused by Git.`,
+      `This permanently removes the ${worktree.displayName} worktree directory. Dirty worktrees are refused by Git.`,
       async () => {
-        await this.git.listWorktrees(project);
+        await this.#refreshProject(project, false);
+        this.#prunePullRequestCache(this.#trees.flatMap((item) => item.worktrees));
       },
+      (executePreparedCommand) =>
+        this.#runProjectOperationSerialized(project.id, executePreparedCommand),
     );
   }
 
@@ -234,12 +254,12 @@ export class AppService {
     if (!isOpenBranchDiffRequest(request)) {
       throw new Error('Invalid branch comparison request.');
     }
-    const project = this.#project(request.projectId);
     const sourceBranch = request.sourceBranch.trim();
     const targetBranch = request.targetBranch.trim();
     if (!sourceBranch || !targetBranch) {
       throw new Error('Choose two branches to compare.');
     }
+    const project = this.#project(request.projectId);
     const sourceWorktree = this.#trees
       .find((item) => item.id === project.id)
       ?.worktrees.find((worktree) => worktree.branch === sourceBranch);
@@ -311,6 +331,18 @@ export class AppService {
       else delete project.setupScript;
     });
     return this.refresh();
+  }
+
+  #runProjectOperationSerialized<T>(
+    projectId: string,
+    operation: () => Promise<T>,
+  ): Promise<T> {
+    let limit = this.#projectOperationLimits.get(projectId);
+    if (!limit) {
+      limit = pLimit(1);
+      this.#projectOperationLimits.set(projectId, limit);
+    }
+    return limit(operation);
   }
 
   async #refreshProject(project: Project, tolerateFailure: boolean): Promise<Worktree[]> {

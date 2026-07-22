@@ -605,6 +605,339 @@ branch refs/heads/release/0.1
   });
 });
 
+describe('AppService repository operation serialization', () => {
+  it('does not overlap same-project mutations and holds the lock through refresh', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-app-service-'));
+    const store = new StateStore(directory);
+    await store.load();
+    await store.update((state) => state.projects.push(project));
+    const releaseFirstAdd = deferred<void>();
+    const firstRefreshStarted = deferred<void>();
+    const releaseFirstRefresh = deferred<void>();
+    const secondAddStarted = deferred<void>();
+    const createdBranches: string[] = [];
+    let addCalls = 0;
+    let worktreeListCalls = 0;
+    const runner = new StubCommandRunner(async (spec) => {
+      if (spec.tool === 'git' && spec.args[0] === 'worktree' && spec.args[1] === 'add') {
+        addCalls += 1;
+        if (addCalls === 1) await releaseFirstAdd.promise;
+        else secondAddStarted.resolve();
+        createdBranches.push(spec.args[3] ?? 'unknown');
+        return {};
+      }
+      if (spec.tool === 'git' && spec.args[0] === 'worktree') {
+        worktreeListCalls += 1;
+        if (worktreeListCalls === 2) {
+          firstRefreshStarted.resolve();
+          await releaseFirstRefresh.promise;
+        }
+        return { stdout: worktreesFor(project, createdBranches) };
+      }
+      if (spec.tool === 'github') return { exitCode: 1 };
+      throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
+    });
+    const service = new AppService(store, runner);
+    await service.refresh();
+
+    const first = service.createWorktree({
+      projectId: project.id,
+      branch: 'feature/one',
+      path: '/repo.worktrees/feature-one',
+    });
+    const second = service.createWorktree({
+      projectId: project.id,
+      branch: 'feature/two',
+      path: '/repo.worktrees/feature-two',
+    });
+
+    await Promise.resolve();
+    expect(addCalls).toBe(1);
+    releaseFirstAdd.resolve();
+    await firstRefreshStarted.promise;
+    expect(addCalls).toBe(1);
+    releaseFirstRefresh.resolve();
+    await secondAddStarted.promise;
+    await Promise.all([first, second]);
+    expect(addCalls).toBe(2);
+  });
+
+  it('allows mutations for different projects to overlap', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-app-service-'));
+    const store = new StateStore(directory);
+    await store.load();
+    const otherProject: Project = {
+      id: 'other-project',
+      name: 'other-repo',
+      path: '/other-repo',
+    };
+    await store.update((state) => state.projects.push(project, otherProject));
+    const bothAddsStarted = deferred<void>();
+    const releaseAdds = deferred<void>();
+    const startedProjects = new Set<string>();
+    const createdByProject = new Map<string, string[]>();
+    let activeAdds = 0;
+    let maximumActiveAdds = 0;
+    const runner = new StubCommandRunner(async (spec) => {
+      if (spec.tool === 'git' && spec.args[0] === 'worktree' && spec.args[1] === 'add') {
+        activeAdds += 1;
+        maximumActiveAdds = Math.max(maximumActiveAdds, activeAdds);
+        startedProjects.add(spec.cwd);
+        if (startedProjects.size === 2) bothAddsStarted.resolve();
+        await releaseAdds.promise;
+        const branches = createdByProject.get(spec.cwd) ?? [];
+        branches.push(spec.args[3] ?? 'unknown');
+        createdByProject.set(spec.cwd, branches);
+        activeAdds -= 1;
+        return {};
+      }
+      if (spec.tool === 'git' && spec.args[0] === 'worktree') {
+        const currentProject = spec.cwd === project.path ? project : otherProject;
+        return {
+          stdout: worktreesFor(
+            currentProject,
+            createdByProject.get(currentProject.path) ?? [],
+          ),
+        };
+      }
+      if (spec.tool === 'github') return { exitCode: 1 };
+      throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
+    });
+    const service = new AppService(store, runner);
+    await service.refresh();
+
+    const first = service.createWorktree({
+      projectId: project.id,
+      branch: 'feature/one',
+      path: '/repo.worktrees/feature-one',
+    });
+    const second = service.createWorktree({
+      projectId: otherProject.id,
+      branch: 'feature/two',
+      path: '/other-repo.worktrees/feature-two',
+    });
+
+    await bothAddsStarted.promise;
+    expect(maximumActiveAdds).toBe(2);
+    releaseAdds.resolve();
+    await Promise.all([first, second]);
+  });
+
+  it('releases the project lock after a command failure', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-app-service-'));
+    const store = new StateStore(directory);
+    await store.load();
+    await store.update((state) => state.projects.push(project));
+    const createdBranches: string[] = [];
+    let addCalls = 0;
+    const runner = new StubCommandRunner((spec) => {
+      if (spec.tool === 'git' && spec.args[0] === 'worktree' && spec.args[1] === 'add') {
+        addCalls += 1;
+        if (addCalls === 1) return { exitCode: 1, stderr: 'creation failed' };
+        createdBranches.push(spec.args[3] ?? 'unknown');
+        return {};
+      }
+      if (spec.tool === 'git' && spec.args[0] === 'worktree') {
+        return { stdout: worktreesFor(project, createdBranches) };
+      }
+      if (spec.tool === 'github') return { exitCode: 1 };
+      throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
+    });
+    const service = new AppService(store, runner);
+    await service.refresh();
+
+    const failed = service.createWorktree({
+      projectId: project.id,
+      branch: 'feature/failed',
+      path: '/repo.worktrees/failed',
+    });
+    const succeeded = service.createWorktree({
+      projectId: project.id,
+      branch: 'feature/saved',
+      path: '/repo.worktrees/feature-saved',
+    });
+
+    await expect(failed).rejects.toThrow('creation failed');
+    await expect(succeeded).resolves.toBeDefined();
+    expect(addCalls).toBe(2);
+  });
+
+  it('serializes approved removal with mutations and consumes approval once', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-app-service-'));
+    const store = new StateStore(directory);
+    await store.load();
+    await store.update((state) => state.projects.push(project));
+    const addStarted = deferred<void>();
+    const releaseAdd = deferred<void>();
+    let created = false;
+    let removed = false;
+    let removeCalls = 0;
+    const runner = new StubCommandRunner(async (spec) => {
+      if (spec.tool === 'git' && spec.args[0] === 'worktree' && spec.args[1] === 'add') {
+        addStarted.resolve();
+        await releaseAdd.promise;
+        created = true;
+        return {};
+      }
+      if (
+        spec.tool === 'git' &&
+        spec.args[0] === 'worktree' &&
+        spec.args[1] === 'remove'
+      ) {
+        removeCalls += 1;
+        removed = true;
+        return {};
+      }
+      if (spec.tool === 'git' && spec.args[0] === 'worktree') {
+        const branches = [
+          ...(removed ? [] : ['feature/stacked']),
+          ...(created ? ['feature/new'] : []),
+        ];
+        return { stdout: worktreesFor(project, branches) };
+      }
+      if (spec.tool === 'github') return { exitCode: 1 };
+      throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
+    });
+    const service = new AppService(store, runner);
+    const initial = await service.refresh();
+    const removable = initial.projects[0]?.worktrees.find(
+      (worktree) => worktree.branch === 'feature/stacked',
+    );
+    if (!removable) throw new Error('Expected a removable worktree.');
+    const approval = service.prepareRemove(removable.id);
+    const creation = service.createWorktree({
+      projectId: project.id,
+      branch: 'feature/new',
+      path: '/repo.worktrees/feature-new',
+    });
+    await addStarted.promise;
+
+    const removal = service.approve(approval.approvalId);
+    await expect(service.approve(approval.approvalId)).rejects.toThrow(
+      'This approval request expired. Please start the action again.',
+    );
+    expect(removeCalls).toBe(0);
+    releaseAdd.resolve();
+    await Promise.all([creation, removal]);
+    expect(removeCalls).toBe(1);
+  });
+
+  it('makes a topology refresh wait for the active same-project mutation', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-app-service-'));
+    const store = new StateStore(directory);
+    await store.load();
+    await store.update((state) => state.projects.push(project));
+    const switchStarted = deferred<void>();
+    const releaseSwitch = deferred<void>();
+    let switched = false;
+    let worktreeListCalls = 0;
+    const switchedOutput = worktreeOutput.replace(
+      'branch refs/heads/feature/stacked',
+      'branch refs/heads/release/0.1',
+    );
+    const runner = new StubCommandRunner(async (spec) => {
+      if (spec.tool === 'git' && spec.args[0] === 'switch') {
+        switched = true;
+        switchStarted.resolve();
+        await releaseSwitch.promise;
+        return {};
+      }
+      if (spec.tool === 'git' && spec.args[0] === 'worktree') {
+        worktreeListCalls += 1;
+        return { stdout: switched ? switchedOutput : worktreeOutput };
+      }
+      if (spec.tool === 'github') return { exitCode: 1 };
+      throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
+    });
+    const service = new AppService(store, runner);
+    const initial = await service.refresh();
+    const feature = initial.projects[0]?.worktrees[1];
+    if (!feature) throw new Error('Expected the feature worktree.');
+
+    const switching = service.switchBranch({
+      worktreeId: feature.id,
+      branch: 'release/0.1',
+    });
+    await switchStarted.promise;
+    const refresh = service.refreshProject(project.id);
+    await Promise.resolve();
+    expect(worktreeListCalls).toBe(1);
+    expect(service.snapshot().projects[0]?.worktrees[1]?.branch).toBe('feature/stacked');
+
+    releaseSwitch.resolve();
+    await switching;
+    await expect(refresh).resolves.toMatchObject({
+      projects: [{ worktrees: [{ branch: 'main' }, { branch: 'release/0.1' }] }],
+    });
+  });
+
+  it('does not constrain non-topology reads during an active mutation', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-app-service-'));
+    const store = new StateStore(directory);
+    await store.load();
+    await store.update((state) => state.projects.push(project));
+    const switchStarted = deferred<void>();
+    const releaseSwitch = deferred<void>();
+    let switched = false;
+    const switchedOutput = worktreeOutput.replace(
+      'branch refs/heads/feature/stacked',
+      'branch refs/heads/release/0.1',
+    );
+    const runner = new StubCommandRunner(async (spec) => {
+      if (spec.tool === 'git' && spec.args[0] === 'switch') {
+        switchStarted.resolve();
+        await releaseSwitch.promise;
+        switched = true;
+        return {};
+      }
+      if (spec.tool === 'git' && spec.args[0] === 'worktree') {
+        return { stdout: switched ? switchedOutput : worktreeOutput };
+      }
+      if (spec.tool === 'github') return { exitCode: 1 };
+      throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
+    });
+    const service = new AppService(store, runner);
+    const initial = await service.refresh();
+    const feature = initial.projects[0]?.worktrees[1];
+    if (!feature) throw new Error('Expected the feature worktree.');
+    const diffSession: DiffSession = {
+      kind: 'branch',
+      id: 'session',
+      projectId: project.id,
+      sourceWorktreeId: feature.id,
+      branch: feature.branch,
+      targetBranch: 'main',
+      baseSha: 'base',
+      headSha: feature.head,
+      stats: { files: 0, additions: 0, deletions: 0 },
+      files: [],
+    };
+    const listBranches = vi
+      .spyOn(service.git, 'listBranches')
+      .mockResolvedValue(['main', feature.branch]);
+    const status = vi.spyOn(service.git, 'status').mockResolvedValue('clean');
+    const openDiff = vi.spyOn(service.git, 'openDiff').mockResolvedValue(diffSession);
+
+    const switching = service.switchBranch({
+      worktreeId: feature.id,
+      branch: 'release/0.1',
+    });
+    await switchStarted.promise;
+    const reads = Promise.all([
+      service.listBranches(project.id),
+      service.worktreeStatus(feature.id),
+      service.openDiff(feature.id),
+    ]);
+
+    expect(listBranches).toHaveBeenCalledOnce();
+    expect(status).toHaveBeenCalledOnce();
+    expect(openDiff).toHaveBeenCalledOnce();
+    await reads;
+    releaseSwitch.resolve();
+    await switching;
+  });
+});
+
 describe('AppService branch comparisons', () => {
   it('binds editor access only to a worktree checked out on the source branch', async () => {
     const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-app-service-'));
@@ -679,3 +1012,36 @@ describe('AppService commit changes', () => {
     ).rejects.toThrow('Invalid commit changes request');
   });
 });
+
+function worktreesFor(currentProject: Project, branches: readonly string[]): string {
+  return [
+    `worktree ${currentProject.path}
+HEAD 1111111
+branch refs/heads/main`,
+    ...branches.map(
+      (
+        branch,
+        index,
+      ) => `worktree ${currentProject.path}.worktrees/${branch.replaceAll('/', '-')}
+HEAD ${String(index + 2).repeat(7)}
+branch refs/heads/${branch}`,
+    ),
+  ].join('\n\n');
+}
+
+function deferred<T>(): {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+} {
+  let resolve: ((value: T) => void) | undefined;
+  const promise = new Promise<T>((promiseResolve) => {
+    resolve = promiseResolve;
+  });
+  return {
+    promise,
+    resolve: (value) => {
+      if (!resolve) throw new Error('Deferred promise was not initialized.');
+      resolve(value);
+    },
+  };
+}

@@ -1,5 +1,6 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import pLimit from 'p-limit';
 import type { Project, Settings } from '../shared/contracts';
 import { defaultSettings, normalizeSettings } from '../shared/settings';
 
@@ -13,12 +14,19 @@ const initialState: PersistedState = {
   settings: defaultSettings,
 };
 
+interface StateStoreOptions {
+  persist?: (file: string, state: PersistedState) => Promise<void>;
+}
+
 export class StateStore {
   readonly #file: string;
+  readonly #persist: (file: string, state: PersistedState) => Promise<void>;
+  readonly #updateLimit = pLimit(1);
   #state: PersistedState = structuredClone(initialState);
 
-  constructor(userDataPath: string) {
+  constructor(userDataPath: string, options: StateStoreOptions = {}) {
     this.#file = path.join(userDataPath, 'grafter-state.json');
+    this.#persist = options.persist ?? persistState;
   }
 
   async load(): Promise<void> {
@@ -40,10 +48,18 @@ export class StateStore {
   }
 
   async update(mutator: (state: PersistedState) => void): Promise<void> {
-    mutator(this.#state);
-    await mkdir(path.dirname(this.#file), { recursive: true });
-    const temporary = `${this.#file}.tmp`;
-    await writeFile(temporary, `${JSON.stringify(this.#state, null, 2)}\n`, 'utf8');
-    await rename(temporary, this.#file);
+    return this.#updateLimit(async () => {
+      const draft = structuredClone(this.#state);
+      mutator(draft);
+      await this.#persist(this.#file, draft);
+      this.#state = draft;
+    });
   }
+}
+
+async function persistState(file: string, state: PersistedState): Promise<void> {
+  await mkdir(path.dirname(file), { recursive: true });
+  const temporary = `${file}.tmp`;
+  await writeFile(temporary, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
+  await rename(temporary, file);
 }
