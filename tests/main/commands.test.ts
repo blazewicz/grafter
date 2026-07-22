@@ -256,6 +256,51 @@ describe('automated command admission', () => {
 });
 
 describe('command output auditing', () => {
+  it('coalesces chatty live updates and flushes the complete terminal record', async () => {
+    const updates: ReturnType<CommandRunner['recordsFor']> = [];
+    const writes = 40;
+    const expectedOutput = Array.from(
+      { length: writes },
+      (_, index) => `${index}\n`,
+    ).join('');
+    const runner = new CommandRunner((record) => updates.push(record), {
+      liveUpdateIntervalMs: 30,
+    });
+    const script =
+      `let index=0; const timer=setInterval(()=>{` +
+      `process.stdout.write(String(index)+'\\n'); index+=1;` +
+      `if(index===${writes}) clearInterval(timer)},2)`;
+
+    const result = await runner.run({
+      context: projectContext,
+      tool: 'git',
+      execution: limitedExecution,
+      executable: process.execPath,
+      args: ['-e', script],
+      cwd: process.cwd(),
+      purpose: 'Produce chatty output',
+      isReadOnly: true,
+    });
+
+    expect(result.stdout).toBe(expectedOutput);
+    expect(result.record.status).toBe('succeeded');
+    const auditedChunks = result.record.output.filter(
+      (entry) => entry.stream === 'stdout',
+    );
+    expect(auditedChunks.length).toBeGreaterThan(20);
+    expect(updates.length).toBeLessThan(auditedChunks.length / 2);
+    expect(auditedChunks.map((entry) => entry.text).join('')).toBe(expectedOutput);
+    const terminalIndex = updates.findIndex((record) => record.status === 'succeeded');
+    expect(terminalIndex).toBeGreaterThanOrEqual(0);
+
+    const updateCountAtCompletion = updates.length;
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    expect(updates).toHaveLength(updateCountAtCompletion);
+    expect(updates.slice(terminalIndex + 1)).not.toContainEqual(
+      expect.objectContaining({ status: 'running' }),
+    );
+  });
+
   it('returns complete stdout while bounding the stored audit output', async () => {
     const outputLength = CommandRunner.auditedOutputCharacterLimit + 2000;
     const runner = new CommandRunner(() => undefined);
@@ -272,16 +317,147 @@ describe('command output auditing', () => {
 
     expect(result.stdout).toHaveLength(outputLength);
     expect(
-      result.record.output.some(
+      result.record.output.filter(
         (entry) =>
           entry.stream === 'system' &&
           entry.text.includes('Command output truncated after'),
       ),
-    ).toBe(true);
+    ).toHaveLength(1);
     expect(
       result.record.output
         .filter((entry) => entry.stream === 'stdout')
         .reduce((total, entry) => total + entry.text.length, 0),
     ).toBe(CommandRunner.auditedOutputCharacterLimit);
+  });
+
+  it('keeps raw output complete through the limit and fails clearly beyond it', async () => {
+    const rawLimit = 64;
+    const updates: ReturnType<CommandRunner['recordsFor']> = [];
+    const runner = new CommandRunner((record) => updates.push(record), {
+      rawOutputCharacterLimit: rawLimit,
+      liveUpdateIntervalMs: 20,
+      terminationGraceMs: 20,
+    });
+    const spec = (length: number) => ({
+      context: projectContext,
+      tool: 'git' as const,
+      execution: limitedExecution,
+      executable: process.execPath,
+      args: ['-e', `process.stdout.write('x'.repeat(${length}))`],
+      cwd: process.cwd(),
+      purpose: `Capture ${length} characters`,
+      isReadOnly: true,
+    });
+
+    const withinLimit = await runner.run(spec(rawLimit));
+    expect(withinLimit.record.status).toBe('succeeded');
+    expect(withinLimit.stdout).toBe('x'.repeat(rawLimit));
+
+    const exceeded = await runner.run(spec(rawLimit + 1));
+    expect(exceeded.record.status).toBe('failed');
+    expect(exceeded.stdout).toHaveLength(rawLimit);
+    expect(exceeded.stderr).toContain(
+      `Command output exceeded the ${rawLimit}-character capture limit.`,
+    );
+    expect(
+      exceeded.record.output.some(
+        (entry) => entry.stream === 'system' && entry.text.includes('capture limit'),
+      ),
+    ).toBe(true);
+
+    const updateCountAtCompletion = updates.length;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(updates).toHaveLength(updateCountAtCompletion);
+    expect(updates.at(-1)?.status).toBe('failed');
+  });
+
+  it('finalizes spawn-error and timeout paths once even when close follows', async () => {
+    const updates: ReturnType<CommandRunner['recordsFor']> = [];
+    const runner = new CommandRunner((record) => updates.push(record), {
+      liveUpdateIntervalMs: 10,
+      terminationGraceMs: 10,
+    });
+
+    await expect(
+      runner.run({
+        context: projectContext,
+        tool: 'git',
+        execution: limitedExecution,
+        executable: 'grafter-command-that-does-not-exist-for-finalization',
+        args: [],
+        cwd: process.cwd(),
+        purpose: 'Fail during spawn',
+        isReadOnly: true,
+      }),
+    ).rejects.toThrow();
+    expect(updates.filter((record) => record.status === 'failed')).toHaveLength(1);
+
+    const timeoutResult = await runner.run({
+      context: projectContext,
+      tool: 'git',
+      execution: { admission: 'limited', timeoutMs: 30 },
+      executable: process.execPath,
+      args: ['-e', 'setInterval(()=>undefined,1000)'],
+      cwd: process.cwd(),
+      purpose: 'Time out once',
+      isReadOnly: true,
+    });
+    expect(timeoutResult.record.status).toBe('failed');
+    expect(
+      updates.filter(
+        (record) => record.id === timeoutResult.record.id && record.status === 'failed',
+      ),
+    ).toHaveLength(1);
+  });
+
+  it('recovers from a failed live-update callback without stale timers', async () => {
+    const updates: ReturnType<CommandRunner['recordsFor']> = [];
+    const updateErrors: unknown[] = [];
+    let rejectNextLiveUpdate = true;
+    const runner = new CommandRunner(
+      (record) => {
+        if (
+          rejectNextLiveUpdate &&
+          record.status === 'running' &&
+          record.output.length > 0
+        ) {
+          rejectNextLiveUpdate = false;
+          throw new Error('Update callback failed');
+        }
+        updates.push(record);
+      },
+      {
+        liveUpdateIntervalMs: 10,
+        onUpdateError: (error) => updateErrors.push(error),
+      },
+    );
+
+    const first = await runner.run({
+      context: projectContext,
+      tool: 'git',
+      execution: limitedExecution,
+      executable: process.execPath,
+      args: ['-e', "process.stdout.write('started'); setTimeout(()=>{},30)"],
+      cwd: process.cwd(),
+      purpose: 'Fail one update callback',
+      isReadOnly: true,
+    });
+    const second = await runner.run({
+      context: projectContext,
+      tool: 'git',
+      execution: limitedExecution,
+      executable: process.execPath,
+      args: ['-e', 'process.exit(0)'],
+      cwd: process.cwd(),
+      purpose: 'Run after callback failure',
+      isReadOnly: true,
+    });
+
+    expect(updateErrors).toHaveLength(1);
+    expect(updates.some((record) => record.id === first.record.id)).toBe(true);
+    expect(updates.at(-1)).toMatchObject({
+      id: second.record.id,
+      status: 'succeeded',
+    });
   });
 });

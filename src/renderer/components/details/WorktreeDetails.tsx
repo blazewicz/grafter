@@ -61,6 +61,13 @@ function PullRequestStateIcon({ state }: { state: PullRequestState }): React.JSX
   );
 }
 
+export function openPullRequestLink(
+  url: string,
+  onError: (message: string) => void,
+): void {
+  void api.openExternal(url).catch((caught: unknown) => onError(friendlyError(caught)));
+}
+
 export function WorktreeDetails({
   homeDirectory,
   settings,
@@ -405,7 +412,7 @@ export function WorktreeDetails({
                 className={styles.sectionActionButton}
                 aria-label="Open pull request"
                 title="Open pull request"
-                onClick={() => void api.openExternal(pullRequest.url)}
+                onClick={() => openPullRequestLink(pullRequest.url, onError)}
               >
                 <SquareArrowOutUpRight size={15} aria-hidden="true" />
               </button>
