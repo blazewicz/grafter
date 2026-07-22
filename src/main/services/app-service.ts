@@ -41,6 +41,7 @@ interface AppServiceOptions {
 }
 
 export class AppService {
+  static readonly maximumConcurrentProjectRefreshes = 4;
   // Background hydration won't use CommandRunner's full aggregate capacity so
   // explicit refreshes and other interactive reads always have room to start.
   static readonly maximumConcurrentBackgroundPullRequestLookups = Math.max(
@@ -60,6 +61,7 @@ export class AppService {
   readonly #backgroundPullRequestLookupsLimit = pLimit(
     AppService.maximumConcurrentBackgroundPullRequestLookups,
   );
+  readonly #projectRefreshLimit = pLimit(AppService.maximumConcurrentProjectRefreshes);
   readonly #projectOperationLimits = new Map<string, ReturnType<typeof pLimit>>();
   readonly #pullRequestRefreshedAt = new Map<string, number>();
   readonly #projectRefreshVersions = new Map<string, number>();
@@ -100,12 +102,23 @@ export class AppService {
 
   async addProject(selectedPath: string): Promise<AppSnapshot> {
     const details = await this.git.inspectMainClone(selectedPath);
-    if (!this.store.state.projects.some((project) => project.path === details.path)) {
-      await this.store.update((state) =>
-        state.projects.push(this.git.createProject(details)),
-      );
+    const existing = this.store.state.projects.find(
+      (project) => project.path === details.path,
+    );
+    if (existing) {
+      this.#reconcileProjectTrees();
+      return this.snapshot();
     }
-    return this.refresh();
+
+    const project = this.git.createProject(details);
+    await this.store.update((state) => state.projects.push(project));
+    this.#reconcileProjectTrees();
+    const worktrees = await this.#runProjectOperationSerialized(project.id, () =>
+      this.#refreshProject(project, false),
+    );
+    this.#prunePullRequestCache(this.#trees.flatMap((item) => item.worktrees));
+    void this.#hydratePullRequests(worktrees).catch(() => undefined);
+    return this.snapshot();
   }
 
   async removeProject(projectId: string): Promise<AppSnapshot> {
@@ -113,19 +126,20 @@ export class AppService {
       state.projects = state.projects.filter((project) => project.id !== projectId);
     });
     this.#projectRefreshVersions.delete(projectId);
-    return this.refresh();
+    this.#reconcileProjectTrees();
+    this.#prunePullRequestCache(this.#trees.flatMap((item) => item.worktrees));
+    return this.snapshot();
   }
 
   async refresh(): Promise<AppSnapshot> {
-    const previousTrees = new Map(this.#trees.map((project) => [project.id, project]));
-    this.#trees = this.store.state.projects.map(
-      (project) => previousTrees.get(project.id) ?? { ...project, worktrees: [] },
+    this.#reconcileProjectTrees();
+    await Promise.all(
+      this.store.state.projects.map((project) =>
+        this.#runProjectOperationSerialized(project.id, () =>
+          this.#projectRefreshLimit(() => this.#refreshProject(project, true)),
+        ),
+      ),
     );
-    for (const project of this.store.state.projects) {
-      await this.#runProjectOperationSerialized(project.id, () =>
-        this.#refreshProject(project, true),
-      );
-    }
     const worktrees = this.#trees.flatMap((project) => project.worktrees);
     this.#prunePullRequestCache(worktrees);
     void this.#hydratePullRequests(worktrees).catch(() => undefined);
@@ -176,11 +190,12 @@ export class AppService {
         if (!createdWorktree) {
           throw new Error('The new worktree could not be found after creation.');
         }
+        void this.#refreshPullRequest(createdWorktree, true).catch(() => undefined);
         return { project, createdWorktree };
       },
     );
-    const snapshot = await this.refresh();
     const script = await this.git.setupScript(project);
+    const snapshot = this.snapshot();
     if (!script) return { snapshot };
     const setupApproval = this.approvals.prepare(
       this.git.setupSpec(createdWorktree, script),
@@ -232,7 +247,7 @@ export class AppService {
 
   async approve(approvalId: string): Promise<AppSnapshot> {
     await this.approvals.approve(approvalId);
-    return this.refresh();
+    return this.snapshot();
   }
 
   reject(approvalId: string): AppSnapshot {
@@ -330,7 +345,16 @@ export class AppService {
       if (script.trim()) project.setupScript = script.trim();
       else delete project.setupScript;
     });
-    return this.refresh();
+    this.#reconcileProjectTrees();
+    return this.snapshot();
+  }
+
+  #reconcileProjectTrees(): void {
+    const previousTrees = new Map(this.#trees.map((project) => [project.id, project]));
+    this.#trees = this.store.state.projects.map((project) => ({
+      ...project,
+      worktrees: previousTrees.get(project.id)?.worktrees ?? [],
+    }));
   }
 
   #runProjectOperationSerialized<T>(
@@ -363,7 +387,7 @@ export class AppService {
       });
     } catch (error) {
       if (!tolerateFailure) throw error;
-      worktrees = [];
+      worktrees = [...previousWorktrees.values()];
     }
 
     const currentWorktrees =

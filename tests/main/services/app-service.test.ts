@@ -344,6 +344,135 @@ branch refs/heads/branch-${offset + index}`,
 });
 
 describe('AppService project refresh', () => {
+  it('bounds concurrent project refreshes and preserves project order', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-app-service-'));
+    const store = new StateStore(directory);
+    await store.load();
+    const projects = Array.from({ length: 7 }, (_, index): Project => ({
+      id: `project-${index}`,
+      name: `repo-${index}`,
+      path: `/repo-${index}`,
+    }));
+    await store.update((state) => state.projects.push(...projects));
+    const releaseRefreshes = deferred<void>();
+    const limitReached = deferred<void>();
+    let active = 0;
+    let maximumActive = 0;
+    let started = 0;
+    const runner = new StubCommandRunner(async (spec) => {
+      if (spec.tool === 'git' && spec.args[0] === 'worktree') {
+        active += 1;
+        started += 1;
+        maximumActive = Math.max(maximumActive, active);
+        if (started === AppService.maximumConcurrentProjectRefreshes) {
+          limitReached.resolve();
+        }
+        await releaseRefreshes.promise;
+        active -= 1;
+        return {
+          stdout: `worktree ${spec.cwd}\nHEAD 1111111\nbranch refs/heads/main\n`,
+        };
+      }
+      if (spec.tool === 'github') return { exitCode: 1 };
+      throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
+    });
+    const service = new AppService(store, runner);
+    const refresh = service.refresh();
+
+    await limitReached.promise;
+    expect(started).toBe(AppService.maximumConcurrentProjectRefreshes);
+    expect(maximumActive).toBe(AppService.maximumConcurrentProjectRefreshes);
+    releaseRefreshes.resolve();
+
+    const snapshot = await refresh;
+    expect(maximumActive).toBe(AppService.maximumConcurrentProjectRefreshes);
+    expect(snapshot.projects.map((item) => item.id)).toEqual(
+      projects.map((item) => item.id),
+    );
+  });
+
+  it('preserves project order when refreshes finish out of order', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-app-service-'));
+    const store = new StateStore(directory);
+    await store.load();
+    const projects = Array.from({ length: 3 }, (_, index): Project => ({
+      id: `ordered-${index}`,
+      name: `ordered-${index}`,
+      path: `/ordered-${index}`,
+    }));
+    await store.update((state) => state.projects.push(...projects));
+    const results = new Map(
+      projects.map((item) => [item.path, deferred<{ stdout: string }>()]),
+    );
+    const allStarted = deferred<void>();
+    let started = 0;
+    const runner = new StubCommandRunner((spec) => {
+      if (spec.tool === 'git' && spec.args[0] === 'worktree') {
+        started += 1;
+        if (started === projects.length) allStarted.resolve();
+        const result = results.get(spec.cwd);
+        if (!result) throw new Error(`Unexpected project: ${spec.cwd}`);
+        return result.promise;
+      }
+      if (spec.tool === 'github') return { exitCode: 1 };
+      throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
+    });
+    const service = new AppService(store, runner);
+    const refresh = service.refresh();
+
+    await allStarted.promise;
+    for (const item of [...projects].reverse()) {
+      results.get(item.path)?.resolve({
+        stdout: `worktree ${item.path}\nHEAD 1111111\nbranch refs/heads/main\n`,
+      });
+      await Promise.resolve();
+    }
+
+    const snapshot = await refresh;
+    expect(snapshot.projects.map((item) => item.id)).toEqual(
+      projects.map((item) => item.id),
+    );
+    expect(snapshot.projects.map((item) => item.worktrees[0]?.projectId)).toEqual(
+      projects.map((item) => item.id),
+    );
+  });
+
+  it('keeps successful project results when another automatic refresh fails', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-app-service-'));
+    const store = new StateStore(directory);
+    await store.load();
+    const unavailable: Project = {
+      id: 'unavailable',
+      name: 'unavailable',
+      path: '/unavailable',
+    };
+    const available: Project = {
+      id: 'available',
+      name: 'available',
+      path: '/available',
+    };
+    await store.update((state) => state.projects.push(unavailable, available));
+    const runner = new StubCommandRunner((spec) => {
+      if (spec.tool === 'git' && spec.args[0] === 'worktree') {
+        if (spec.cwd === unavailable.path) {
+          throw new Error('Repository is temporarily unavailable.');
+        }
+        return {
+          stdout: `worktree ${available.path}\nHEAD 2222222\nbranch refs/heads/main\n`,
+        };
+      }
+      if (spec.tool === 'github') return { exitCode: 1 };
+      throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
+    });
+
+    const snapshot = await new AppService(store, runner).refresh();
+
+    expect(snapshot.projects).toMatchObject([
+      { id: unavailable.id, worktrees: [] },
+      { id: available.id, worktrees: [{ path: available.path }] },
+    ]);
+  });
+
   it('refreshes only the requested project and preserves other project trees', async () => {
     const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-app-service-'));
     const store = new StateStore(directory);
@@ -484,6 +613,211 @@ branch refs/heads/main
 
     await expect(refresh).resolves.toMatchObject({ projects: [] });
     expect(service.snapshot().projects).toEqual([]);
+  });
+});
+
+describe('AppService targeted project updates', () => {
+  it('adds and removes projects without scanning unrelated repositories', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-app-service-'));
+    const store = new StateStore(directory);
+    await store.load();
+    const existing: Project = {
+      id: 'existing',
+      name: 'existing',
+      path: '/existing',
+    };
+    await store.update((state) => state.projects.push(existing));
+    const runner = new StubCommandRunner((spec) => {
+      if (spec.tool === 'git' && spec.args[0] === 'worktree') {
+        return {
+          stdout: `worktree ${spec.cwd}\nHEAD 1111111\nbranch refs/heads/main\n`,
+        };
+      }
+      if (spec.tool === 'github') return { exitCode: 1 };
+      throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
+    });
+    const service = new AppService(store, runner);
+    await service.refresh();
+    runner.commands.splice(0);
+    vi.spyOn(service.git, 'inspectMainClone').mockResolvedValue({
+      name: 'added',
+      path: '/added',
+    });
+
+    const added = await service.addProject('/added');
+
+    expect(added.projects.map((item) => item.path)).toEqual(['/existing', '/added']);
+    expect(
+      runner.commands.filter(
+        (command) => command.tool === 'git' && command.args[0] === 'worktree',
+      ),
+    ).toMatchObject([{ cwd: '/added' }]);
+
+    runner.commands.splice(0);
+    const removed = await service.removeProject(existing.id);
+    expect(removed.projects.map((item) => item.path)).toEqual(['/added']);
+    expect(runner.commands).toHaveLength(0);
+    expect(removed.projects[0]?.worktrees).toHaveLength(1);
+  });
+
+  it('creates a worktree with one targeted post-mutation scan', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-app-service-'));
+    const store = new StateStore(directory);
+    await store.load();
+    const otherProject: Project = {
+      id: 'other-project',
+      name: 'other-repo',
+      path: '/other-repo',
+    };
+    await store.update((state) => state.projects.push(project, otherProject));
+    let created = false;
+    const runner = new StubCommandRunner((spec) => {
+      if (spec.tool === 'git' && spec.args[0] === 'worktree' && spec.args[1] === 'add') {
+        created = true;
+        return {};
+      }
+      if (spec.tool === 'git' && spec.args[0] === 'worktree') {
+        const currentProject = spec.cwd === project.path ? project : otherProject;
+        return {
+          stdout: worktreesFor(
+            currentProject,
+            created && currentProject.id === project.id ? ['feature/new'] : [],
+          ),
+        };
+      }
+      if (spec.tool === 'github') return { exitCode: 1 };
+      throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
+    });
+    const service = new AppService(store, runner);
+    await service.refresh();
+    runner.commands.splice(0);
+
+    await service.createWorktree({
+      projectId: project.id,
+      branch: 'feature/new',
+      path: '/repo.worktrees/feature-new',
+    });
+
+    const topologyCommands = runner.commands.filter(
+      (command) => command.tool === 'git' && command.args[0] === 'worktree',
+    );
+    expect(topologyCommands).toHaveLength(2);
+    expect(topologyCommands.map((command) => command.args[1])).toEqual(['add', 'list']);
+    expect(topologyCommands.every((command) => command.cwd === project.path)).toBe(true);
+  });
+
+  it('updates setup metadata without scanning worktrees', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-app-service-'));
+    const store = new StateStore(directory);
+    await store.load();
+    await store.update((state) => state.projects.push(project));
+    const runner = new StubCommandRunner((spec) => {
+      if (spec.tool === 'git' && spec.args[0] === 'worktree') {
+        return { stdout: worktreeOutput };
+      }
+      if (spec.tool === 'github') return { exitCode: 1 };
+      throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
+    });
+    const service = new AppService(store, runner);
+    await service.refresh();
+    runner.commands.splice(0);
+
+    const snapshot = await service.updateProjectSetup(project.id, '  npm ci  ');
+
+    expect(snapshot.projects[0]).toMatchObject({
+      setupScript: 'npm ci',
+      worktrees: [{ branch: 'main' }, { branch: 'feature/stacked' }],
+    });
+    expect(runner.commands).toHaveLength(0);
+  });
+
+  it('refreshes an approved removal exactly once and does not rescan other projects', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-app-service-'));
+    const store = new StateStore(directory);
+    await store.load();
+    const otherProject: Project = {
+      id: 'other-project',
+      name: 'other-repo',
+      path: '/other-repo',
+    };
+    await store.update((state) => state.projects.push(project, otherProject));
+    let removed = false;
+    const runner = new StubCommandRunner((spec) => {
+      if (
+        spec.tool === 'git' &&
+        spec.args[0] === 'worktree' &&
+        spec.args[1] === 'remove'
+      ) {
+        removed = true;
+        return {};
+      }
+      if (spec.tool === 'git' && spec.args[0] === 'worktree') {
+        const currentProject = spec.cwd === project.path ? project : otherProject;
+        return {
+          stdout: worktreesFor(
+            currentProject,
+            !removed && currentProject.id === project.id ? ['feature/stacked'] : [],
+          ),
+        };
+      }
+      if (spec.tool === 'github') return { exitCode: 1 };
+      throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
+    });
+    const service = new AppService(store, runner);
+    const initial = await service.refresh();
+    const removable = initial.projects[0]?.worktrees[1];
+    if (!removable) throw new Error('Expected a removable worktree.');
+    const approval = service.prepareRemove(removable.id);
+    runner.commands.splice(0);
+
+    const snapshot = await service.approve(approval.approvalId);
+
+    expect(snapshot.projects[0]?.worktrees).toHaveLength(1);
+    expect(
+      runner.commands.filter(
+        (command) => command.tool === 'git' && command.args[0] === 'worktree',
+      ),
+    ).toMatchObject([
+      { cwd: project.path, args: ['worktree', 'remove', removable.path] },
+      { cwd: project.path, args: ['worktree', 'list', '--porcelain'] },
+    ]);
+  });
+
+  it('runs an approved setup script without a topology refresh', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-app-service-'));
+    const store = new StateStore(directory);
+    await store.load();
+    const setupProject: Project = { ...project, setupScript: 'npm ci' };
+    await store.update((state) => state.projects.push(setupProject));
+    let created = false;
+    const runner = new StubCommandRunner((spec) => {
+      if (spec.tool === 'git' && spec.args[0] === 'worktree' && spec.args[1] === 'add') {
+        created = true;
+        return {};
+      }
+      if (spec.tool === 'git' && spec.args[0] === 'worktree') {
+        return {
+          stdout: worktreesFor(setupProject, created ? ['feature/new'] : []),
+        };
+      }
+      if (spec.tool === 'github') return { exitCode: 1 };
+      if (spec.tool === 'shell') return {};
+      throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
+    });
+    const service = new AppService(store, runner);
+    await service.refresh();
+    const result = await service.createWorktree({
+      projectId: setupProject.id,
+      branch: 'feature/new',
+      path: '/repo.worktrees/feature-new',
+    });
+    if (!result.setupApproval) throw new Error('Expected setup approval.');
+    runner.commands.splice(0);
+
+    await service.approve(result.setupApproval.approvalId);
+
+    expect(runner.commands).toHaveLength(1);
+    expect(runner.commands[0]).toMatchObject({ tool: 'shell', isReadOnly: false });
   });
 });
 
