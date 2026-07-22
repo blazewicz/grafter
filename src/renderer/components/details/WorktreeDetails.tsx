@@ -16,8 +16,6 @@ import styles from './details.module.css';
 import { BranchCard } from './BranchCard';
 import { LatestCommitCard } from './LatestCommitCard';
 
-export { openPullRequestLink } from './BranchCard';
-
 const editorOptions: readonly {
   id: EditorTool;
   label: string;

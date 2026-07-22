@@ -1,20 +1,7 @@
-import {
-  Check,
-  ChevronDown,
-  FileDiff,
-  GitBranch,
-  GitMerge,
-  GitPullRequest,
-  GitPullRequestClosed,
-  GitPullRequestDraft,
-  LoaderCircle,
-  SquareArrowOutUpRight,
-} from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+import { Check, ChevronDown, FileDiff, GitBranch, LoaderCircle } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type {
   AppSnapshot,
-  PullRequestState,
   Worktree,
   WorktreeComparison,
   WorktreeDetails,
@@ -24,41 +11,11 @@ import { api, friendlyError } from '../../grafter-api';
 import { BranchPicker } from '../branches/BranchPicker';
 import { CopyButton } from '../ui/CopyButton';
 import styles from './details.module.css';
-
-const pullRequestStatePresentation = {
-  OPEN: { icon: GitPullRequest, label: 'Open' },
-  DRAFT: { icon: GitPullRequestDraft, label: 'Draft' },
-  MERGED: { icon: GitMerge, label: 'Merged' },
-  CLOSED: { icon: GitPullRequestClosed, label: 'Closed' },
-} satisfies Record<PullRequestState, { icon: LucideIcon; label: string }>;
+import { PullRequestCard } from './PullRequestCard';
 
 interface LocalComparison extends WorktreeComparison {
   worktreeId: string;
   head: string;
-}
-
-function PullRequestStateIcon({ state }: { state: PullRequestState }): React.JSX.Element {
-  const presentation = pullRequestStatePresentation[state];
-  const StateIcon = presentation.icon;
-
-  return (
-    <span
-      className={styles.prStateIcon}
-      data-state={state}
-      role="img"
-      aria-label={`Pull request status: ${presentation.label.toLowerCase()}`}
-      title={`Status: ${presentation.label}`}
-    >
-      <StateIcon size={16} aria-hidden="true" />
-    </span>
-  );
-}
-
-export function openPullRequestLink(
-  url: string,
-  onError: (message: string) => void,
-): void {
-  void api.openExternal(url).catch((caught: unknown) => onError(friendlyError(caught)));
 }
 
 export function BranchCard({
@@ -353,37 +310,11 @@ export function BranchCard({
       </div>
 
       {pullRequest && (
-        <div
-          className={`${styles.prReveal} ${
-            animatePullRequestDiscovery ? styles.prRevealDiscovered : ''
-          }`}
-        >
-          <div className={styles.prRevealInner}>
-            <div
-              className={styles.prSubsection}
-              aria-label={`Pull request #${pullRequest.number}`}
-            >
-              <span className={styles.sectionLabel}>PULL REQUEST</span>
-              <div className={styles.prTitleRow}>
-                <PullRequestStateIcon state={pullRequest.state} />
-                <div className={styles.prTitleCopy}>
-                  <span className={styles.prNumber}>#{pullRequest.number}</span>
-                  <strong className={styles.prTitle}>{pullRequest.title}</strong>
-                </div>
-                <div className={styles.prActions}>
-                  <button
-                    className={styles.sectionActionButton}
-                    aria-label="Open pull request"
-                    title="Open pull request"
-                    onClick={() => openPullRequestLink(pullRequest.url, onError)}
-                  >
-                    <SquareArrowOutUpRight size={15} aria-hidden="true" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <PullRequestCard
+          pullRequest={pullRequest}
+          animatePullRequestDiscovery={animatePullRequestDiscovery}
+          onError={onError}
+        />
       )}
     </section>
   );

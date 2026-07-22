@@ -1,12 +1,8 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import type { WorktreeDetails as WorktreeDetailsData } from '../../../../src/shared/contracts';
-import {
-  openPullRequestLink,
-  WorktreeDetails,
-} from '../../../../src/renderer/components/details/WorktreeDetails';
-import { api } from '../../../../src/renderer/grafter-api';
+import { WorktreeDetails } from '../../../../src/renderer/components/details/WorktreeDetails';
 
 const details: WorktreeDetailsData = {
   id: 'project:/repo.worktrees/feature',
@@ -49,19 +45,6 @@ const displayPreferences = {
 } as const;
 
 describe('WorktreeDetails copy controls', () => {
-  it('reports pull-request link failures through the shared error UI', async () => {
-    const openExternal = vi
-      .spyOn(api, 'openExternal')
-      .mockRejectedValueOnce(new Error('Browser unavailable'));
-    const onError = vi.fn();
-
-    openPullRequestLink('https://github.com/example/repo/pull/42', onError);
-    await vi.waitFor(() => expect(onError).toHaveBeenCalledWith('Browser unavailable'));
-
-    expect(openExternal).toHaveBeenCalledWith('https://github.com/example/repo/pull/42');
-    openExternal.mockRestore();
-  });
-
   it('renders the worktree-first header and accessible copy controls', () => {
     const html = renderToStaticMarkup(
       createElement(WorktreeDetails, {
@@ -209,39 +192,6 @@ describe('WorktreeDetails copy controls', () => {
     expect(html).toContain('Compared with');
     expect(html).toContain('<code>main</code>');
     expect(html).not.toContain('Changes against');
-  });
-
-  it.each([
-    ['OPEN', 'Open', 'lucide-git-pull-request'],
-    ['DRAFT', 'Draft', 'lucide-git-pull-request-draft'],
-    ['MERGED', 'Merged', 'lucide-git-merge'],
-    ['CLOSED', 'Closed', 'lucide-git-pull-request-closed'],
-  ] as const)('renders the %s pull request state icon', (state, label, iconClass) => {
-    const html = renderToStaticMarkup(
-      createElement(WorktreeDetails, {
-        homeDirectory: '/repo.worktrees',
-        ...displayPreferences,
-        details: {
-          ...details,
-          pullRequest: {
-            number: 18,
-            title: 'State-aware pull request',
-            url: 'https://github.com/example/repo/pull/18',
-            state,
-            baseBranch: 'main',
-          },
-        },
-        projectWorktrees: [mainWorktree, details],
-        status: 'clean',
-        onSnapshot: () => undefined,
-        onSelectProject: () => undefined,
-        onError: () => undefined,
-      }),
-    );
-
-    expect(html).toContain(`aria-label="Pull request status: ${label.toLowerCase()}"`);
-    expect(html).toContain(`data-state="${state}"`);
-    expect(html).toContain(iconClass);
   });
 
   it('uses the same collision-safe worktree label as the sidebar', () => {
