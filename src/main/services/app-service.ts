@@ -220,7 +220,7 @@ export class AppService {
     const project = this.#project(worktree.projectId);
     return this.approvals.prepare(
       this.git.removeSpec(project, worktree),
-      `This permanently removes the ${worktree.branch} worktree directory. Dirty worktrees are refused by Git.`,
+      `This permanently removes the ${worktree.displayName} worktree directory. Dirty worktrees are refused by Git.`,
       async () => {
         await this.#refreshProject(project, false);
         this.#prunePullRequestCache(this.#trees.flatMap((item) => item.worktrees));
