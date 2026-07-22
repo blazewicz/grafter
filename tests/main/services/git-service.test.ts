@@ -363,6 +363,48 @@ describe('GitService worktree details', () => {
     await expect(details).resolves.toMatchObject({ targetBranch: 'main' });
   });
 
+  it('starts comparison stats before delayed commit metadata finishes', async () => {
+    const project: Project = {
+      id: 'project',
+      name: 'project',
+      path: '/repo',
+    };
+    const worktree: Worktree = {
+      id: 'project:/repo.worktrees/feature',
+      projectId: project.id,
+      displayName: 'feature',
+      path: '/repo.worktrees/feature',
+      branch: 'feature/concurrent',
+      head: '1234567',
+      isMain: false,
+      locked: false,
+    };
+    const commitResult = deferred<{ stdout: string }>();
+    const diffStarted = deferred<void>();
+    const runner = new StubCommandRunner((spec) => {
+      if (spec.args[0] === 'log') return commitResult.promise;
+      if (spec.args[0] === 'symbolic-ref') return { stdout: 'origin/main\n' };
+      if (spec.args[0] === 'diff') {
+        diffStarted.resolve();
+        return { stdout: '2\t1\tsrc/example.ts\n' };
+      }
+      throw new Error(`Unexpected command: ${spec.args.join(' ')}`);
+    });
+
+    const details = new GitService(runner).details(project, worktree);
+    await diffStarted.promise;
+    expect(runner.commands.some((command) => command.args[0] === 'diff')).toBe(true);
+    commitResult.resolve({
+      stdout:
+        '1234567890abcdef\nAda Lovelace\n\n2026-07-19T14:25:00+02:00\nConcurrent details\n\u0000\n',
+    });
+
+    await expect(details).resolves.toMatchObject({
+      targetBranch: 'main',
+      diff: { files: 1, additions: 2, deletions: 1 },
+    });
+  });
+
   it('retains removal in the project log after the target worktree disappears', () => {
     const runner = new CommandRunner(() => undefined);
     const service = new GitService(runner);
@@ -460,6 +502,41 @@ describe('GitService committed diff sessions', () => {
     expect(() =>
       service.diffFilePath({ sessionId: session.id, fileId: 'file-0' }),
     ).toThrow('Check out the source branch in a worktree');
+  });
+
+  it('starts commit diff contents before delayed commit metadata finishes', async () => {
+    const commitHash = '1234567890abcdef1234567890abcdef12345678';
+    const firstParent = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    const commitResult = deferred<{ stdout: string }>();
+    const diffStarted = deferred<void>();
+    const runner = new StubCommandRunner((spec) => {
+      if (spec.args[0] === 'rev-parse') return { stdout: `${commitHash}\n` };
+      if (spec.args[0] === 'show') return { stdout: `${firstParent}\n` };
+      if (spec.args[0] === 'log') return commitResult.promise;
+      if (spec.args[0] === 'remote') return { stdout: '' };
+      if (spec.args.includes('--name-status')) {
+        diffStarted.resolve();
+        return { stdout: '' };
+      }
+      if (spec.args.includes('--numstat')) return { stdout: '' };
+      throw new Error(`Unexpected command: ${spec.args.join(' ')}`);
+    });
+    const service = new GitService(runner);
+
+    const session = service.openCommitDiff(project, commitHash);
+    await diffStarted.promise;
+    expect(
+      runner.commands.some((command) => command.args.includes('--name-status')),
+    ).toBe(true);
+    commitResult.resolve({
+      stdout: `${commitHash}\nAda Lovelace\nada@example.com\n2026-07-21T12:30:00+02:00\nConcurrent commit\n\u0000\n`,
+    });
+
+    await expect(session).resolves.toMatchObject({
+      baseSha: firstParent,
+      headSha: commitHash,
+      commit: { title: 'Concurrent commit' },
+    });
   });
 
   it('opens a root commit against the repository empty tree', async () => {
@@ -805,3 +882,20 @@ describe('GitService committed diff sessions', () => {
     ).toThrow('outside its worktree');
   });
 });
+
+function deferred<T>(): {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+} {
+  let resolve: ((value: T) => void) | undefined;
+  const promise = new Promise<T>((promiseResolve) => {
+    resolve = promiseResolve;
+  });
+  return {
+    promise,
+    resolve: (value) => {
+      if (!resolve) throw new Error('Deferred promise was not initialized.');
+      resolve(value);
+    },
+  };
+}

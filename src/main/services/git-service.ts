@@ -154,21 +154,25 @@ export class GitService {
 
   async details(project: Project, worktree: Worktree): Promise<WorktreeDetails> {
     const context = worktreeCommandContext(worktree);
-    const [commit, targetBranch] = await Promise.all([
-      this.#latestCommit(worktree, context),
-      this.#comparisonTargetBranch(project, worktree, context),
-    ]);
-    const comparableTarget =
-      targetBranch &&
-      (worktree.pullRequest !== undefined || targetBranch !== worktree.branch)
-        ? targetBranch
-        : undefined;
-    const comparison = comparableTarget
-      ? {
-          targetBranch: comparableTarget,
-          diff: await this.#diffStats(worktree.path, comparableTarget, context),
-        }
-      : {};
+    const commitPromise = this.#latestCommit(worktree, context);
+    const comparisonPromise = this.#comparisonTargetBranch(
+      project,
+      worktree,
+      context,
+    ).then(async (targetBranch) => {
+      const comparableTarget =
+        targetBranch &&
+        (worktree.pullRequest !== undefined || targetBranch !== worktree.branch)
+          ? targetBranch
+          : undefined;
+      return comparableTarget
+        ? {
+            targetBranch: comparableTarget,
+            diff: await this.#diffStats(worktree.path, comparableTarget, context),
+          }
+        : {};
+    });
+    const [commit, comparison] = await Promise.all([commitPromise, comparisonPromise]);
     return {
       ...worktree,
       projectName: project.name,
@@ -228,52 +232,56 @@ export class GitService {
         context,
       )
     ).stdout.trim();
-    const [parentsResult, commitResult] = await Promise.all([
-      this.#git(
+    const parentsPromise = this.#git(
+      project.path,
+      ['show', '-s', '--format=%P', headSha],
+      'Read commit parents',
+      true,
+      context,
+    );
+    const commitPromise = this.#git(
+      project.path,
+      [
+        'log',
+        '-1',
+        '--numstat',
+        '--diff-merges=first-parent',
+        '--format=%H%n%an%n%ae%n%aI%n%s%n%b%x00',
+        headSha,
+      ],
+      'Read commit details',
+      true,
+      context,
+    ).then((result) => parseCommitDetails(result.stdout));
+    const contentsPromise = parentsPromise.then(async (parentsResult) => {
+      const parentShas = parentsResult.stdout.trim().split(/\s+/).filter(Boolean);
+      const baseSha =
+        parentShas[0] ??
+        (
+          await this.#git(
+            project.path,
+            ['hash-object', '-t', 'tree', '/dev/null'],
+            'Resolve the empty tree',
+            true,
+            context,
+          )
+        ).stdout.trim();
+      const contents = await this.#diffContents(
         project.path,
-        ['show', '-s', '--format=%P', headSha],
-        'Read commit parents',
-        true,
+        baseSha,
+        headSha,
+        'in commit',
         context,
-      ),
-      this.#git(
-        project.path,
-        [
-          'log',
-          '-1',
-          '--numstat',
-          '--diff-merges=first-parent',
-          '--format=%H%n%an%n%ae%n%aI%n%s%n%b%x00',
-          headSha,
-        ],
-        'Read commit details',
-        true,
-        context,
-      ),
+      );
+      return { baseSha, contents, parentShas };
+    });
+    const [commit, { baseSha, contents, parentShas }] = await Promise.all([
+      commitPromise,
+      contentsPromise,
     ]);
-    const commit = parseCommitDetails(commitResult.stdout);
     if (commit?.hash !== headSha) {
       throw new Error('Could not read the requested commit.');
     }
-    const parentShas = parentsResult.stdout.trim().split(/\s+/).filter(Boolean);
-    const baseSha =
-      parentShas[0] ??
-      (
-        await this.#git(
-          project.path,
-          ['hash-object', '-t', 'tree', '/dev/null'],
-          'Resolve the empty tree',
-          true,
-          context,
-        )
-      ).stdout.trim();
-    const contents = await this.#diffContents(
-      project.path,
-      baseSha,
-      headSha,
-      'in commit',
-      context,
-    );
     const id = randomUUID();
     const session: DiffSession = {
       kind: 'commit',
