@@ -47,6 +47,18 @@ These constraints are architectural invariants:
   command runner to the renderer.
 - Restrict external links to HTTPS and keep persistent state writes atomic.
 
+## Concurrency and async safety
+
+- Assume IPC handlers can overlap. Enforce locking, deduplication, and concurrency limits in the main process, not through renderer loading states.
+- Serialize mutating Git operations per repository. Allow independent repositories and safe read-only operations to run concurrently.
+- Use `p-map` for bounded batches and a shared limiter when the limit must apply across multiple calls.
+- Give background subprocesses their own limit below the total subprocess limit so interactive commands retain capacity.
+- Serialize persistence as complete transactions: mutate, write, rename, and publish state in order.
+- Every fire-and-forget promise must handle rejection. Unexpected background failures must remain observable.
+- Ensure subprocess execution settles once and cleans up timers, listeners, and queued work on every terminal path.
+- Bound captured subprocess output and live IPC update frequency. Never silently truncate output consumed by parsers.
+- Add deterministic tests for concurrency limits, ordering, failure recovery, and lock release.
+
 ## Code and interface conventions
 
 - Preserve strict TypeScript compiler settings and the existing lint rules.
