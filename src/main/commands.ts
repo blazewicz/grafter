@@ -29,8 +29,6 @@ interface CommandRunnerOptions {
 }
 
 const shellSafe = /^[a-zA-Z0-9_./:@%+=,-]+$/;
-const maximumConcurrentAutomatedCommands = 8;
-const automatedCommands = pLimit(maximumConcurrentAutomatedCommands);
 
 export function quoteArg(value: string): string {
   if (shellSafe.test(value)) return value;
@@ -44,12 +42,10 @@ export function displayCommand(executable: string, args: string[]): string {
 export class CommandRunner {
   static readonly recordsPerContext = 200;
   static readonly auditedOutputCharacterLimit = 128_000;
-  // Eight preserves useful parallel reads while placing one authoritative ceiling on
-  // every automated git/gh child in the main process. Shell setup scripts are excluded.
-  static readonly maximumConcurrentAutomatedCommands = maximumConcurrentAutomatedCommands;
   static readonly gitTimeoutMs = 60_000;
   static readonly githubTimeoutMs = 30_000;
   static readonly terminationGraceMs = 1_000;
+  static readonly maximumConcurrentAutomatedCommands = 8;
 
   readonly #records = new Map<string, CommandRecord>();
   readonly #recordIdsByContext = new Map<string, string[]>();
@@ -58,6 +54,9 @@ export class CommandRunner {
   readonly #gitTimeoutMs: number;
   readonly #githubTimeoutMs: number;
   readonly #terminationGraceMs: number;
+  readonly #automatedCommandsLimit = pLimit(
+    CommandRunner.maximumConcurrentAutomatedCommands,
+  );
 
   constructor(
     onUpdate: (record: CommandRecord) => void,
@@ -109,7 +108,7 @@ export class CommandRunner {
     this.#save(record);
 
     const execute = (): Promise<CommandResult> => this.#execute(spec, record);
-    return spec.tool === 'shell' ? execute() : automatedCommands(execute);
+    return spec.tool === 'shell' ? execute() : this.#automatedCommandsLimit(execute);
   }
 
   #execute(spec: CommandSpec, record: CommandRecord): Promise<CommandResult> {

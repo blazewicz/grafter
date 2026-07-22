@@ -168,7 +168,7 @@ describe('AppService pull request refresh', () => {
     );
   });
 
-  it('limits background GitHub hydration to four concurrent lookups', async () => {
+  it('limits concurrent background GitHub hydration', async () => {
     const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-app-service-'));
     const store = new StateStore(directory);
     await store.load();
@@ -209,7 +209,7 @@ branch refs/heads/branch-${index}`,
     expect(initial.projects[0]?.worktrees).toHaveLength(12);
     await hydrationFinished;
 
-    expect(maximumActive).toBe(4);
+    expect(maximumActive).toBe(AppService.maximumConcurrentBackgroundPullRequestLookups);
   });
 
   it('reserves room for interactive work and shares a queued lookup', async () => {
@@ -243,14 +243,15 @@ branch refs/heads/branch-${index}`,
       resolveAllCompleted = resolve;
     });
     const startsByBranch = new Map<string, number>();
+    const backgroundLimit = AppService.maximumConcurrentBackgroundPullRequestLookups;
     const runner = new StubCommandRunner(async (spec) => {
       if (spec.tool === 'git') return { stdout: worktrees };
       const branch = spec.args[2] ?? '';
       starts += 1;
       active += 1;
       startsByBranch.set(branch, (startsByBranch.get(branch) ?? 0) + 1);
-      if (active === 4) resolveBackgroundFull?.();
-      if (active === 5) resolveInteractiveStarted?.();
+      if (active === backgroundLimit) resolveBackgroundFull?.();
+      if (active === backgroundLimit + 1) resolveInteractiveStarted?.();
       await lookupGate;
       active -= 1;
       completed += 1;
@@ -271,8 +272,8 @@ branch refs/heads/branch-${index}`,
     const interactive = service.refreshPullRequest(interactiveWorktree.id);
     await interactiveStarted;
 
-    expect(active).toBe(5);
-    expect(starts).toBe(5);
+    expect(active).toBe(backgroundLimit + 1);
+    expect(starts).toBe(backgroundLimit + 1);
     expect(startsByBranch.get(queuedWorktree.branch)).toBeUndefined();
     releaseLookups?.();
     await Promise.all([duplicateQueued, interactive, allCompleted]);
@@ -308,6 +309,7 @@ branch refs/heads/branch-${offset + index}`,
     const allCompleted = new Promise<void>((resolve) => {
       resolveAllCompleted = resolve;
     });
+    const backgroundLimit = AppService.maximumConcurrentBackgroundPullRequestLookups;
     const runner = new StubCommandRunner(async (spec) => {
       if (spec.tool === 'git') {
         const current = refreshes;
@@ -316,7 +318,7 @@ branch refs/heads/branch-${offset + index}`,
       }
       active += 1;
       maximumActive = Math.max(maximumActive, active);
-      if (active === 4) resolveFirstWave?.();
+      if (active === backgroundLimit) resolveFirstWave?.();
       await lookupGate;
       active -= 1;
       completed += 1;
@@ -328,11 +330,11 @@ branch refs/heads/branch-${offset + index}`,
     await service.refresh();
     await firstWave;
     await service.refresh();
-    expect(maximumActive).toBe(4);
+    expect(maximumActive).toBe(backgroundLimit);
 
     releaseLookups?.();
     await allCompleted;
-    expect(maximumActive).toBe(4);
+    expect(maximumActive).toBe(backgroundLimit);
   });
 });
 

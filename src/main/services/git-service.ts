@@ -45,7 +45,7 @@ export class GitService {
   static readonly maximumConcurrentDiffFileReads = 3;
 
   readonly #diffSessions = new Map<string, StoredDiffSession>();
-  readonly #diffFileReads = pLimit(GitService.maximumConcurrentDiffFileReads);
+  readonly #diffFileReadsLimit = pLimit(GitService.maximumConcurrentDiffFileReads);
 
   constructor(private readonly runner: CommandRunner) {}
 
@@ -399,7 +399,7 @@ export class GitService {
     const { file } = this.#diffFile(request);
     if (file.binary) return { fileId: file.id, binary: true, hunks: [] };
 
-    return this.#diffFileReads(async () => {
+    return this.#diffFileReadsLimit(async () => {
       // A request may wait behind other visible files, so do not retain authority from
       // the initial validation after its session has been closed or evicted.
       const current = this.#diffFile(request);

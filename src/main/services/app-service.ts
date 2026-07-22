@@ -27,15 +27,12 @@ import type {
 import { expandWorktreeTemplate, worktreePathForBranch } from '../../shared/paths';
 import { isSettings } from '../../shared/settings';
 import { ApprovalManager } from '../approvals';
-import type { CommandRunner } from '../commands';
+import { CommandRunner } from '../commands';
 import { GitService } from './git-service';
 import { GitHubService } from './github-service';
 import type { StateStore } from '../store';
 
 const pullRequestLookupConcurrency = 5;
-// Background hydration uses at most half of CommandRunner's aggregate capacity so
-// explicit refreshes and other interactive reads always have room to start.
-const backgroundPullRequestLookupConcurrency = 4;
 const pullRequestFreshnessMs = 30_000;
 
 interface AppServiceOptions {
@@ -46,6 +43,13 @@ interface AppServiceOptions {
 }
 
 export class AppService {
+  // Background hydration won't use CommandRunner's full aggregate capacity so
+  // explicit refreshes and other interactive reads always have room to start.
+  static readonly maximumConcurrentBackgroundPullRequestLookups = Math.max(
+    1,
+    Math.floor(CommandRunner.maximumConcurrentAutomatedCommands / 2),
+  );
+
   readonly git: GitService;
   readonly github: GitHubService;
   readonly approvals: ApprovalManager;
@@ -55,7 +59,9 @@ export class AppService {
   readonly #homeDirectory: string;
   readonly #systemLocale: string;
   readonly #pullRequestLookups = new Map<string, Promise<PullRequest | undefined>>();
-  readonly #backgroundPullRequestLookups = pLimit(backgroundPullRequestLookupConcurrency);
+  readonly #backgroundPullRequestLookupsLimit = pLimit(
+    AppService.maximumConcurrentBackgroundPullRequestLookups,
+  );
   readonly #pullRequestRefreshedAt = new Map<string, number>();
   readonly #projectRefreshVersions = new Map<string, number>();
 
@@ -391,7 +397,7 @@ export class AppService {
     const startLookup = (): Promise<PullRequest | undefined> =>
       this.github.pullRequest(worktree);
     const lookup = (
-      background ? this.#backgroundPullRequestLookups(startLookup) : startLookup()
+      background ? this.#backgroundPullRequestLookupsLimit(startLookup) : startLookup()
     )
       .then((pullRequest) => {
         this.#pullRequestRefreshedAt.set(lookupKey, this.#now());
