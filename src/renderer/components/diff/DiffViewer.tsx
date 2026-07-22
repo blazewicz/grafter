@@ -649,9 +649,6 @@ export function DiffViewer({
               <GitCommitHorizontal size={16} />
               <div className={styles.commitToolbarCopy} ref={commitControlsRef}>
                 <div className={styles.commitToolbarPrimary}>
-                  <strong title={session.commit.title}>
-                    {session.commit.title || 'Untitled commit'}
-                  </strong>
                   <code title={session.commit.hash}>
                     {session.commit.hash.slice(0, 7)}
                   </code>
@@ -662,6 +659,9 @@ export function DiffViewer({
                     onCopy={copyCommitHash}
                     compact
                   />
+                  <strong title={session.commit.title}>
+                    {session.commit.title || 'Untitled commit'}
+                  </strong>
                 </div>
                 <div className={styles.commitToolbarMeta}>
                   <span>{session.commit.authorName}</span>
