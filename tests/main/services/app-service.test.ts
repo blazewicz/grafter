@@ -245,13 +245,18 @@ branch refs/heads/branch-${index}`,
     const startsByBranch = new Map<string, number>();
     const backgroundLimit = AppService.maximumConcurrentBackgroundPullRequestLookups;
     const runner = new StubCommandRunner(async (spec) => {
-      if (spec.tool === 'git') return { stdout: worktrees };
+      if (spec.tool === 'git' && spec.args[0] === 'worktree') {
+        return { stdout: worktrees };
+      }
+      if (spec.tool === 'git' && spec.args[0] === 'status') {
+        resolveInteractiveStarted?.();
+        return { stdout: '' };
+      }
       const branch = spec.args[2] ?? '';
       starts += 1;
       active += 1;
       startsByBranch.set(branch, (startsByBranch.get(branch) ?? 0) + 1);
       if (active === backgroundLimit) resolveBackgroundFull?.();
-      if (active === backgroundLimit + 1) resolveInteractiveStarted?.();
       await lookupGate;
       active -= 1;
       completed += 1;
@@ -262,21 +267,21 @@ branch refs/heads/branch-${index}`,
     const snapshot = await service.refresh();
 
     await backgroundFull;
-    await new Promise((resolve) => setTimeout(resolve, 0));
     const queuedWorktree = snapshot.projects[0]?.worktrees[4];
-    const interactiveWorktree = snapshot.projects[0]?.worktrees[5];
+    const interactiveWorktree = snapshot.projects[0]?.worktrees[0];
     if (!queuedWorktree || !interactiveWorktree) {
       throw new Error('Expected queued and interactive worktrees.');
     }
     const duplicateQueued = service.refreshPullRequest(queuedWorktree.id);
-    const interactive = service.refreshPullRequest(interactiveWorktree.id);
+    const interactive = service.worktreeStatus(interactiveWorktree.id);
     await interactiveStarted;
 
-    expect(active).toBe(backgroundLimit + 1);
-    expect(starts).toBe(backgroundLimit + 1);
+    await expect(interactive).resolves.toBe('clean');
+    expect(active).toBe(backgroundLimit);
+    expect(starts).toBe(backgroundLimit);
     expect(startsByBranch.get(queuedWorktree.branch)).toBeUndefined();
     releaseLookups?.();
-    await Promise.all([duplicateQueued, interactive, allCompleted]);
+    await Promise.all([duplicateQueued, allCompleted]);
     expect(startsByBranch.get(queuedWorktree.branch)).toBe(1);
     expect(starts).toBe(6);
   });

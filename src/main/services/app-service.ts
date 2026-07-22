@@ -1,7 +1,6 @@
 import path from 'node:path';
 import os from 'node:os';
 import pLimit from 'p-limit';
-import pMap from 'p-map';
 import { isCommandContext } from '../../shared/command-context';
 import type {
   AppSnapshot,
@@ -32,7 +31,6 @@ import { GitService } from './git-service';
 import { GitHubService } from './github-service';
 import type { StateStore } from '../store';
 
-const pullRequestLookupConcurrency = 5;
 const pullRequestFreshnessMs = 30_000;
 
 interface AppServiceOptions {
@@ -376,9 +374,9 @@ export class AppService {
   }
 
   async #hydratePullRequests(worktrees: readonly Worktree[]): Promise<void> {
-    await pMap(worktrees, (worktree) => this.#refreshPullRequest(worktree, true), {
-      concurrency: pullRequestLookupConcurrency,
-    });
+    await Promise.all(
+      worktrees.map((worktree) => this.#refreshPullRequest(worktree, true)),
+    );
   }
 
   #refreshPullRequest(
