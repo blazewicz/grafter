@@ -60,11 +60,9 @@ export class AppService {
   readonly #backgroundPullRequestLookupsLimit = pLimit(
     AppService.maximumConcurrentBackgroundPullRequestLookups,
   );
+  readonly #projectOperationLimits = new Map<string, ReturnType<typeof pLimit>>();
   readonly #pullRequestRefreshedAt = new Map<string, number>();
   readonly #projectRefreshVersions = new Map<string, number>();
-  // Each project has an independent queue. Mutations hold their queue slot through
-  // the authoritative worktree refresh; topology refreshes use the same queue.
-  readonly #projectOperations = new Map<string, ReturnType<typeof pLimit>>();
 
   constructor(
     readonly store: StateStore,
@@ -124,7 +122,7 @@ export class AppService {
       (project) => previousTrees.get(project.id) ?? { ...project, worktrees: [] },
     );
     for (const project of this.store.state.projects) {
-      await this.#runProjectOperation(project.id, () =>
+      await this.#runProjectOperationSerialized(project.id, () =>
         this.#refreshProject(project, true),
       );
     }
@@ -136,7 +134,7 @@ export class AppService {
 
   async refreshProject(projectId: string): Promise<AppSnapshot> {
     const project = this.#project(projectId);
-    await this.#runProjectOperation(project.id, () =>
+    await this.#runProjectOperationSerialized(project.id, () =>
       this.#refreshProject(project, false),
     );
     this.#prunePullRequestCache(this.#trees.flatMap((item) => item.worktrees));
@@ -165,7 +163,7 @@ export class AppService {
     if (!path.isAbsolute(request.path))
       throw new Error('The worktree path must be absolute.');
 
-    const { project, createdWorktree } = await this.#runProjectOperation(
+    const { project, createdWorktree } = await this.#runProjectOperationSerialized(
       request.projectId,
       async () => {
         const project = this.#project(request.projectId);
@@ -195,7 +193,7 @@ export class AppService {
     const branch = request.branch.trim();
     if (!branch) throw new Error('Choose a branch first.');
     const projectId = this.#worktree(request.worktreeId).projectId;
-    return this.#runProjectOperation(projectId, async () => {
+    return this.#runProjectOperationSerialized(projectId, async () => {
       const worktree = this.#worktree(request.worktreeId);
       if (branch === worktree.branch) {
         throw new Error(`${branch} is already checked out in this worktree.`);
@@ -228,7 +226,7 @@ export class AppService {
         this.#prunePullRequestCache(this.#trees.flatMap((item) => item.worktrees));
       },
       (executePreparedCommand) =>
-        this.#runProjectOperation(project.id, executePreparedCommand),
+        this.#runProjectOperationSerialized(project.id, executePreparedCommand),
     );
   }
 
@@ -335,11 +333,14 @@ export class AppService {
     return this.refresh();
   }
 
-  #runProjectOperation<T>(projectId: string, operation: () => Promise<T>): Promise<T> {
-    let limit = this.#projectOperations.get(projectId);
+  #runProjectOperationSerialized<T>(
+    projectId: string,
+    operation: () => Promise<T>,
+  ): Promise<T> {
+    let limit = this.#projectOperationLimits.get(projectId);
     if (!limit) {
       limit = pLimit(1);
-      this.#projectOperations.set(projectId, limit);
+      this.#projectOperationLimits.set(projectId, limit);
     }
     return limit(operation);
   }
