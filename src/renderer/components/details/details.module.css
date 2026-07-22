@@ -228,24 +228,27 @@
 .branch-card {
   position: relative;
   margin-top: 12px;
+}
+
+.branch-section {
+  z-index: 2;
+  position: relative;
+  padding: 11px 13px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface);
 }
 
-.branch-section {
-  padding: 11px 13px;
-}
-
 .branch-title-row {
   min-width: 0;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 5px;
 }
 
 .branch-title-icon {
   flex: 0 0 auto;
+  margin-top: 1px;
   color: var(--accent);
 }
 
@@ -267,11 +270,13 @@
 
 .comparison-row {
   min-width: 0;
-  min-height: 30px;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
-  margin: 7px 0 -2px 23px;
+  gap: 6px;
+  margin: 3px 34px 0 23px;
+  color: var(--faint);
+  font-size: 10.5px;
 }
 
 .comparison-picker {
@@ -279,17 +284,15 @@
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 4px;
-  color: var(--faint);
-  font-size: 10.5px;
 }
 
 .comparison-menu-button {
   min-width: 0;
-  height: 23px;
+  height: 19px;
   display: inline-flex;
   align-items: center;
   gap: 3px;
+  margin: -2px -4px;
   padding: 0 4px;
   border: 0;
   border-radius: 5px;
@@ -320,7 +323,7 @@
 .comparison-menu {
   z-index: 20;
   position: absolute;
-  top: calc(100% + 6px);
+  top: calc(100% + 5px);
   left: -6px;
   width: 292px;
   padding: 6px;
@@ -381,20 +384,14 @@
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-left: auto;
+  gap: 6px;
   color: var(--faint);
-  font-family: 'SFMono-Regular', monospace;
-  font-size: 10px;
   white-space: nowrap;
 }
 
-.comparison-stats span strong {
-  color: #c7c8cd;
-  font-weight: 620;
-}
-
 .comparison-stats > strong {
+  font-family: 'SFMono-Regular', monospace;
+  font-size: 10px;
   font-weight: 650;
 }
 
@@ -410,21 +407,22 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  margin-left: auto;
   color: var(--faint);
   font-size: 10px;
 }
 
-.comparison-row > .section-action-button {
-  flex: 0 0 auto;
-  margin-left: 1px;
+.branch-title-row > .section-action-button {
+  margin: -3px -3px -3px auto;
 }
 
 .pr-subsection {
+  position: relative;
+  margin: 0 8px;
   padding: 10px 13px 11px;
-  border-top: 1px solid var(--line);
-  border-radius: 0 0 8px 8px;
-  background: rgba(255, 255, 255, 0.012);
+  border: 1px solid var(--line);
+  border-top: 0;
+  border-radius: 0 0 7px 7px;
+  background: rgba(28, 28, 29, 0.96);
 }
 
 .section-action-button,

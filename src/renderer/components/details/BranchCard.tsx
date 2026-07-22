@@ -88,7 +88,8 @@ export function BranchCard({
   const [switchingBranch, setSwitchingBranch] = useState(false);
   const [updatingComparison, setUpdatingComparison] = useState(false);
   const [localComparison, setLocalComparison] = useState<LocalComparison>();
-  const cardRef = useRef<HTMLElement>(null);
+  const branchPickerRef = useRef<HTMLDivElement>(null);
+  const comparisonPickerRef = useRef<HTMLDivElement>(null);
   const activeLocalComparison =
     localComparison?.worktreeId === details.id && localComparison.head === details.head
       ? localComparison
@@ -115,7 +116,9 @@ export function BranchCard({
   useEffect(() => {
     if (!openMenu) return;
     const closeOnOutsideClick = (event: PointerEvent): void => {
-      if (!cardRef.current?.contains(event.target as Node)) setOpenMenu(undefined);
+      const picker =
+        openMenu === 'branch' ? branchPickerRef.current : comparisonPickerRef.current;
+      if (!picker?.contains(event.target as Node)) setOpenMenu(undefined);
     };
     const closeOnEscape = (event: KeyboardEvent): void => {
       if (event.key === 'Escape') setOpenMenu(undefined);
@@ -193,12 +196,12 @@ export function BranchCard({
   const automaticSource = pullRequest ? 'Pull request base' : 'Repository default';
 
   return (
-    <section className={styles.branchCard} aria-label="Checked-out branch" ref={cardRef}>
+    <section className={styles.branchCard} aria-label="Checked-out branch">
       <div className={styles.branchSection}>
         <span className={styles.sectionLabel}>CHECKED-OUT BRANCH</span>
         <div className={styles.branchTitleRow}>
           <GitBranch className={styles.branchTitleIcon} size={16} aria-hidden="true" />
-          <div className={styles.branchPicker}>
+          <div className={styles.branchPicker} ref={branchPickerRef}>
             <span className={styles.branchPickerTrigger}>
               <button
                 className={styles.branchMenuButton}
@@ -248,11 +251,26 @@ export function BranchCard({
             onCopy={() => onCopy(details.branch)}
             className={styles.branchCopyButton}
           />
+          {targetBranch && onOpenDiff && (
+            <button
+              className={styles.sectionActionButton}
+              aria-label="View branch diff"
+              title="View branch diff"
+              disabled={diffOpening || updatingComparison}
+              onClick={onOpenDiff}
+            >
+              {diffOpening ? (
+                <LoaderCircle className="spin" size={14} />
+              ) : (
+                <FileDiff size={14} />
+              )}
+            </button>
+          )}
         </div>
 
         <div className={styles.comparisonRow}>
-          <div className={styles.comparisonPicker}>
-            <span>Compared with</span>
+          <span>Compared with</span>
+          <div className={styles.comparisonPicker} ref={comparisonPickerRef}>
             <button
               className={styles.comparisonMenuButton}
               aria-label="Choose comparison base"
@@ -308,9 +326,11 @@ export function BranchCard({
                 className={styles.comparisonStats}
                 aria-label="Branch comparison stats"
               >
+                <span aria-hidden="true">·</span>
                 <span>
-                  <strong>{diff.files}</strong> {diff.files === 1 ? 'file' : 'files'}
+                  {diff.files} {diff.files === 1 ? 'file' : 'files'}
                 </span>
+                <span aria-hidden="true">·</span>
                 <strong
                   className={styles.positive}
                   aria-label={`${diff.additions} additions`}
@@ -325,21 +345,6 @@ export function BranchCard({
                 </strong>
               </div>
             )
-          )}
-          {targetBranch && onOpenDiff && (
-            <button
-              className={styles.sectionActionButton}
-              aria-label="View branch diff"
-              title="View branch diff"
-              disabled={diffOpening || updatingComparison}
-              onClick={onOpenDiff}
-            >
-              {diffOpening ? (
-                <LoaderCircle className="spin" size={14} />
-              ) : (
-                <FileDiff size={14} />
-              )}
-            </button>
           )}
         </div>
       </div>
