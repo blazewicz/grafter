@@ -9,6 +9,7 @@ import type {
   OpenBranchDiffRequest,
   OpenCommitDiffRequest,
   OpenDiffFileRequest,
+  SetComparisonBaseRequest,
   Settings,
   SwitchBranchRequest,
 } from '../shared/contracts';
@@ -33,6 +34,8 @@ const api: GrafterApi = {
   approveCommand: (approvalId) => ipcRenderer.invoke(ipc.approveCommand, approvalId),
   rejectCommand: (approvalId) => ipcRenderer.invoke(ipc.rejectCommand, approvalId),
   getWorktreeDetails: (worktreeId) => ipcRenderer.invoke(ipc.worktreeDetails, worktreeId),
+  setComparisonBase: (request: SetComparisonBaseRequest) =>
+    ipcRenderer.invoke(ipc.setComparisonBase, request),
   openDiff: (worktreeId) => ipcRenderer.invoke(ipc.openDiff, worktreeId),
   openBranchDiff: (request: OpenBranchDiffRequest) =>
     ipcRenderer.invoke(ipc.openBranchDiff, request),

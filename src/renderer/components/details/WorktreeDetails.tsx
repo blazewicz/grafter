@@ -1,24 +1,8 @@
-import {
-  Check,
-  ChevronDown,
-  Circle,
-  FolderOpen,
-  FileDiff,
-  GitBranch,
-  GitCompareArrows,
-  GitMerge,
-  GitPullRequest,
-  GitPullRequestClosed,
-  GitPullRequestDraft,
-  LoaderCircle,
-  SquareArrowOutUpRight,
-} from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+import { Check, ChevronDown, Circle, FolderOpen } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type {
   AppSnapshot,
   EditorTool,
-  PullRequestState,
   Settings,
   Worktree,
   WorktreeDetails as WorktreeDetailsData,
@@ -26,47 +10,18 @@ import type {
 } from '../../../shared/contracts';
 import { displayWorktreePath } from '../../../shared/path-display';
 import { api, friendlyError } from '../../grafter-api';
-import { BranchPicker } from '../branches/BranchPicker';
 import { FinderMark, VisualStudioCodeMark } from '../ui/BrandMarks';
 import { CopyButton } from '../ui/CopyButton';
 import styles from './details.module.css';
+import { BranchCard } from './BranchCard';
 import { LatestCommitCard } from './LatestCommitCard';
+
+export { openPullRequestLink } from './BranchCard';
 
 const editorOptions: readonly {
   id: EditorTool;
   label: string;
 }[] = [{ id: 'vscode', label: 'Visual Studio Code' }];
-
-const pullRequestStatePresentation = {
-  OPEN: { icon: GitPullRequest, label: 'Open' },
-  DRAFT: { icon: GitPullRequestDraft, label: 'Draft' },
-  MERGED: { icon: GitMerge, label: 'Merged' },
-  CLOSED: { icon: GitPullRequestClosed, label: 'Closed' },
-} satisfies Record<PullRequestState, { icon: LucideIcon; label: string }>;
-
-function PullRequestStateIcon({ state }: { state: PullRequestState }): React.JSX.Element {
-  const presentation = pullRequestStatePresentation[state];
-  const StateIcon = presentation.icon;
-
-  return (
-    <span
-      className={styles.prStateIcon}
-      data-state={state}
-      role="img"
-      aria-label={`Pull request status: ${presentation.label.toLowerCase()}`}
-      title={`Status: ${presentation.label}`}
-    >
-      <StateIcon size={16} aria-hidden="true" />
-    </span>
-  );
-}
-
-export function openPullRequestLink(
-  url: string,
-  onError: (message: string) => void,
-): void {
-  void api.openExternal(url).catch((caught: unknown) => onError(friendlyError(caught)));
-}
 
 export function WorktreeDetails({
   homeDirectory,
@@ -97,29 +52,16 @@ export function WorktreeDetails({
 }): React.JSX.Element {
   const [editor, setEditor] = useState<EditorTool>('vscode');
   const [editorMenuOpen, setEditorMenuOpen] = useState(false);
-  const [branchMenuOpen, setBranchMenuOpen] = useState(false);
-  const [branches, setBranches] = useState<string[]>([]);
-  const [loadingBranches, setLoadingBranches] = useState(false);
-  const [switchingBranch, setSwitchingBranch] = useState(false);
   const [copiedText, setCopiedText] = useState<string>();
   const editorMenuRef = useRef<HTMLDivElement>(null);
-  const branchMenuRef = useRef<HTMLDivElement>(null);
   const copyResetTimer = useRef<number | undefined>(undefined);
   const selectedEditorLabel =
     editorOptions.find((option) => option.id === editor)?.label ?? 'IDE';
-  const pullRequest = details.pullRequest;
   const commit = details.commit;
   const mainClonePath =
     projectWorktrees.find((worktree) => worktree.isMain)?.path ?? details.path;
   const statusClass =
     status === 'dirty' ? styles.dirty : status === undefined ? styles.checking : '';
-  const branchSwitchDisabledReason = switchingBranch
-    ? 'Switching branches…'
-    : status === 'dirty'
-      ? 'Commit, stash, or discard your changes before switching branches'
-      : status === undefined
-        ? 'Checking for local changes'
-        : undefined;
 
   useEffect(() => {
     if (!editorMenuOpen) return;
@@ -141,45 +83,6 @@ export function WorktreeDetails({
     };
   }, [editorMenuOpen]);
 
-  useEffect(() => {
-    if (!branchMenuOpen) return;
-
-    const closeOnOutsideClick = (event: PointerEvent): void => {
-      if (!branchMenuRef.current?.contains(event.target as Node)) {
-        setBranchMenuOpen(false);
-      }
-    };
-    const closeOnEscape = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') setBranchMenuOpen(false);
-    };
-
-    document.addEventListener('pointerdown', closeOnOutsideClick);
-    document.addEventListener('keydown', closeOnEscape);
-    return () => {
-      document.removeEventListener('pointerdown', closeOnOutsideClick);
-      document.removeEventListener('keydown', closeOnEscape);
-    };
-  }, [branchMenuOpen]);
-
-  useEffect(() => {
-    if (!branchMenuOpen) return;
-    let active = true;
-    void api
-      .listBranches(details.projectId)
-      .then((next) => {
-        if (active) setBranches(next);
-      })
-      .catch((caught: unknown) => {
-        if (active) onError(friendlyError(caught));
-      })
-      .finally(() => {
-        if (active) setLoadingBranches(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [branchMenuOpen, details.projectId, onError]);
-
   useEffect(
     () => () => {
       if (copyResetTimer.current !== undefined) {
@@ -197,32 +100,6 @@ export function WorktreeDetails({
     setEditor(nextEditor);
     setEditorMenuOpen(false);
     reportActionError(api.openWorktreeInEditor(details.id, nextEditor));
-  };
-
-  const toggleBranchMenu = (): void => {
-    if (branchMenuOpen) {
-      setBranchMenuOpen(false);
-      return;
-    }
-    setBranches([]);
-    setLoadingBranches(true);
-    setBranchMenuOpen(true);
-  };
-
-  const switchBranch = async (branch: string): Promise<void> => {
-    setSwitchingBranch(true);
-    try {
-      const snapshot = await api.switchBranch({
-        worktreeId: details.id,
-        branch,
-      });
-      setBranchMenuOpen(false);
-      onSnapshot(snapshot);
-    } catch (caught) {
-      onError(friendlyError(caught));
-    } finally {
-      setSwitchingBranch(false);
-    }
   };
 
   const copyText = (text: string): void => {
@@ -251,59 +128,6 @@ export function WorktreeDetails({
       <div className={styles.detailsTitleRow}>
         <div>
           <h1>{details.displayName}</h1>
-          <div className={styles.checkedOutBranch}>
-            <span>Checked-out branch:</span>
-            <div className={styles.branchPicker} ref={branchMenuRef}>
-              <span className={styles.branchPickerTrigger}>
-                <button
-                  className={styles.branchMenuButton}
-                  aria-disabled={branchSwitchDisabledReason !== undefined}
-                  aria-label={
-                    branchSwitchDisabledReason
-                      ? `Switch branch unavailable: ${branchSwitchDisabledReason}`
-                      : 'Switch checked-out branch'
-                  }
-                  aria-haspopup="dialog"
-                  aria-expanded={branchMenuOpen && !branchSwitchDisabledReason}
-                  onClick={
-                    branchSwitchDisabledReason === undefined
-                      ? toggleBranchMenu
-                      : undefined
-                  }
-                >
-                  <code>{details.branch}</code>
-                  <ChevronDown size={13} />
-                </button>
-                {!branchMenuOpen && (
-                  <span className={styles.branchPickerTooltip} role="tooltip">
-                    {branchSwitchDisabledReason ?? 'Switch branch'}
-                  </span>
-                )}
-              </span>
-              {branchMenuOpen && !branchSwitchDisabledReason && (
-                <div
-                  className={styles.branchMenu}
-                  role="dialog"
-                  aria-label="Switch checked-out branch"
-                >
-                  <BranchPicker
-                    branches={branches}
-                    worktrees={projectWorktrees}
-                    currentWorktreeId={details.id}
-                    loading={loadingBranches}
-                    onSelect={(branch) => void switchBranch(branch)}
-                  />
-                </div>
-              )}
-            </div>
-            <CopyButton
-              copied={copiedText === details.branch}
-              copyLabel={`Copy ${details.branch} branch name`}
-              copiedLabel="Branch name copied"
-              onCopy={() => copyText(details.branch)}
-              className={styles.headerCopyButton}
-            />
-          </div>
         </div>
         <span
           className={`${styles.cleanBadge} ${statusClass}`}
@@ -381,6 +205,17 @@ export function WorktreeDetails({
           </div>
         </div>
       </section>
+      <BranchCard
+        details={details}
+        projectWorktrees={projectWorktrees}
+        status={status}
+        copiedText={copiedText}
+        diffOpening={diffOpening}
+        onSnapshot={onSnapshot}
+        onCopy={copyText}
+        {...(onOpenDiff ? { onOpenDiff } : {})}
+        onError={onError}
+      />
       {commit && (
         <LatestCommitCard
           key={commit.hash}
@@ -394,90 +229,6 @@ export function WorktreeDetails({
             ? { onViewChanges: () => onOpenCommitDiff(commit.hash) }
             : {})}
         />
-      )}
-      {pullRequest ? (
-        <section
-          className={styles.prCard}
-          aria-label={`Pull request #${pullRequest.number}`}
-        >
-          <span className={styles.sectionLabel}>PULL REQUEST</span>
-          <div className={styles.prTitleRow}>
-            <PullRequestStateIcon state={pullRequest.state} />
-            <div className={styles.prTitleCopy}>
-              <span className={styles.prNumber}>#{pullRequest.number}</span>
-              <strong className={styles.prTitle}>{pullRequest.title}</strong>
-            </div>
-            <div className={styles.prActions}>
-              <button
-                className={styles.sectionActionButton}
-                aria-label="Open pull request"
-                title="Open pull request"
-                onClick={() => openPullRequestLink(pullRequest.url, onError)}
-              >
-                <SquareArrowOutUpRight size={15} aria-hidden="true" />
-              </button>
-            </div>
-          </div>
-          <div className={styles.prMeta}>
-            <span>Base branch:</span>
-            <code>{pullRequest.baseBranch}</code>
-            <CopyButton
-              copied={copiedText === pullRequest.baseBranch}
-              copyLabel={`Copy ${pullRequest.baseBranch} base branch name`}
-              copiedLabel="Base branch name copied"
-              onCopy={() => copyText(pullRequest.baseBranch)}
-              className={styles.prCopyButton}
-            />
-          </div>
-        </section>
-      ) : (
-        <section className={styles.quietCard}>
-          <GitBranch size={17} />
-          <div>
-            <strong>No pull request found</strong>
-            <span>Grafter checked this branch using the GitHub CLI.</span>
-          </div>
-        </section>
-      )}
-      {details.targetBranch && details.diff && (
-        <>
-          <div className={styles.sectionHeading}>
-            <div>
-              <GitCompareArrows size={16} />
-              <span>
-                Changes against <strong>{details.targetBranch}</strong>
-              </span>
-            </div>
-            {onOpenDiff && (
-              <button
-                className={styles.viewDiffButton}
-                disabled={diffOpening}
-                onClick={onOpenDiff}
-              >
-                {diffOpening ? (
-                  <LoaderCircle className="spin" size={13} />
-                ) : (
-                  <FileDiff size={13} />
-                )}
-                {diffOpening ? 'Opening…' : 'View diff'}
-              </button>
-            )}
-          </div>
-          <section className={styles.statsGrid}>
-            <div>
-              <span>FILES CHANGED</span>
-              <strong>{details.diff.files}</strong>
-            </div>
-            <div className={styles.positive}>
-              <span>ADDITIONS</span>
-              <strong>+{details.diff.additions}</strong>
-            </div>
-            <div className={styles.negative}>
-              <span>DELETIONS</span>
-              <strong>−{details.diff.deletions}</strong>
-            </div>
-          </section>
-        </>
       )}
     </div>
   );

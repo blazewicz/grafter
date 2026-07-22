@@ -7,11 +7,13 @@ import { defaultSettings, normalizeSettings } from '../shared/settings';
 export interface PersistedState {
   projects: Project[];
   settings: Settings;
+  comparisonBaseOverrides: Record<string, { sourceBranch: string; targetBranch: string }>;
 }
 
 const initialState: PersistedState = {
   projects: [],
   settings: defaultSettings,
+  comparisonBaseOverrides: {},
 };
 
 interface StateStoreOptions {
@@ -37,6 +39,9 @@ export class StateStore {
       this.#state = {
         projects: Array.isArray(parsed.projects) ? parsed.projects : [],
         settings: normalizeSettings(parsed.settings),
+        comparisonBaseOverrides: normalizeComparisonBaseOverrides(
+          parsed.comparisonBaseOverrides,
+        ),
       };
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
@@ -55,6 +60,30 @@ export class StateStore {
       this.#state = draft;
     });
   }
+}
+
+function normalizeComparisonBaseOverrides(
+  value: unknown,
+): PersistedState['comparisonBaseOverrides'] {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const overrides = value as Record<string, unknown>;
+  return Object.fromEntries(
+    Object.entries(overrides).filter(
+      (entry): entry is [string, { sourceBranch: string; targetBranch: string }] => {
+        const override = entry[1];
+        return (
+          Boolean(entry[0]) &&
+          Boolean(override) &&
+          typeof override === 'object' &&
+          !Array.isArray(override) &&
+          typeof (override as Record<string, unknown>).sourceBranch === 'string' &&
+          Boolean((override as Record<string, unknown>).sourceBranch) &&
+          typeof (override as Record<string, unknown>).targetBranch === 'string' &&
+          Boolean((override as Record<string, unknown>).targetBranch)
+        );
+      },
+    ),
+  );
 }
 
 async function persistState(file: string, state: PersistedState): Promise<void> {

@@ -1307,6 +1307,71 @@ describe('AppService repository operation serialization', () => {
 });
 
 describe('AppService branch comparisons', () => {
+  it('persists a worktree comparison override and uses it when opening the diff', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-app-service-'));
+    const store = new StateStore(directory);
+    await store.load();
+    await store.update((state) => state.projects.push(project));
+    const runner = new StubCommandRunner((spec) => {
+      if (spec.tool === 'git' && spec.args[0] === 'worktree') {
+        return { stdout: worktreeOutput };
+      }
+      if (spec.tool === 'github') return { exitCode: 1 };
+      throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
+    });
+    const service = new AppService(store, runner);
+    const snapshot = await service.refresh();
+    const feature = snapshot.projects[0]?.worktrees[1];
+    if (!feature) throw new Error('Expected the feature worktree.');
+    vi.spyOn(service.git, 'listBranches').mockResolvedValue([
+      'feature/stacked',
+      'main',
+      'release/next',
+    ]);
+    const comparison = vi.spyOn(service.git, 'comparison').mockResolvedValue({
+      automaticBaseBranch: 'main',
+      targetBranch: 'release/next',
+      comparisonBaseOverride: 'release/next',
+      diff: { files: 2, additions: 8, deletions: 3 },
+    });
+    const session: DiffSession = {
+      kind: 'branch',
+      id: 'override-session',
+      projectId: project.id,
+      sourceWorktreeId: feature.id,
+      branch: feature.branch,
+      targetBranch: 'release/next',
+      baseSha: 'base',
+      headSha: 'head',
+      stats: { files: 2, additions: 8, deletions: 3 },
+      files: [],
+    };
+    const openDiff = vi.spyOn(service.git, 'openDiff').mockResolvedValue(session);
+
+    await expect(
+      service.setComparisonBase({
+        worktreeId: feature.id,
+        targetBranch: 'release/next',
+      }),
+    ).resolves.toMatchObject({ targetBranch: 'release/next' });
+    expect(store.state.comparisonBaseOverrides[feature.id]).toEqual({
+      sourceBranch: 'feature/stacked',
+      targetBranch: 'release/next',
+    });
+    expect(comparison).toHaveBeenCalledWith(project, feature, 'release/next');
+
+    await expect(service.openDiff(feature.id)).resolves.toEqual(session);
+    expect(openDiff).toHaveBeenCalledWith(project, feature, 'release/next');
+
+    comparison.mockResolvedValueOnce({
+      automaticBaseBranch: 'main',
+      targetBranch: 'main',
+      diff: { files: 1, additions: 2, deletions: 1 },
+    });
+    await service.setComparisonBase({ worktreeId: feature.id });
+    expect(store.state.comparisonBaseOverrides[feature.id]).toBeUndefined();
+  });
+
   it('binds editor access only to a worktree checked out on the source branch', async () => {
     const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-app-service-'));
     const store = new StateStore(directory);
@@ -1365,6 +1430,9 @@ describe('AppService branch comparisons', () => {
     await expect(
       service.openBranchDiff({ projectId: 'project', sourceBranch: 'main' }),
     ).rejects.toThrow('Invalid branch comparison request');
+    await expect(
+      service.setComparisonBase({ worktreeId: 'project', targetBranch: 42 }),
+    ).rejects.toThrow('Invalid comparison base request');
   });
 });
 

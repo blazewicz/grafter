@@ -14,6 +14,7 @@ export const ipc = {
   approveCommand: 'grafter:approve-command',
   rejectCommand: 'grafter:reject-command',
   worktreeDetails: 'grafter:worktree-details',
+  setComparisonBase: 'grafter:set-comparison-base',
   openDiff: 'grafter:open-diff',
   openBranchDiff: 'grafter:open-branch-diff',
   openCommitDiff: 'grafter:open-commit-diff',

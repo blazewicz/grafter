@@ -18,8 +18,10 @@ import type {
   ProjectTreeItem,
   PullRequest,
   Settings,
+  SetComparisonBaseRequest,
   SwitchBranchRequest,
   Worktree,
+  WorktreeComparison,
   WorktreeDetails,
   WorktreeStatus,
 } from '../../shared/contracts';
@@ -276,12 +278,56 @@ export class AppService {
 
   async details(worktreeId: string): Promise<WorktreeDetails> {
     const worktree = this.#worktree(worktreeId);
-    return this.git.details(this.#project(worktree.projectId), worktree);
+    return this.git.details(
+      this.#project(worktree.projectId),
+      worktree,
+      this.#comparisonBaseOverride(worktree),
+    );
+  }
+
+  async setComparisonBase(request: unknown): Promise<WorktreeComparison> {
+    if (!isSetComparisonBaseRequest(request)) {
+      throw new Error('Invalid comparison base request.');
+    }
+    const projectId = this.#worktree(request.worktreeId).projectId;
+    return this.#runProjectOperationSerialized(projectId, async () => {
+      const worktree = this.#worktree(request.worktreeId);
+      const targetBranch = request.targetBranch?.trim();
+      if (request.targetBranch !== undefined && !targetBranch) {
+        throw new Error('Choose a comparison base.');
+      }
+      if (targetBranch === worktree.branch) {
+        throw new Error('Choose a branch other than the checked-out branch.');
+      }
+      const project = this.#project(worktree.projectId);
+      if (targetBranch) {
+        const branches = await this.git.listBranches(project);
+        if (!branches.includes(targetBranch)) {
+          throw new Error('The comparison base is not a local branch.');
+        }
+      }
+      const comparison = await this.git.comparison(project, worktree, targetBranch);
+      await this.store.update((state) => {
+        if (targetBranch) {
+          state.comparisonBaseOverrides[worktree.id] = {
+            sourceBranch: worktree.branch,
+            targetBranch,
+          };
+        } else {
+          delete state.comparisonBaseOverrides[worktree.id];
+        }
+      });
+      return comparison;
+    });
   }
 
   async openDiff(worktreeId: string): Promise<DiffSession> {
     const worktree = this.#worktree(worktreeId);
-    return this.git.openDiff(this.#project(worktree.projectId), worktree);
+    return this.git.openDiff(
+      this.#project(worktree.projectId),
+      worktree,
+      this.#comparisonBaseOverride(worktree),
+    );
   }
 
   async openBranchDiff(request: unknown): Promise<DiffSession> {
@@ -523,6 +569,11 @@ export class AppService {
       if (!currentKeys.has(key)) this.#pullRequestRefreshedAt.delete(key);
     }
   }
+
+  #comparisonBaseOverride(worktree: Worktree): string | undefined {
+    const override = this.store.state.comparisonBaseOverrides[worktree.id];
+    return override?.sourceBranch === worktree.branch ? override.targetBranch : undefined;
+  }
 }
 
 function pullRequestLookupKey(worktree: Pick<Worktree, 'id' | 'branch'>): string {
@@ -542,6 +593,15 @@ function isOpenBranchDiffRequest(value: unknown): value is OpenBranchDiffRequest
     typeof request.projectId === 'string' &&
     typeof request.sourceBranch === 'string' &&
     typeof request.targetBranch === 'string'
+  );
+}
+
+function isSetComparisonBaseRequest(value: unknown): value is SetComparisonBaseRequest {
+  if (!value || typeof value !== 'object') return false;
+  const request = value as Record<string, unknown>;
+  return (
+    typeof request.worktreeId === 'string' &&
+    (request.targetBranch === undefined || typeof request.targetBranch === 'string')
   );
 }
 

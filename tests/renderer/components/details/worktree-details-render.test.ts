@@ -98,7 +98,7 @@ describe('WorktreeDetails copy controls', () => {
     expect(html).not.toContain('Show commit message');
     expect(html).not.toContain('<pre');
     expect(html).toContain('lucide-folder-open');
-    expect(html).toContain('View diff');
+    expect(html).toContain('aria-label="View branch diff"');
     expect(html).toContain('aria-label="View commit changes"');
     expect(html).not.toContain('>View changes<');
     expect(html).toContain('lucide-file-diff');
@@ -110,6 +110,12 @@ describe('WorktreeDetails copy controls', () => {
     expect(html).toContain('<h1>feature-worktree</h1>');
     expect(html).toContain('role="tooltip">Switch branch</span>');
     expect(html).toContain('<code>feature/branch</code>');
+    expect(html).toContain('CHECKED-OUT BRANCH');
+    expect(html).toContain('Compared with');
+    expect(html).toContain('aria-label="Choose comparison base"');
+    expect(html).toContain('aria-label="Branch comparison stats"');
+    expect(html).not.toContain('PULL REQUEST');
+    expect(html).not.toContain('No pull request found');
     expect(html).toContain('<code>../repo.worktrees/feature</code>');
     expect(html).not.toContain('Checked-out branches');
   });
@@ -197,12 +203,12 @@ describe('WorktreeDetails copy controls', () => {
     expect(html).toContain('PULL REQUEST');
     expect(html).toContain('>#18</span>');
     expect(html).toContain('PR from the main clone');
-    expect(html).toContain('Base branch:</span><code>main</code>');
-    expect(html).toContain('aria-label="Copy main base branch name"');
     expect(html).toContain('aria-label="Open pull request"');
     expect(html).toContain('lucide-git-pull-request');
     expect(html).toContain('lucide-square-arrow-out-up-right');
-    expect(html).toContain('Changes against <strong>main</strong>');
+    expect(html).toContain('Compared with');
+    expect(html).toContain('<code>main</code>');
+    expect(html).not.toContain('Changes against');
   });
 
   it.each([

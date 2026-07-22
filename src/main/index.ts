@@ -137,6 +137,9 @@ function registerIpc(): void {
   ipcMain.handle(ipc.worktreeDetails, (_event, worktreeId: string) =>
     service.details(worktreeId),
   );
+  ipcMain.handle(ipc.setComparisonBase, (_event, request: unknown) =>
+    service.setComparisonBase(request),
+  );
   ipcMain.handle(ipc.openDiff, (_event, worktreeId: string) =>
     service.openDiff(worktreeId),
   );
