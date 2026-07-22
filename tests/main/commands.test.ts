@@ -215,6 +215,32 @@ describe('automated command admission', () => {
     expect(updates.some((text) => text.includes('Sent SIGTERM'))).toBe(true);
     expect(updates.some((text) => text.includes('Sent SIGKILL'))).toBe(true);
   });
+
+  it('continues admitting commands after a limited task rejects', async () => {
+    const runner = new CommandRunner(() => undefined);
+    const missingCommand = runner.run({
+      context: projectContext,
+      tool: 'git',
+      executable: 'grafter-command-that-does-not-exist',
+      args: [],
+      cwd: process.cwd(),
+      purpose: 'Fail to spawn a command',
+      isReadOnly: true,
+    });
+
+    await expect(missingCommand).rejects.toThrow();
+    await expect(
+      runner.run({
+        context: projectContext,
+        tool: 'git',
+        executable: process.execPath,
+        args: ['-e', 'process.exit(0)'],
+        cwd: process.cwd(),
+        purpose: 'Run after a rejected command',
+        isReadOnly: true,
+      }),
+    ).resolves.toMatchObject({ record: { status: 'succeeded' } });
+  });
 });
 
 describe('command output auditing', () => {

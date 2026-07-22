@@ -1,6 +1,7 @@
 import { readFile, realpath } from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
+import pLimit from 'p-limit';
 import {
   projectCommandContext,
   worktreeCommandContext,
@@ -29,7 +30,6 @@ import {
 import { parseGitHubRepositoryFromRemotes } from '../../shared/github';
 import type { CommandResult, CommandSpec } from '../commands';
 import type { CommandRunner } from '../commands';
-import { TaskLimiter } from '../task-limiter';
 
 interface StoredDiffSession {
   repositoryPath: string;
@@ -45,7 +45,7 @@ export class GitService {
   static readonly maximumConcurrentDiffFileReads = 3;
 
   readonly #diffSessions = new Map<string, StoredDiffSession>();
-  readonly #diffFileReads = new TaskLimiter(GitService.maximumConcurrentDiffFileReads);
+  readonly #diffFileReads = pLimit(GitService.maximumConcurrentDiffFileReads);
 
   constructor(private readonly runner: CommandRunner) {}
 
@@ -399,7 +399,7 @@ export class GitService {
     const { file } = this.#diffFile(request);
     if (file.binary) return { fileId: file.id, binary: true, hunks: [] };
 
-    return this.#diffFileReads.run(async () => {
+    return this.#diffFileReads(async () => {
       // A request may wait behind other visible files, so do not retain authority from
       // the initial validation after its session has been closed or evicted.
       const current = this.#diffFile(request);

@@ -1,8 +1,8 @@
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import pLimit from 'p-limit';
 import { commandContextKey } from '../shared/command-context';
 import type { CommandContext, CommandRecord, ToolName } from '../shared/contracts';
-import { TaskLimiter } from './task-limiter';
 
 export interface CommandSpec {
   context: CommandContext;
@@ -30,7 +30,7 @@ interface CommandRunnerOptions {
 
 const shellSafe = /^[a-zA-Z0-9_./:@%+=,-]+$/;
 const maximumConcurrentAutomatedCommands = 8;
-const automatedCommands = new TaskLimiter(maximumConcurrentAutomatedCommands);
+const automatedCommands = pLimit(maximumConcurrentAutomatedCommands);
 
 export function quoteArg(value: string): string {
   if (shellSafe.test(value)) return value;
@@ -109,7 +109,7 @@ export class CommandRunner {
     this.#save(record);
 
     const execute = (): Promise<CommandResult> => this.#execute(spec, record);
-    return spec.tool === 'shell' ? execute() : automatedCommands.run(execute);
+    return spec.tool === 'shell' ? execute() : automatedCommands(execute);
   }
 
   #execute(spec: CommandSpec, record: CommandRecord): Promise<CommandResult> {
