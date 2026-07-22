@@ -21,7 +21,7 @@ interface StateStoreOptions {
 export class StateStore {
   readonly #file: string;
   readonly #persist: (file: string, state: PersistedState) => Promise<void>;
-  readonly #updates = pLimit(1);
+  readonly #updateLimit = pLimit(1);
   #state: PersistedState = structuredClone(initialState);
 
   constructor(userDataPath: string, options: StateStoreOptions = {}) {
@@ -48,7 +48,7 @@ export class StateStore {
   }
 
   async update(mutator: (state: PersistedState) => void): Promise<void> {
-    return this.#updates(async () => {
+    return this.#updateLimit(async () => {
       const draft = structuredClone(this.#state);
       mutator(draft);
       await this.#persist(this.#file, draft);
