@@ -28,6 +28,9 @@ export interface CommandResult {
 interface CommandRunnerOptions {
   now?: () => number;
   terminationGraceMs?: number;
+  rawOutputCharacterLimit?: number;
+  liveUpdateIntervalMs?: number;
+  onUpdateError?: (error: unknown) => void;
 }
 
 const shellSafe = /^[a-zA-Z0-9_./:@%+=,-]+$/;
@@ -44,6 +47,10 @@ export function displayCommand(executable: string, args: string[]): string {
 export class CommandRunner {
   static readonly recordsPerContext = 200;
   static readonly auditedOutputCharacterLimit = 128_000;
+  // Parsers receive complete output up to this combined stdout/stderr ceiling.
+  // Crossing it fails and terminates the command instead of silently truncating.
+  static readonly rawOutputCharacterLimit = 16_000_000;
+  static readonly liveUpdateIntervalMs = 75;
   static readonly terminationGraceMs = 1_000;
   static readonly maximumConcurrentCommands = 8;
 
@@ -52,6 +59,10 @@ export class CommandRunner {
   readonly #onUpdate: (record: CommandRecord) => void;
   readonly #now: () => number;
   readonly #terminationGraceMs: number;
+  readonly #rawOutputCharacterLimit: number;
+  readonly #liveUpdateIntervalMs: number;
+  readonly #onUpdateError: (error: unknown) => void;
+  readonly #pendingUpdates = new Map<string, ReturnType<typeof setTimeout>>();
   readonly #commandsLimit = pLimit(CommandRunner.maximumConcurrentCommands);
 
   constructor(
@@ -62,6 +73,13 @@ export class CommandRunner {
     this.#now = options.now ?? (() => performance.now());
     this.#terminationGraceMs =
       options.terminationGraceMs ?? CommandRunner.terminationGraceMs;
+    this.#rawOutputCharacterLimit =
+      options.rawOutputCharacterLimit ?? CommandRunner.rawOutputCharacterLimit;
+    this.#liveUpdateIntervalMs =
+      options.liveUpdateIntervalMs ?? CommandRunner.liveUpdateIntervalMs;
+    this.#onUpdateError =
+      options.onUpdateError ??
+      ((error) => console.error('Failed to publish command update.', error));
   }
 
   recordsFor(context: CommandContext): CommandRecord[] {
@@ -117,12 +135,14 @@ export class CommandRunner {
         shell: false,
         windowsHide: true,
       });
-      let stdout = '';
-      let stderr = '';
+      const stdoutChunks: string[] = [];
+      const stderrChunks: string[] = [];
+      let rawOutputCharacters = 0;
       let auditedOutputCharacters = 0;
       let auditOutputTruncated = false;
-      let settled = false;
-      let timedOut = false;
+      let finalized = false;
+      let terminationReason: 'timeout' | 'output-limit' | undefined;
+      let outputLimitExceeded = false;
       let terminationTimer: ReturnType<typeof setTimeout> | undefined;
       const timeoutMs = spec.execution.timeoutMs;
 
@@ -131,11 +151,7 @@ export class CommandRunner {
         if (terminationTimer) clearTimeout(terminationTimer);
       };
 
-      const append = (stream: 'stdout' | 'stderr', chunk: Buffer): void => {
-        const text = chunk.toString();
-        if (stream === 'stdout') stdout += text;
-        else stderr += text;
-
+      const appendAuditedOutput = (stream: 'stdout' | 'stderr', text: string): void => {
         const remaining =
           CommandRunner.auditedOutputCharacterLimit - auditedOutputCharacters;
         if (remaining <= 0) {
@@ -146,7 +162,7 @@ export class CommandRunner {
               text: `Command output truncated after ${CommandRunner.auditedOutputCharacterLimit.toLocaleString('en-US')} characters.\n`,
               timestamp: new Date().toISOString(),
             });
-            this.#save(record);
+            this.#save(record, true);
           }
           return;
         }
@@ -162,41 +178,72 @@ export class CommandRunner {
             timestamp,
           });
         }
+        this.#save(record, true);
+      };
+
+      const appendSystemMessage = (message: string): void => {
+        const timestamp = new Date().toISOString();
+        stderrChunks.push(`${message}\n`);
+        record.output.push({
+          stream: 'system',
+          text: `${message}\n`,
+          timestamp,
+        });
         this.#save(record);
+      };
+
+      const beginTermination = (
+        reason: 'timeout' | 'output-limit',
+        message: string,
+      ): void => {
+        if (finalized || terminationReason) return;
+        terminationReason = reason;
+        appendSystemMessage(`${message} Sent SIGTERM.`);
+        child.kill('SIGTERM');
+        terminationTimer = setTimeout(() => {
+          if (finalized) return;
+          appendSystemMessage(
+            'Command did not terminate during the grace period. Sent SIGKILL.',
+          );
+          child.kill('SIGKILL');
+        }, this.#terminationGraceMs);
+      };
+
+      const failForOutputLimit = (): void => {
+        if (outputLimitExceeded) return;
+        outputLimitExceeded = true;
+        const message = `Command output exceeded the ${this.#rawOutputCharacterLimit.toLocaleString('en-US')}-character capture limit.`;
+        if (terminationReason) appendSystemMessage(message);
+        else beginTermination('output-limit', message);
+      };
+
+      const append = (stream: 'stdout' | 'stderr', chunk: Buffer): void => {
+        if (finalized || outputLimitExceeded) return;
+        const text = chunk.toString();
+        const remaining = this.#rawOutputCharacterLimit - rawOutputCharacters;
+        const capturedText = text.slice(0, Math.max(0, remaining));
+        if (capturedText) {
+          rawOutputCharacters += capturedText.length;
+          if (stream === 'stdout') stdoutChunks.push(capturedText);
+          else stderrChunks.push(capturedText);
+          appendAuditedOutput(stream, capturedText);
+        }
+        if (capturedText.length < text.length) failForOutputLimit();
       };
 
       child.stdout.on('data', (chunk: Buffer) => append('stdout', chunk));
       child.stderr.on('data', (chunk: Buffer) => append('stderr', chunk));
       const timeoutTimer = timeoutMs
         ? setTimeout(() => {
-            if (settled) return;
-            timedOut = true;
-            const timestamp = new Date().toISOString();
+            if (finalized) return;
             const message = `Command timed out after ${timeoutMs.toLocaleString('en-US')} ms.`;
-            stderr += `${message}\n`;
-            record.output.push({
-              stream: 'system',
-              text: `${message} Sent SIGTERM.\n`,
-              timestamp,
-            });
-            this.#save(record);
-            child.kill('SIGTERM');
-            terminationTimer = setTimeout(() => {
-              if (settled) return;
-              record.output.push({
-                stream: 'system',
-                text: 'Command did not terminate during the grace period. Sent SIGKILL.\n',
-                timestamp: new Date().toISOString(),
-              });
-              this.#save(record);
-              child.kill('SIGKILL');
-            }, this.#terminationGraceMs);
+            beginTermination('timeout', message);
           }, timeoutMs)
         : undefined;
 
       child.on('error', (error) => {
-        if (settled) return;
-        settled = true;
+        if (finalized) return;
+        finalized = true;
         cleanupTimers();
         record.status = 'failed';
         record.finishedAt = new Date().toISOString();
@@ -210,15 +257,22 @@ export class CommandRunner {
         reject(error);
       });
       child.on('close', (code) => {
-        if (settled) return;
-        settled = true;
+        if (finalized) return;
+        finalized = true;
         cleanupTimers();
         record.exitCode = code ?? 1;
-        record.status = !timedOut && code === 0 ? 'succeeded' : 'failed';
+        record.status =
+          !terminationReason && !outputLimitExceeded && code === 0
+            ? 'succeeded'
+            : 'failed';
         record.finishedAt = new Date().toISOString();
         record.durationMs = Math.max(0, this.#now() - executionStartedAt);
         this.#save(record);
-        resolve({ record: structuredClone(record), stdout, stderr });
+        resolve({
+          record: structuredClone(record),
+          stdout: stdoutChunks.join(''),
+          stderr: stderrChunks.join(''),
+        });
       });
     });
   }
@@ -241,7 +295,7 @@ export class CommandRunner {
     };
   }
 
-  #save(record: CommandRecord): void {
+  #save(record: CommandRecord, coalesce = false): void {
     const contextKey = commandContextKey(record.context);
     const contextIds = this.#recordIdsByContext.get(contextKey) ?? [];
     if (!this.#records.has(record.id)) {
@@ -250,7 +304,34 @@ export class CommandRunner {
     }
     this.#records.set(record.id, record);
     this.#trimCompletedRecords(contextIds);
-    this.#onUpdate(structuredClone(record));
+    if (coalesce) this.#scheduleUpdate(record);
+    else this.#publishUpdate(record);
+  }
+
+  #scheduleUpdate(record: CommandRecord): void {
+    if (this.#pendingUpdates.has(record.id)) return;
+    const timer = setTimeout(() => {
+      this.#pendingUpdates.delete(record.id);
+      this.#notifyUpdate(record);
+    }, this.#liveUpdateIntervalMs);
+    this.#pendingUpdates.set(record.id, timer);
+  }
+
+  #publishUpdate(record: CommandRecord): void {
+    const pending = this.#pendingUpdates.get(record.id);
+    if (pending) {
+      clearTimeout(pending);
+      this.#pendingUpdates.delete(record.id);
+    }
+    this.#notifyUpdate(record);
+  }
+
+  #notifyUpdate(record: CommandRecord): void {
+    try {
+      this.#onUpdate(structuredClone(record));
+    } catch (error) {
+      this.#onUpdateError(error);
+    }
   }
 
   #trimCompletedRecords(contextIds: string[]): void {

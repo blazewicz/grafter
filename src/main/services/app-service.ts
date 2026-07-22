@@ -38,6 +38,7 @@ interface AppServiceOptions {
   systemLocale?: string;
   onSnapshotUpdate?: (snapshot: AppSnapshot) => void;
   now?: () => number;
+  onBackgroundError?: (message: string, error: unknown) => void;
 }
 
 export class AppService {
@@ -58,6 +59,7 @@ export class AppService {
   #trees: ProjectTreeItem[] = [];
   readonly #onSnapshotUpdate: (snapshot: AppSnapshot) => void;
   readonly #now: () => number;
+  readonly #onBackgroundError: (message: string, error: unknown) => void;
   readonly #homeDirectory: string;
   readonly #systemLocale: string;
   readonly #pullRequestLookups = new Map<string, Promise<PullRequest | undefined>>();
@@ -82,6 +84,8 @@ export class AppService {
       options.systemLocale ?? Intl.DateTimeFormat().resolvedOptions().locale;
     this.#onSnapshotUpdate = options.onSnapshotUpdate ?? (() => undefined);
     this.#now = options.now ?? Date.now;
+    this.#onBackgroundError =
+      options.onBackgroundError ?? ((message, error) => console.error(message, error));
   }
 
   async initialize(): Promise<void> {
@@ -120,7 +124,10 @@ export class AppService {
       this.#refreshProject(project, false),
     );
     this.#prunePullRequestCache(this.#trees.flatMap((item) => item.worktrees));
-    void this.#hydratePullRequests(worktrees).catch(() => undefined);
+    this.#startBackgroundTask(
+      this.#hydratePullRequests(worktrees),
+      'Background pull-request hydration failed.',
+    );
     return this.snapshot();
   }
 
@@ -145,7 +152,10 @@ export class AppService {
     );
     const worktrees = this.#trees.flatMap((project) => project.worktrees);
     this.#prunePullRequestCache(worktrees);
-    void this.#hydratePullRequests(worktrees).catch(() => undefined);
+    this.#startBackgroundTask(
+      this.#hydratePullRequests(worktrees),
+      'Background pull-request hydration failed.',
+    );
     return this.snapshot();
   }
 
@@ -193,7 +203,10 @@ export class AppService {
         if (!createdWorktree) {
           throw new Error('The new worktree could not be found after creation.');
         }
-        void this.#refreshPullRequest(createdWorktree, true).catch(() => undefined);
+        this.#startBackgroundTask(
+          this.#refreshPullRequest(createdWorktree, true),
+          'Background pull-request refresh failed.',
+        );
         return { project, createdWorktree };
       },
     );
@@ -226,7 +239,10 @@ export class AppService {
       if (switched?.branch !== branch) {
         throw new Error('The worktree branch could not be confirmed after switching.');
       }
-      void this.#refreshPullRequest(switched).catch(() => undefined);
+      this.#startBackgroundTask(
+        this.#refreshPullRequest(switched),
+        'Background pull-request refresh failed.',
+      );
       return this.snapshot();
     });
   }
@@ -370,6 +386,10 @@ export class AppService {
       this.#projectOperationLimits.set(projectId, limit);
     }
     return limit(operation);
+  }
+
+  #startBackgroundTask(task: Promise<unknown>, message: string): void {
+    void task.catch((error: unknown) => this.#onBackgroundError(message, error));
   }
 
   async #refreshProject(project: Project, tolerateFailure: boolean): Promise<Worktree[]> {

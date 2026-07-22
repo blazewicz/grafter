@@ -38,6 +38,40 @@ function pullRequestJson(
 }
 
 describe('AppService pull request refresh', () => {
+  it('reports unexpected background hydration errors without an unhandled rejection', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-app-service-'));
+    const store = new StateStore(directory);
+    await store.load();
+    await store.update((state) => state.projects.push(project));
+    let reportError: ((value: { message: string; error: unknown }) => void) | undefined;
+    const reportedError = new Promise<{ message: string; error: unknown }>((resolve) => {
+      reportError = resolve;
+    });
+    const runner = new StubCommandRunner((spec) => {
+      if (spec.tool === 'git' && spec.args[0] === 'worktree') {
+        return { stdout: worktreeOutput };
+      }
+      if (spec.tool === 'github') {
+        return { stdout: pullRequestJson('Background PR', 'OPEN', false) };
+      }
+      throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
+    });
+    const snapshotFailure = new Error('Snapshot subscriber failed');
+    const service = new AppService(store, runner, {
+      onSnapshotUpdate: () => {
+        throw snapshotFailure;
+      },
+      onBackgroundError: (message, error) => reportError?.({ message, error }),
+    });
+
+    const initial = await service.refresh();
+    expect(initial.projects[0]?.worktrees).toHaveLength(2);
+    await expect(reportedError).resolves.toEqual({
+      message: 'Background pull-request hydration failed.',
+      error: snapshotFailure,
+    });
+  });
+
   it('returns local worktrees before hydration, publishes PRs, and reuses recent lookups', async () => {
     const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-app-service-'));
     const store = new StateStore(directory);

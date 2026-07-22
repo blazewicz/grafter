@@ -73,7 +73,13 @@ async function createWindow(): Promise<void> {
   });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('https://')) void shell.openExternal(url);
+    if (url.startsWith('https://')) {
+      void shell
+        .openExternal(url)
+        .catch((error: unknown) =>
+          console.error(`Failed to open external URL: ${url}`, error),
+        );
+    }
     return { action: 'deny' };
   });
 
@@ -180,7 +186,7 @@ function registerIpc(): void {
   });
 }
 
-void app.whenReady().then(async () => {
+async function startApplication(): Promise<void> {
   const runner = new CommandRunner(broadcastCommand);
   service = new AppService(new StateStore(app.getPath('userData')), runner, {
     homeDirectory: app.getPath('home'),
@@ -198,9 +204,21 @@ void app.whenReady().then(async () => {
   });
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) void createWindow();
+    if (BrowserWindow.getAllWindows().length === 0) {
+      void createWindow().catch((error: unknown) =>
+        console.error('Failed to recreate the application window.', error),
+      );
+    }
   });
-});
+}
+
+void app
+  .whenReady()
+  .then(startApplication)
+  .catch((error: unknown) => {
+    console.error('Failed to start Grafter.', error);
+    app.quit();
+  });
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
