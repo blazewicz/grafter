@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApprovalManager } from '../../src/main/approvals';
 import { CommandRunner } from '../../src/main/commands';
 import type { CommandSpec } from '../../src/main/commands';
+import { StubCommandRunner } from './support/stub-command-runner';
 
 const command: CommandSpec = {
   context: { kind: 'project', projectId: 'project' },
@@ -43,5 +44,35 @@ describe('ApprovalManager', () => {
         ],
       },
     ]);
+  });
+
+  it('runs the exact prepared command once inside an execution wrapper', async () => {
+    let afterSuccess = false;
+    let wrapperUsed = false;
+    const runner = new StubCommandRunner((spec) => {
+      expect(spec).toEqual({ ...command, requiresApproval: true });
+      return {};
+    });
+    const approvals = new ApprovalManager(runner);
+    const request = approvals.prepare(
+      command,
+      'Review this command.',
+      () => {
+        afterSuccess = true;
+        return Promise.resolve();
+      },
+      async (executePreparedCommand) => {
+        wrapperUsed = true;
+        await executePreparedCommand();
+      },
+    );
+
+    await expect(approvals.approve(request.approvalId)).resolves.toBeUndefined();
+    await expect(approvals.approve(request.approvalId)).rejects.toThrow(
+      'This approval request expired. Please start the action again.',
+    );
+    expect(wrapperUsed).toBe(true);
+    expect(afterSuccess).toBe(true);
+    expect(runner.commands).toHaveLength(1);
   });
 });

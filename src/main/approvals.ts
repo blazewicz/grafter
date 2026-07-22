@@ -8,7 +8,10 @@ interface PendingApproval {
   recordId: string;
   expiresAt: number;
   afterSuccess?: () => Promise<void>;
+  execution?: ApprovalExecution;
 }
+
+type ApprovalExecution = (executePreparedCommand: () => Promise<void>) => Promise<void>;
 
 export class ApprovalManager {
   readonly #pending = new Map<string, PendingApproval>();
@@ -19,6 +22,7 @@ export class ApprovalManager {
     spec: CommandSpec,
     warning: string,
     afterSuccess?: () => Promise<void>,
+    execution?: ApprovalExecution,
   ): ApprovalRequest {
     const approvalId = randomUUID();
     const approvedSpec = { ...spec, requiresApproval: true };
@@ -28,17 +32,22 @@ export class ApprovalManager {
       recordId: command.id,
       expiresAt: Date.now() + 5 * 60_000,
       ...(afterSuccess ? { afterSuccess } : {}),
+      ...(execution ? { execution } : {}),
     });
     return { approvalId, command, warning };
   }
 
   async approve(approvalId: string): Promise<void> {
     const pending = this.#take(approvalId);
-    const result = await this.runner.run(pending.spec, pending.recordId);
-    if (result.record.exitCode !== 0) {
-      throw new Error(result.stderr.trim() || 'The approved command failed.');
-    }
-    await pending.afterSuccess?.();
+    const executePreparedCommand = async (): Promise<void> => {
+      const result = await this.runner.run(pending.spec, pending.recordId);
+      if (result.record.exitCode !== 0) {
+        throw new Error(result.stderr.trim() || 'The approved command failed.');
+      }
+      await pending.afterSuccess?.();
+    };
+    if (pending.execution) await pending.execution(executePreparedCommand);
+    else await executePreparedCommand();
   }
 
   reject(approvalId: string): void {
