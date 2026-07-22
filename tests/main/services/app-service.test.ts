@@ -870,6 +870,72 @@ describe('AppService repository operation serialization', () => {
       projects: [{ worktrees: [{ branch: 'main' }, { branch: 'release/0.1' }] }],
     });
   });
+
+  it('does not constrain non-topology reads during an active mutation', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-app-service-'));
+    const store = new StateStore(directory);
+    await store.load();
+    await store.update((state) => state.projects.push(project));
+    const switchStarted = deferred<void>();
+    const releaseSwitch = deferred<void>();
+    let switched = false;
+    const switchedOutput = worktreeOutput.replace(
+      'branch refs/heads/feature/stacked',
+      'branch refs/heads/release/0.1',
+    );
+    const runner = new StubCommandRunner(async (spec) => {
+      if (spec.tool === 'git' && spec.args[0] === 'switch') {
+        switchStarted.resolve();
+        await releaseSwitch.promise;
+        switched = true;
+        return {};
+      }
+      if (spec.tool === 'git' && spec.args[0] === 'worktree') {
+        return { stdout: switched ? switchedOutput : worktreeOutput };
+      }
+      if (spec.tool === 'github') return { exitCode: 1 };
+      throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
+    });
+    const service = new AppService(store, runner);
+    const initial = await service.refresh();
+    const feature = initial.projects[0]?.worktrees[1];
+    if (!feature) throw new Error('Expected the feature worktree.');
+    const diffSession: DiffSession = {
+      kind: 'branch',
+      id: 'session',
+      projectId: project.id,
+      sourceWorktreeId: feature.id,
+      branch: feature.branch,
+      targetBranch: 'main',
+      baseSha: 'base',
+      headSha: feature.head,
+      stats: { files: 0, additions: 0, deletions: 0 },
+      files: [],
+    };
+    const listBranches = vi
+      .spyOn(service.git, 'listBranches')
+      .mockResolvedValue(['main', feature.branch]);
+    const status = vi.spyOn(service.git, 'status').mockResolvedValue('clean');
+    const openDiff = vi.spyOn(service.git, 'openDiff').mockResolvedValue(diffSession);
+
+    const switching = service.switchBranch({
+      worktreeId: feature.id,
+      branch: 'release/0.1',
+    });
+    await switchStarted.promise;
+    const reads = Promise.all([
+      service.listBranches(project.id),
+      service.worktreeStatus(feature.id),
+      service.openDiff(feature.id),
+    ]);
+
+    expect(listBranches).toHaveBeenCalledOnce();
+    expect(status).toHaveBeenCalledOnce();
+    expect(openDiff).toHaveBeenCalledOnce();
+    await reads;
+    releaseSwitch.resolve();
+    await switching;
+  });
 });
 
 describe('AppService branch comparisons', () => {

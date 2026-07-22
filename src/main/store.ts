@@ -1,5 +1,6 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import pLimit from 'p-limit';
 import type { Project, Settings } from '../shared/contracts';
 import { defaultSettings, normalizeSettings } from '../shared/settings';
 
@@ -20,8 +21,8 @@ interface StateStoreOptions {
 export class StateStore {
   readonly #file: string;
   readonly #persist: (file: string, state: PersistedState) => Promise<void>;
+  readonly #updates = pLimit(1);
   #state: PersistedState = structuredClone(initialState);
-  #updateTail: Promise<void> = Promise.resolve();
 
   constructor(userDataPath: string, options: StateStoreOptions = {}) {
     this.#file = path.join(userDataPath, 'grafter-state.json');
@@ -47,14 +48,12 @@ export class StateStore {
   }
 
   async update(mutator: (state: PersistedState) => void): Promise<void> {
-    const transaction = this.#updateTail.then(async () => {
+    return this.#updates(async () => {
       const draft = structuredClone(this.#state);
       mutator(draft);
       await this.#persist(this.#file, draft);
       this.#state = draft;
     });
-    this.#updateTail = transaction.catch(() => undefined);
-    return transaction;
   }
 }
 

@@ -27,7 +27,6 @@ import { expandWorktreeTemplate, worktreePathForBranch } from '../../shared/path
 import { isSettings } from '../../shared/settings';
 import { ApprovalManager } from '../approvals';
 import { CommandRunner } from '../commands';
-import { KeyedOperationGate } from '../keyed-operation-gate';
 import { GitService } from './git-service';
 import { GitHubService } from './github-service';
 import type { StateStore } from '../store';
@@ -63,10 +62,9 @@ export class AppService {
   );
   readonly #pullRequestRefreshedAt = new Map<string, number>();
   readonly #projectRefreshVersions = new Map<string, number>();
-  // Writes are keyed by project and span the Git mutation through its authoritative
-  // worktree refresh. Repository reads share the read side, so they may overlap each
-  // other but wait for earlier writes (and writes wait for active reads).
-  readonly #projectOperations = new KeyedOperationGate();
+  // Each project has an independent queue. Mutations hold their queue slot through
+  // the authoritative worktree refresh; topology refreshes use the same queue.
+  readonly #projectOperations = new Map<string, ReturnType<typeof pLimit>>();
 
   constructor(
     readonly store: StateStore,
@@ -126,7 +124,7 @@ export class AppService {
       (project) => previousTrees.get(project.id) ?? { ...project, worktrees: [] },
     );
     for (const project of this.store.state.projects) {
-      await this.#projectOperations.read(project.id, () =>
+      await this.#runProjectOperation(project.id, () =>
         this.#refreshProject(project, true),
       );
     }
@@ -138,7 +136,7 @@ export class AppService {
 
   async refreshProject(projectId: string): Promise<AppSnapshot> {
     const project = this.#project(projectId);
-    await this.#projectOperations.read(project.id, () =>
+    await this.#runProjectOperation(project.id, () =>
       this.#refreshProject(project, false),
     );
     this.#prunePullRequestCache(this.#trees.flatMap((item) => item.worktrees));
@@ -146,9 +144,7 @@ export class AppService {
   }
 
   async listBranches(projectId: string): Promise<string[]> {
-    return this.#projectOperations.read(projectId, () =>
-      this.git.listBranches(this.#project(projectId)),
-    );
+    return this.git.listBranches(this.#project(projectId));
   }
 
   suggestWorktreePath(projectId: string, branch: string): string {
@@ -169,7 +165,7 @@ export class AppService {
     if (!path.isAbsolute(request.path))
       throw new Error('The worktree path must be absolute.');
 
-    const { project, createdWorktree } = await this.#projectOperations.write(
+    const { project, createdWorktree } = await this.#runProjectOperation(
       request.projectId,
       async () => {
         const project = this.#project(request.projectId);
@@ -199,7 +195,7 @@ export class AppService {
     const branch = request.branch.trim();
     if (!branch) throw new Error('Choose a branch first.');
     const projectId = this.#worktree(request.worktreeId).projectId;
-    return this.#projectOperations.write(projectId, async () => {
+    return this.#runProjectOperation(projectId, async () => {
       const worktree = this.#worktree(request.worktreeId);
       if (branch === worktree.branch) {
         throw new Error(`${branch} is already checked out in this worktree.`);
@@ -232,7 +228,7 @@ export class AppService {
         this.#prunePullRequestCache(this.#trees.flatMap((item) => item.worktrees));
       },
       (executePreparedCommand) =>
-        this.#projectOperations.write(project.id, executePreparedCommand),
+        this.#runProjectOperation(project.id, executePreparedCommand),
     );
   }
 
@@ -248,18 +244,12 @@ export class AppService {
 
   async details(worktreeId: string): Promise<WorktreeDetails> {
     const worktree = this.#worktree(worktreeId);
-    return this.#projectOperations.read(worktree.projectId, () => {
-      const currentWorktree = this.#worktree(worktreeId);
-      return this.git.details(this.#project(currentWorktree.projectId), currentWorktree);
-    });
+    return this.git.details(this.#project(worktree.projectId), worktree);
   }
 
   async openDiff(worktreeId: string): Promise<DiffSession> {
     const worktree = this.#worktree(worktreeId);
-    return this.#projectOperations.read(worktree.projectId, () => {
-      const currentWorktree = this.#worktree(worktreeId);
-      return this.git.openDiff(this.#project(currentWorktree.projectId), currentWorktree);
-    });
+    return this.git.openDiff(this.#project(worktree.projectId), worktree);
   }
 
   async openBranchDiff(request: unknown): Promise<DiffSession> {
@@ -271,22 +261,18 @@ export class AppService {
     if (!sourceBranch || !targetBranch) {
       throw new Error('Choose two branches to compare.');
     }
-    return this.#projectOperations.read(request.projectId, () => {
-      const project = this.#project(request.projectId);
-      const sourceWorktree = this.#trees
-        .find((item) => item.id === project.id)
-        ?.worktrees.find((worktree) => worktree.branch === sourceBranch);
-      return this.git.openBranchDiff(project, sourceBranch, targetBranch, sourceWorktree);
-    });
+    const project = this.#project(request.projectId);
+    const sourceWorktree = this.#trees
+      .find((item) => item.id === project.id)
+      ?.worktrees.find((worktree) => worktree.branch === sourceBranch);
+    return this.git.openBranchDiff(project, sourceBranch, targetBranch, sourceWorktree);
   }
 
   async openCommitDiff(request: unknown): Promise<DiffSession> {
     if (!isOpenCommitDiffRequest(request)) {
       throw new Error('Invalid commit changes request.');
     }
-    return this.#projectOperations.read(request.projectId, () =>
-      this.git.openCommitDiff(this.#project(request.projectId), request.commitHash),
-    );
+    return this.git.openCommitDiff(this.#project(request.projectId), request.commitHash);
   }
 
   async diffFile(request: unknown): Promise<DiffFilePatch> {
@@ -319,10 +305,7 @@ export class AppService {
   }
 
   async worktreeStatus(worktreeId: string): Promise<WorktreeStatus> {
-    const worktree = this.#worktree(worktreeId);
-    return this.#projectOperations.read(worktree.projectId, () =>
-      this.git.status(this.#worktree(worktreeId)),
-    );
+    return this.git.status(this.#worktree(worktreeId));
   }
 
   worktreePath(worktreeId: string): string {
@@ -350,6 +333,15 @@ export class AppService {
       else delete project.setupScript;
     });
     return this.refresh();
+  }
+
+  #runProjectOperation<T>(projectId: string, operation: () => Promise<T>): Promise<T> {
+    let limit = this.#projectOperations.get(projectId);
+    if (!limit) {
+      limit = pLimit(1);
+      this.#projectOperations.set(projectId, limit);
+    }
+    return limit(operation);
   }
 
   async #refreshProject(project: Project, tolerateFailure: boolean): Promise<Worktree[]> {
