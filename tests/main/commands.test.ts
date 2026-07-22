@@ -1,3 +1,6 @@
+import { mkdtemp, writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { CommandContext } from '../../src/shared/contracts';
 import { CommandRunner, displayCommand, quoteArg } from '../../src/main/commands';
@@ -8,6 +11,7 @@ const worktreeContext: CommandContext = {
   projectId: 'project',
   worktreeId: 'worktree',
 };
+const limitedExecution = { admission: 'limited' } as const;
 
 describe('command display', () => {
   it('leaves safe arguments readable', () => {
@@ -25,6 +29,7 @@ describe('command display', () => {
     const record = runner.createPending({
       context: worktreeContext,
       tool: 'git',
+      execution: limitedExecution,
       executable: 'git',
       args: ['status'],
       cwd: '/repo',
@@ -43,6 +48,7 @@ describe('command log contexts', () => {
     const projectRecord = runner.createPending({
       context: projectContext,
       tool: 'git',
+      execution: limitedExecution,
       executable: 'git',
       args: ['worktree', 'list'],
       cwd: '/repo',
@@ -52,6 +58,7 @@ describe('command log contexts', () => {
     const worktreeRecord = runner.createPending({
       context: worktreeContext,
       tool: 'git',
+      execution: limitedExecution,
       executable: 'git',
       args: ['status'],
       cwd: '/repo',
@@ -74,6 +81,7 @@ describe('command log contexts', () => {
       const record = runner.createPending({
         context: projectContext,
         tool: 'git',
+        execution: limitedExecution,
         executable: 'git',
         args: ['status'],
         cwd: '/repo',
@@ -85,6 +93,7 @@ describe('command log contexts', () => {
     const worktreeRecord = runner.createPending({
       context: worktreeContext,
       tool: 'git',
+      execution: limitedExecution,
       executable: 'git',
       args: ['status'],
       cwd: '/repo',
@@ -112,6 +121,7 @@ describe('command execution timing', () => {
     const result = await runner.run({
       context: projectContext,
       tool: 'git',
+      execution: limitedExecution,
       executable: process.execPath,
       args: ['-e', 'process.exit(0)'],
       cwd: process.cwd(),
@@ -132,6 +142,7 @@ describe('command execution timing', () => {
     const result = await runner.run({
       context: projectContext,
       tool: 'git',
+      execution: limitedExecution,
       executable: process.execPath,
       args: ['-e', 'process.exit(2)'],
       cwd: process.cwd(),
@@ -144,6 +155,106 @@ describe('command execution timing', () => {
   });
 });
 
+describe('automated command admission', () => {
+  it('never spawns more than the aggregate process ceiling', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-admission-'));
+    const gatePath = path.join(directory, 'release');
+    const startedIds = new Set<string>();
+    let resolveCeilingReached: (() => void) | undefined;
+    const ceilingReached = new Promise<void>((resolve) => {
+      resolveCeilingReached = resolve;
+    });
+    const runner = new CommandRunner((record) => {
+      if (record.output.some((entry) => entry.text.includes('started'))) {
+        startedIds.add(record.id);
+        if (startedIds.size === CommandRunner.maximumConcurrentCommands) {
+          resolveCeilingReached?.();
+        }
+      }
+    });
+    const script =
+      "const fs=require('node:fs'); process.stdout.write('started\\n'); " +
+      'const timer=setInterval(()=>{if(fs.existsSync(process.argv[1])){' +
+      'clearInterval(timer);process.exit(0)}},5)';
+
+    const commands = Array.from(
+      { length: CommandRunner.maximumConcurrentCommands + 4 },
+      (_, index) =>
+        runner.run({
+          context: projectContext,
+          tool: 'git',
+          execution: limitedExecution,
+          executable: process.execPath,
+          args: ['-e', script, gatePath],
+          cwd: directory,
+          purpose: `Blocked automated command ${index}`,
+          isReadOnly: true,
+        }),
+    );
+
+    await ceilingReached;
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(startedIds.size).toBe(CommandRunner.maximumConcurrentCommands);
+
+    await writeFile(gatePath, 'release\n');
+    await expect(Promise.all(commands)).resolves.toHaveLength(commands.length);
+    expect(startedIds.size).toBe(commands.length);
+  });
+
+  it('kills and audits an automated command that times out', async () => {
+    const updates: string[] = [];
+    const runner = new CommandRunner(
+      (record) => updates.push(...record.output.map((entry) => entry.text)),
+      { terminationGraceMs: 20 },
+    );
+
+    const result = await runner.run({
+      context: projectContext,
+      tool: 'git',
+      execution: { admission: 'limited', timeoutMs: 300 },
+      executable: process.execPath,
+      args: ['-e', "process.on('SIGTERM',()=>{}); setInterval(()=>undefined,1000)"],
+      cwd: process.cwd(),
+      purpose: 'Run a command that does not terminate',
+      isReadOnly: true,
+    });
+
+    expect(result.record.status).toBe('failed');
+    expect(result.record.exitCode).not.toBe(0);
+    expect(result.stderr).toContain('Command timed out after 300 ms.');
+    expect(updates.some((text) => text.includes('Sent SIGTERM'))).toBe(true);
+    expect(updates.some((text) => text.includes('Sent SIGKILL'))).toBe(true);
+  });
+
+  it('continues admitting commands after a limited task rejects', async () => {
+    const runner = new CommandRunner(() => undefined);
+    const missingCommand = runner.run({
+      context: projectContext,
+      tool: 'git',
+      execution: limitedExecution,
+      executable: 'grafter-command-that-does-not-exist',
+      args: [],
+      cwd: process.cwd(),
+      purpose: 'Fail to spawn a command',
+      isReadOnly: true,
+    });
+
+    await expect(missingCommand).rejects.toThrow();
+    await expect(
+      runner.run({
+        context: projectContext,
+        tool: 'git',
+        execution: limitedExecution,
+        executable: process.execPath,
+        args: ['-e', 'process.exit(0)'],
+        cwd: process.cwd(),
+        purpose: 'Run after a rejected command',
+        isReadOnly: true,
+      }),
+    ).resolves.toMatchObject({ record: { status: 'succeeded' } });
+  });
+});
+
 describe('command output auditing', () => {
   it('returns complete stdout while bounding the stored audit output', async () => {
     const outputLength = CommandRunner.auditedOutputCharacterLimit + 2000;
@@ -151,6 +262,7 @@ describe('command output auditing', () => {
     const result = await runner.run({
       context: projectContext,
       tool: 'git',
+      execution: limitedExecution,
       executable: process.execPath,
       args: ['-e', `process.stdout.write('x'.repeat(${outputLength}))`],
       cwd: process.cwd(),

@@ -1,6 +1,6 @@
 import path from 'node:path';
 import os from 'node:os';
-import pMap from 'p-map';
+import pLimit from 'p-limit';
 import { isCommandContext } from '../../shared/command-context';
 import type {
   AppSnapshot,
@@ -26,12 +26,11 @@ import type {
 import { expandWorktreeTemplate, worktreePathForBranch } from '../../shared/paths';
 import { isSettings } from '../../shared/settings';
 import { ApprovalManager } from '../approvals';
-import type { CommandRunner } from '../commands';
+import { CommandRunner } from '../commands';
 import { GitService } from './git-service';
 import { GitHubService } from './github-service';
 import type { StateStore } from '../store';
 
-const pullRequestLookupConcurrency = 5;
 const pullRequestFreshnessMs = 30_000;
 
 interface AppServiceOptions {
@@ -42,6 +41,13 @@ interface AppServiceOptions {
 }
 
 export class AppService {
+  // Background hydration won't use CommandRunner's full aggregate capacity so
+  // explicit refreshes and other interactive reads always have room to start.
+  static readonly maximumConcurrentBackgroundPullRequestLookups = Math.max(
+    1,
+    Math.floor(CommandRunner.maximumConcurrentCommands / 2),
+  );
+
   readonly git: GitService;
   readonly github: GitHubService;
   readonly approvals: ApprovalManager;
@@ -51,6 +57,9 @@ export class AppService {
   readonly #homeDirectory: string;
   readonly #systemLocale: string;
   readonly #pullRequestLookups = new Map<string, Promise<PullRequest | undefined>>();
+  readonly #backgroundPullRequestLookupsLimit = pLimit(
+    AppService.maximumConcurrentBackgroundPullRequestLookups,
+  );
   readonly #pullRequestRefreshedAt = new Map<string, number>();
   readonly #projectRefreshVersions = new Map<string, number>();
 
@@ -365,12 +374,15 @@ export class AppService {
   }
 
   async #hydratePullRequests(worktrees: readonly Worktree[]): Promise<void> {
-    await pMap(worktrees, (worktree) => this.#refreshPullRequest(worktree), {
-      concurrency: pullRequestLookupConcurrency,
-    });
+    await Promise.all(
+      worktrees.map((worktree) => this.#refreshPullRequest(worktree, true)),
+    );
   }
 
-  #refreshPullRequest(worktree: Worktree): Promise<PullRequest | undefined> {
+  #refreshPullRequest(
+    worktree: Worktree,
+    background = false,
+  ): Promise<PullRequest | undefined> {
     const lookupKey = pullRequestLookupKey(worktree);
     const refreshedAt = this.#pullRequestRefreshedAt.get(lookupKey);
     if (refreshedAt !== undefined && this.#now() - refreshedAt < pullRequestFreshnessMs) {
@@ -380,8 +392,11 @@ export class AppService {
     const activeLookup = this.#pullRequestLookups.get(lookupKey);
     if (activeLookup) return activeLookup;
 
-    const lookup = this.github
-      .pullRequest(worktree)
+    const startLookup = (): Promise<PullRequest | undefined> =>
+      this.github.pullRequest(worktree);
+    const lookup = (
+      background ? this.#backgroundPullRequestLookupsLimit(startLookup) : startLookup()
+    )
       .then((pullRequest) => {
         this.#pullRequestRefreshedAt.set(lookupKey, this.#now());
         if (!pullRequest) return this.#cachedPullRequest(worktree);

@@ -1,6 +1,7 @@
 import { readFile, realpath } from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
+import pLimit from 'p-limit';
 import {
   projectCommandContext,
   worktreeCommandContext,
@@ -41,8 +42,11 @@ interface StoredDiffSession {
 
 export class GitService {
   static readonly maximumDiffSessions = 12;
+  static readonly maximumConcurrentDiffFileReads = 3;
+  static readonly commandTimeoutMs = 60_000;
 
   readonly #diffSessions = new Map<string, StoredDiffSession>();
+  readonly #diffFileReadsLimit = pLimit(GitService.maximumConcurrentDiffFileReads);
 
   constructor(private readonly runner: CommandRunner) {}
 
@@ -135,6 +139,10 @@ export class GitService {
     return {
       context: projectCommandContext(project),
       tool: 'git',
+      execution: {
+        admission: 'limited',
+        timeoutMs: GitService.commandTimeoutMs,
+      },
       executable: 'git',
       args: ['worktree', 'remove', worktree.path],
       cwd: project.path,
@@ -393,36 +401,49 @@ export class GitService {
   }
 
   async diffFile(request: DiffFileRequest): Promise<DiffFilePatch> {
+    const { file } = this.#diffFile(request);
+    if (file.binary) return { fileId: file.id, binary: true, hunks: [] };
+
+    return this.#diffFileReadsLimit(async () => {
+      // The session may be closed or evicted while this request is queued,
+      // so validate it again before running git diff.
+      const current = this.#diffFile(request);
+      const paths = [
+        ...(current.file.previousPath && current.file.previousPath !== current.file.path
+          ? [current.file.previousPath]
+          : []),
+        current.file.path,
+      ];
+      const result = await this.#git(
+        current.session.repositoryPath,
+        [
+          'diff',
+          '--no-color',
+          '--no-ext-diff',
+          '--unified=3',
+          '--find-renames',
+          current.session.baseSha,
+          current.session.headSha,
+          '--',
+          ...paths,
+        ],
+        `Read diff for ${current.file.path}`,
+        true,
+        current.session.context,
+      );
+      return parseUnifiedDiff(current.file.id, result.stdout);
+    });
+  }
+
+  #diffFile(request: DiffFileRequest): {
+    session: StoredDiffSession;
+    file: DiffFileSummary;
+  } {
     const session = this.#diffSessions.get(request.sessionId);
     if (!session) throw new Error('The diff session expired. Close and reopen it.');
     const file = session.files.get(request.fileId);
     if (!file) throw new Error('The requested file is not part of this diff.');
-    if (file.binary) return { fileId: file.id, binary: true, hunks: [] };
-
-    const paths = [
-      ...(file.previousPath && file.previousPath !== file.path
-        ? [file.previousPath]
-        : []),
-      file.path,
-    ];
-    const result = await this.#git(
-      session.repositoryPath,
-      [
-        'diff',
-        '--no-color',
-        '--no-ext-diff',
-        '--unified=3',
-        '--find-renames',
-        session.baseSha,
-        session.headSha,
-        '--',
-        ...paths,
-      ],
-      `Read diff for ${file.path}`,
-      true,
-      session.context,
-    );
-    return parseUnifiedDiff(file.id, result.stdout);
+    return { session, file };
   }
 
   diffFilePath(request: DiffFileRequest): string {
@@ -484,6 +505,7 @@ export class GitService {
     return {
       context: worktreeCommandContext(worktree),
       tool: 'shell',
+      execution: { admission: 'direct' },
       executable,
       args: ['-lc', script],
       cwd: worktree.path,
@@ -644,6 +666,10 @@ export class GitService {
     return this.runner.run({
       context,
       tool: 'git',
+      execution: {
+        admission: 'limited',
+        timeoutMs: GitService.commandTimeoutMs,
+      },
       executable: 'git',
       args,
       cwd,

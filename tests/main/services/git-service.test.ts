@@ -18,6 +18,7 @@ describe('GitService worktree status', () => {
     const initialized = await runner.run({
       context: { kind: 'application' },
       tool: 'git',
+      execution: { admission: 'limited' },
       executable: 'git',
       args: ['init'],
       cwd: directory,
@@ -97,12 +98,25 @@ describe('GitService branch operations', () => {
     expect(runner.commands[0]).toEqual({
       context: worktreeCommandContext(worktree),
       tool: 'git',
+      execution: {
+        admission: 'limited',
+        timeoutMs: GitService.commandTimeoutMs,
+      },
       executable: 'git',
       args: ['switch', '--no-guess', '--', 'feature/new'],
       cwd: worktree.path,
       purpose: 'Switch b77c/feature to feature/new',
       isReadOnly: false,
     });
+  });
+
+  it('runs project setup shells without automated admission or timeout policy', () => {
+    const spec = new GitService(new StubCommandRunner(() => ({}))).setupSpec(
+      worktree,
+      'npm install',
+    );
+
+    expect(spec.execution).toEqual({ admission: 'direct' });
   });
 
   it('does not create or track a branch while adding a worktree', async () => {
@@ -141,6 +155,7 @@ describe('GitService worktree details', () => {
     const initialized = await runner.run({
       context: { kind: 'application' },
       tool: 'git',
+      execution: { admission: 'limited' },
       executable: 'git',
       args: ['init', '--initial-branch=main'],
       cwd: directory,
@@ -296,6 +311,56 @@ describe('GitService worktree details', () => {
     expect(runner.commands.some((command) => command.args[0] === 'symbolic-ref')).toBe(
       false,
     );
+  });
+
+  it('keeps independent detail reads concurrent', async () => {
+    const project: Project = {
+      id: 'project',
+      name: 'project',
+      path: '/repo',
+    };
+    const worktree: Worktree = {
+      id: 'project:/repo.worktrees/concurrent',
+      projectId: project.id,
+      displayName: 'concurrent',
+      path: '/repo.worktrees/concurrent',
+      branch: 'feature/concurrent',
+      head: '1234567',
+      isMain: false,
+      locked: false,
+    };
+    const started = new Set<string>();
+    let resolveBothStarted: (() => void) | undefined;
+    let releaseReads: (() => void) | undefined;
+    const bothStarted = new Promise<void>((resolve) => {
+      resolveBothStarted = resolve;
+    });
+    const readGate = new Promise<void>((resolve) => {
+      releaseReads = resolve;
+    });
+    const runner = new StubCommandRunner(async (spec) => {
+      const command = spec.args[0] ?? '';
+      if (command === 'log' || command === 'symbolic-ref') {
+        started.add(command);
+        if (started.size === 2) resolveBothStarted?.();
+        await readGate;
+      }
+      if (command === 'log') {
+        return {
+          stdout:
+            '1234567890abcdef\nAda Lovelace\n\n2026-07-19T14:25:00+02:00\nConcurrent details\n\u0000\n',
+        };
+      }
+      if (command === 'symbolic-ref') return { stdout: 'origin/main\n' };
+      if (command === 'diff') return { stdout: '' };
+      throw new Error(`Unexpected command: ${spec.args.join(' ')}`);
+    });
+    const details = new GitService(runner).details(project, worktree);
+
+    await bothStarted;
+    expect(started).toEqual(new Set(['log', 'symbolic-ref']));
+    releaseReads?.();
+    await expect(details).resolves.toMatchObject({ targetBranch: 'main' });
   });
 
   it('retains removal in the project log after the target worktree disappears', () => {
@@ -485,6 +550,10 @@ describe('GitService committed diff sessions', () => {
     expect(runner.commands).toContainEqual({
       context: worktreeCommandContext(worktree),
       tool: 'git',
+      execution: {
+        admission: 'limited',
+        timeoutMs: GitService.commandTimeoutMs,
+      },
       executable: 'git',
       args: ['remote', '-v'],
       cwd: worktree.path,
@@ -525,6 +594,111 @@ describe('GitService committed diff sessions', () => {
       service.diffFile({ sessionId: session.id, fileId: 'file-2' }),
     ).resolves.toEqual({ fileId: 'file-2', binary: true, hunks: [] });
     expect(runner.commands).toHaveLength(commandCount);
+  });
+
+  it('bounds concurrent file patch reads without serializing them', async () => {
+    const fileCount = 10;
+    let active = 0;
+    let maximumActive = 0;
+    const runner = new StubCommandRunner(async (spec) => {
+      if (spec.args[0] === 'rev-parse') return { stdout: 'head-sha\n' };
+      if (spec.args[0] === 'merge-base') return { stdout: 'base-sha\n' };
+      if (spec.args[0] === 'remote') return { stdout: '' };
+      if (spec.args.includes('--name-status')) {
+        return {
+          stdout: Array.from(
+            { length: fileCount },
+            (_, index) => `M\0src/file-${index}.ts\0`,
+          ).join(''),
+        };
+      }
+      if (spec.args.includes('--numstat')) {
+        return {
+          stdout: Array.from(
+            { length: fileCount },
+            (_, index) => `1\t0\tsrc/file-${index}.ts\0`,
+          ).join(''),
+        };
+      }
+      if (spec.args.includes('--unified=3')) {
+        active += 1;
+        maximumActive = Math.max(maximumActive, active);
+        await new Promise((resolve) => setTimeout(resolve, 2));
+        active -= 1;
+        return { stdout: '@@ -0,0 +1 @@\n+export {};\n' };
+      }
+      throw new Error(`Unexpected command: ${spec.args.join(' ')}`);
+    });
+    const service = new GitService(runner);
+    const session = await service.openBranchDiff(project, 'feature', 'main');
+
+    const patches = await Promise.all(
+      session.files.map((file) =>
+        service.diffFile({ sessionId: session.id, fileId: file.id }),
+      ),
+    );
+
+    expect(patches).toHaveLength(fileCount);
+    expect(maximumActive).toBe(GitService.maximumConcurrentDiffFileReads);
+  });
+
+  it('revalidates a diff session when a queued patch read is admitted', async () => {
+    let active = 0;
+    let resolveLimitReached: (() => void) | undefined;
+    let releaseReads: (() => void) | undefined;
+    const limitReached = new Promise<void>((resolve) => {
+      resolveLimitReached = resolve;
+    });
+    const readGate = new Promise<void>((resolve) => {
+      releaseReads = resolve;
+    });
+    const runner = new StubCommandRunner(async (spec) => {
+      if (spec.args[0] === 'rev-parse') return { stdout: 'head-sha\n' };
+      if (spec.args[0] === 'merge-base') return { stdout: 'base-sha\n' };
+      if (spec.args[0] === 'remote') return { stdout: '' };
+      if (spec.args.includes('--name-status')) {
+        return { stdout: 'M\0a.ts\0M\0b.ts\0M\0c.ts\0M\0d.ts\0' };
+      }
+      if (spec.args.includes('--numstat')) {
+        return {
+          stdout:
+            '1\t0\ta.ts\u0000' +
+            '1\t0\tb.ts\u0000' +
+            '1\t0\tc.ts\u0000' +
+            '1\t0\td.ts\u0000',
+        };
+      }
+      if (spec.args.includes('--unified=3')) {
+        active += 1;
+        if (active === GitService.maximumConcurrentDiffFileReads) {
+          resolveLimitReached?.();
+        }
+        await readGate;
+        return { stdout: '@@ -0,0 +1 @@\n+export {};\n' };
+      }
+      throw new Error(`Unexpected command: ${spec.args.join(' ')}`);
+    });
+    const service = new GitService(runner);
+    const session = await service.openBranchDiff(project, 'feature', 'main');
+    const reads = session.files.map((file) =>
+      service.diffFile({ sessionId: session.id, fileId: file.id }),
+    );
+
+    await limitReached;
+    service.closeDiff(session.id);
+    releaseReads?.();
+    const results = await Promise.allSettled(reads);
+
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(
+      GitService.maximumConcurrentDiffFileReads,
+    );
+    const queued = results.at(-1);
+    expect(queued?.status).toBe('rejected');
+    if (queued?.status === 'rejected') {
+      const reason = queued.reason as unknown;
+      expect(reason).toBeInstanceOf(Error);
+      if (reason instanceof Error) expect(reason.message).toContain('session expired');
+    }
   });
 
   it('compares arbitrary local branches without inventing an editor worktree', async () => {

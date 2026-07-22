@@ -1,11 +1,16 @@
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import pLimit from 'p-limit';
 import { commandContextKey } from '../shared/command-context';
 import type { CommandContext, CommandRecord, ToolName } from '../shared/contracts';
 
 export interface CommandSpec {
   context: CommandContext;
   tool: ToolName;
+  execution: {
+    admission: 'limited' | 'direct';
+    timeoutMs?: number;
+  };
   executable: string;
   args: string[];
   cwd: string;
@@ -22,6 +27,7 @@ export interface CommandResult {
 
 interface CommandRunnerOptions {
   now?: () => number;
+  terminationGraceMs?: number;
 }
 
 const shellSafe = /^[a-zA-Z0-9_./:@%+=,-]+$/;
@@ -38,11 +44,15 @@ export function displayCommand(executable: string, args: string[]): string {
 export class CommandRunner {
   static readonly recordsPerContext = 200;
   static readonly auditedOutputCharacterLimit = 128_000;
+  static readonly terminationGraceMs = 1_000;
+  static readonly maximumConcurrentCommands = 8;
 
   readonly #records = new Map<string, CommandRecord>();
   readonly #recordIdsByContext = new Map<string, string[]>();
   readonly #onUpdate: (record: CommandRecord) => void;
   readonly #now: () => number;
+  readonly #terminationGraceMs: number;
+  readonly #commandsLimit = pLimit(CommandRunner.maximumConcurrentCommands);
 
   constructor(
     onUpdate: (record: CommandRecord) => void,
@@ -50,6 +60,8 @@ export class CommandRunner {
   ) {
     this.#onUpdate = onUpdate;
     this.#now = options.now ?? (() => performance.now());
+    this.#terminationGraceMs =
+      options.terminationGraceMs ?? CommandRunner.terminationGraceMs;
   }
 
   recordsFor(context: CommandContext): CommandRecord[] {
@@ -88,6 +100,14 @@ export class CommandRunner {
     if (!record) throw new Error('The approved command no longer exists.');
     record.status = 'running';
     this.#save(record);
+
+    const execute = (): Promise<CommandResult> => this.#execute(spec, record);
+    return spec.execution.admission === 'direct'
+      ? execute()
+      : this.#commandsLimit(execute);
+  }
+
+  #execute(spec: CommandSpec, record: CommandRecord): Promise<CommandResult> {
     const executionStartedAt = this.#now();
 
     return new Promise((resolve, reject) => {
@@ -101,6 +121,15 @@ export class CommandRunner {
       let stderr = '';
       let auditedOutputCharacters = 0;
       let auditOutputTruncated = false;
+      let settled = false;
+      let timedOut = false;
+      let terminationTimer: ReturnType<typeof setTimeout> | undefined;
+      const timeoutMs = spec.execution.timeoutMs;
+
+      const cleanupTimers = (): void => {
+        clearTimeout(timeoutTimer);
+        if (terminationTimer) clearTimeout(terminationTimer);
+      };
 
       const append = (stream: 'stdout' | 'stderr', chunk: Buffer): void => {
         const text = chunk.toString();
@@ -138,7 +167,37 @@ export class CommandRunner {
 
       child.stdout.on('data', (chunk: Buffer) => append('stdout', chunk));
       child.stderr.on('data', (chunk: Buffer) => append('stderr', chunk));
+      const timeoutTimer = timeoutMs
+        ? setTimeout(() => {
+            if (settled) return;
+            timedOut = true;
+            const timestamp = new Date().toISOString();
+            const message = `Command timed out after ${timeoutMs.toLocaleString('en-US')} ms.`;
+            stderr += `${message}\n`;
+            record.output.push({
+              stream: 'system',
+              text: `${message} Sent SIGTERM.\n`,
+              timestamp,
+            });
+            this.#save(record);
+            child.kill('SIGTERM');
+            terminationTimer = setTimeout(() => {
+              if (settled) return;
+              record.output.push({
+                stream: 'system',
+                text: 'Command did not terminate during the grace period. Sent SIGKILL.\n',
+                timestamp: new Date().toISOString(),
+              });
+              this.#save(record);
+              child.kill('SIGKILL');
+            }, this.#terminationGraceMs);
+          }, timeoutMs)
+        : undefined;
+
       child.on('error', (error) => {
+        if (settled) return;
+        settled = true;
+        cleanupTimers();
         record.status = 'failed';
         record.finishedAt = new Date().toISOString();
         record.durationMs = Math.max(0, this.#now() - executionStartedAt);
@@ -151,8 +210,11 @@ export class CommandRunner {
         reject(error);
       });
       child.on('close', (code) => {
+        if (settled) return;
+        settled = true;
+        cleanupTimers();
         record.exitCode = code ?? 1;
-        record.status = code === 0 ? 'succeeded' : 'failed';
+        record.status = !timedOut && code === 0 ? 'succeeded' : 'failed';
         record.finishedAt = new Date().toISOString();
         record.durationMs = Math.max(0, this.#now() - executionStartedAt);
         this.#save(record);
