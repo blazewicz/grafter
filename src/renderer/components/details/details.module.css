@@ -76,7 +76,7 @@
   white-space: nowrap;
 }
 
-.checked-out-branch .copy-text-button {
+.header-copy-button {
   width: 23px;
   height: 23px;
 }
@@ -171,25 +171,6 @@
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.38);
 }
 
-.copy-text-button {
-  width: 25px;
-  height: 25px;
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 0;
-  border-radius: 5px;
-  background: transparent;
-  color: var(--faint);
-}
-
-.copy-text-button:hover,
-.copy-text-button:focus-visible {
-  background: rgba(255, 255, 255, 0.055);
-  color: #d7d7da;
-}
-
 .clean-badge {
   display: inline-flex;
   align-items: center;
@@ -256,7 +237,7 @@
   gap: 5px;
 }
 
-.path-value .copy-text-button {
+.path-copy-button {
   width: 23px;
   height: 23px;
 }
@@ -269,7 +250,7 @@
   margin-left: 13px;
 }
 
-.path-action-button,
+.section-action-button,
 .editor-split-button {
   height: 30px;
   border: 1px solid var(--line-strong);
@@ -278,7 +259,7 @@
   box-shadow: inset 0 1px rgba(255, 255, 255, 0.025);
 }
 
-.path-action-button {
+.section-action-button {
   width: 30px;
   display: inline-flex;
   align-items: center;
@@ -286,8 +267,10 @@
   color: var(--muted);
 }
 
-.path-action-button:hover,
+.section-action-button:hover:not(:disabled),
+.section-action-button:focus-visible,
 .editor-split-button:hover {
+  outline: 0;
   background: var(--surface-strong);
   border-color: rgba(255, 255, 255, 0.14);
   color: var(--text);
@@ -557,7 +540,7 @@
   flex: 1;
   display: flex;
   align-items: flex-start;
-  gap: 3px;
+  gap: 5px;
 }
 
 .commit-hash {
@@ -565,7 +548,7 @@
   display: flex;
   align-items: center;
   gap: 2px;
-  margin: -3px -3px -3px auto;
+  margin: -3px 0 -3px 0;
 }
 
 .commit-hash code {
@@ -574,14 +557,9 @@
   font-size: 10px;
 }
 
-.commit-hash .copy-text-button {
-  width: 23px;
-  height: 23px;
-}
-
 .commit-title {
   min-width: 0;
-  flex: 0 1 auto;
+  flex: 1 1 auto;
   overflow-wrap: anywhere;
   color: #d8d9de;
   font-size: 12.5px;
@@ -636,28 +614,11 @@
   color: var(--red);
 }
 
-.commit-view-button {
-  height: 23px;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  margin: -3px 0 -3px auto;
-  padding: 0 7px;
-  border: 1px solid var(--line-strong);
-  border-radius: 5px;
-  background: rgba(255, 255, 255, 0.025);
-  color: #bfc0c7;
-  font-size: 10px;
+.commit-title-row > .section-action-button {
+  margin: -3px -3px -3px 4px;
 }
 
-.commit-view-button:hover:not(:disabled),
-.commit-view-button:focus-visible {
-  border-color: rgba(255, 255, 255, 0.15);
-  background: var(--surface-strong);
-  color: var(--text);
-}
-
-.commit-view-button:disabled {
+.section-action-button:disabled {
   color: var(--faint);
 }
 
@@ -763,28 +724,10 @@
   font-size: 10px;
 }
 
-.pr-meta .copy-text-button {
+.pr-copy-button {
   width: 23px;
   height: 23px;
   margin: -5px 0 -5px -2px;
-}
-
-.pr-external-link {
-  width: 25px;
-  height: 25px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 0;
-  border-radius: 5px;
-  background: transparent;
-  color: var(--muted);
-}
-
-.pr-external-link:hover,
-.pr-external-link:focus-visible {
-  background: var(--surface-strong);
-  color: var(--text);
 }
 
 .quiet-card {

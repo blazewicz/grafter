@@ -1,14 +1,8 @@
-import {
-  Check,
-  Copy,
-  Ellipsis,
-  FileDiff,
-  GitCommitHorizontal,
-  LoaderCircle,
-} from 'lucide-react';
+import { Ellipsis, FileDiff, GitCommitHorizontal, LoaderCircle } from 'lucide-react';
 import { useId, useState } from 'react';
 import type { CommitDetails, Settings } from '../../../shared/contracts';
 import { formatDate, formatTime } from '../../date-time';
+import { CopyButton } from '../ui/CopyButton';
 import styles from './details.module.css';
 
 export function LatestCommitCard({
@@ -45,6 +39,15 @@ export function LatestCommitCard({
           aria-hidden="true"
         />
         <div className={styles.commitTitleCopy}>
+          <div className={styles.commitHash}>
+            <code title={commit.hash}>{commit.hash.slice(0, 7)}</code>
+            <CopyButton
+              copied={copied}
+              copyLabel="Copy full commit hash"
+              copiedLabel="Commit hash copied"
+              onCopy={onCopy}
+            />
+          </div>
           <strong className={styles.commitTitle}>
             {commit.title || 'Untitled commit'}
           </strong>
@@ -61,17 +64,21 @@ export function LatestCommitCard({
             </button>
           )}
         </div>
-        <div className={styles.commitHash}>
-          <code title={commit.hash}>{commit.hash.slice(0, 7)}</code>
+        {onViewChanges && (
           <button
-            className={styles.copyTextButton}
-            aria-label={copied ? 'Commit hash copied' : 'Copy full commit hash'}
-            title={copied ? 'Commit hash copied' : 'Copy full commit hash'}
-            onClick={onCopy}
+            className={styles.sectionActionButton}
+            disabled={opening}
+            aria-label={opening ? 'Opening commit changes' : 'View commit changes'}
+            title={opening ? 'Opening commit changes' : 'View commit changes'}
+            onClick={onViewChanges}
           >
-            {copied ? <Check size={13} /> : <Copy size={13} />}
+            {opening ? (
+              <LoaderCircle className="spin" size={14} />
+            ) : (
+              <FileDiff size={14} />
+            )}
           </button>
-        </div>
+        )}
       </div>
       {hasBody && (
         <div className={styles.commitBody} id={bodyId} hidden={!bodyOpen}>
@@ -102,20 +109,6 @@ export function LatestCommitCard({
         >
           −{commit.stats.deletions}
         </span>
-        {onViewChanges && (
-          <button
-            className={styles.commitViewButton}
-            disabled={opening}
-            onClick={onViewChanges}
-          >
-            {opening ? (
-              <LoaderCircle className="spin" size={12} />
-            ) : (
-              <FileDiff size={12} />
-            )}
-            {opening ? 'Opening…' : 'View changes'}
-          </button>
-        )}
       </div>
     </section>
   );

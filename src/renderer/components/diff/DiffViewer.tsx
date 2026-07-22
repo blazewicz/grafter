@@ -3,7 +3,6 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
-  Copy,
   FileCode2,
   Folder,
   GitCompareArrows,
@@ -27,6 +26,7 @@ import { api, friendlyError } from '../../grafter-api';
 import { formatDate, formatTime } from '../../date-time';
 import { githubFileUrl } from '../../../shared/github';
 import { VisualStudioCodeMark } from '../ui/BrandMarks';
+import { CopyButton } from '../ui/CopyButton';
 import { BranchPicker } from '../branches/BranchPicker';
 import {
   buildDiffTree,
@@ -649,24 +649,19 @@ export function DiffViewer({
               <GitCommitHorizontal size={16} />
               <div className={styles.commitToolbarCopy} ref={commitControlsRef}>
                 <div className={styles.commitToolbarPrimary}>
-                  <strong title={session.commit.title}>
-                    {session.commit.title || 'Untitled commit'}
-                  </strong>
                   <code title={session.commit.hash}>
                     {session.commit.hash.slice(0, 7)}
                   </code>
-                  <button
-                    className={styles.toolbarIconButton}
-                    aria-label={
-                      commitHashCopied ? 'Commit hash copied' : 'Copy full commit hash'
-                    }
-                    title={
-                      commitHashCopied ? 'Commit hash copied' : 'Copy full commit hash'
-                    }
-                    onClick={copyCommitHash}
-                  >
-                    {commitHashCopied ? <Check size={12} /> : <Copy size={12} />}
-                  </button>
+                  <CopyButton
+                    copied={commitHashCopied}
+                    copyLabel="Copy full commit hash"
+                    copiedLabel="Commit hash copied"
+                    onCopy={copyCommitHash}
+                    compact
+                  />
+                  <strong title={session.commit.title}>
+                    {session.commit.title || 'Untitled commit'}
+                  </strong>
                 </div>
                 <div className={styles.commitToolbarMeta}>
                   <span>{session.commit.authorName}</span>
@@ -1082,14 +1077,13 @@ function DiffFile({
             </>
           )}
           <code>{file.path}</code>
-          <button
-            className={styles.copyButton}
-            aria-label={copied ? 'File path copied' : `Copy ${file.path} path`}
-            title={copied ? 'File path copied' : 'Copy file path'}
-            onClick={onCopy}
-          >
-            {copied ? <Check size={13} /> : <Copy size={13} />}
-          </button>
+          <CopyButton
+            copied={copied}
+            copyLabel={`Copy ${file.path} path`}
+            copiedLabel="File path copied"
+            onCopy={onCopy}
+            className={styles.fileCopyButton}
+          />
         </div>
         <div className={styles.fileHeaderActions}>
           <div className={styles.fileStats}>

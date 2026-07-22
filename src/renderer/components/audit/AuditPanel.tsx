@@ -4,7 +4,6 @@ import {
   ChevronsDownUp,
   ChevronsUpDown,
   Code2,
-  Copy,
   LoaderCircle,
   ShieldCheck,
   TerminalSquare,
@@ -21,6 +20,7 @@ import {
 import type { AuditToolFilter } from '../../command-audit';
 import { formatDateTime, formatTime } from '../../date-time';
 import { api, friendlyError } from '../../grafter-api';
+import { CopyButton } from '../ui/CopyButton';
 import { useCommandActivityDisplay } from './useCommandActivityDisplay';
 import styles from './AuditPanel.module.css';
 
@@ -339,27 +339,14 @@ export function AuditPanel({
                   <div className={styles.terminalCommand}>
                     <span>$</span>
                     <span className={styles.commandText}>{command.displayCommand}</span>
-                    <button
-                      type="button"
+                    <CopyButton
+                      copied={copiedCommandId === command.id}
+                      copyLabel="Copy full command"
+                      copiedLabel="Command copied"
+                      onCopy={() => copyCommand(command)}
                       className={styles.copyCommandButton}
-                      aria-label={
-                        copiedCommandId === command.id
-                          ? 'Command copied'
-                          : 'Copy full command'
-                      }
-                      title={
-                        copiedCommandId === command.id
-                          ? 'Command copied'
-                          : 'Copy full command'
-                      }
-                      onClick={() => copyCommand(command)}
-                    >
-                      {copiedCommandId === command.id ? (
-                        <Check size={16} />
-                      ) : (
-                        <Copy size={17} />
-                      )}
-                    </button>
+                      iconSize={16}
+                    />
                   </div>
                   <pre>
                     {command.output.map((line) => line.text).join('') ||

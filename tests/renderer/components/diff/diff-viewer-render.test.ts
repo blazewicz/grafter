@@ -146,6 +146,9 @@ describe('DiffViewer file status presentation', () => {
     expect(html).toContain('Show commit changes');
     expect(html).toContain('>1234567</code>');
     expect(html).toContain('aria-label="Copy full commit hash"');
+    expect(html.indexOf('>1234567</code>')).toBeLessThan(
+      html.indexOf('Show commit changes'),
+    );
     expect(html).toContain('Ada Lovelace');
     expect(html).toContain('aria-label="Show commit details"');
     expect(html).not.toContain('Choose source branch');
