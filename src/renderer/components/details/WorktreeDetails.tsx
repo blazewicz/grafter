@@ -2,7 +2,6 @@ import {
   Check,
   ChevronDown,
   Circle,
-  Copy,
   FolderOpen,
   FileDiff,
   GitBranch,
@@ -29,6 +28,7 @@ import { displayWorktreePath } from '../../../shared/path-display';
 import { api, friendlyError } from '../../grafter-api';
 import { BranchPicker } from '../branches/BranchPicker';
 import { FinderMark, VisualStudioCodeMark } from '../ui/BrandMarks';
+import { CopyButton } from '../ui/CopyButton';
 import styles from './details.module.css';
 import { LatestCommitCard } from './LatestCommitCard';
 
@@ -289,20 +289,13 @@ export function WorktreeDetails({
                 </div>
               )}
             </div>
-            <button
-              className={styles.copyTextButton}
-              aria-label={
-                copiedText === details.branch
-                  ? 'Branch name copied'
-                  : `Copy ${details.branch} branch name`
-              }
-              title={
-                copiedText === details.branch ? 'Branch name copied' : 'Copy branch name'
-              }
-              onClick={() => copyText(details.branch)}
-            >
-              {copiedText === details.branch ? <Check size={13} /> : <Copy size={13} />}
-            </button>
+            <CopyButton
+              copied={copiedText === details.branch}
+              copyLabel={`Copy ${details.branch} branch name`}
+              copiedLabel="Branch name copied"
+              onCopy={() => copyText(details.branch)}
+              className={styles.headerCopyButton}
+            />
           </div>
         </div>
         <span
@@ -324,27 +317,18 @@ export function WorktreeDetails({
           <span className={styles.sectionLabel}>WORKTREE PATH</span>
           <div className={styles.pathValue}>
             <code>{displayWorktreePath(details.path, mainClonePath, homeDirectory)}</code>
-            <button
-              className={styles.copyTextButton}
-              aria-label={
-                copiedText === details.path
-                  ? 'Worktree path copied'
-                  : 'Copy worktree path'
-              }
-              title={
-                copiedText === details.path
-                  ? 'Worktree path copied'
-                  : 'Copy worktree path'
-              }
-              onClick={() => copyText(details.path)}
-            >
-              {copiedText === details.path ? <Check size={13} /> : <Copy size={13} />}
-            </button>
+            <CopyButton
+              copied={copiedText === details.path}
+              copyLabel="Copy worktree path"
+              copiedLabel="Worktree path copied"
+              onCopy={() => copyText(details.path)}
+              className={styles.pathCopyButton}
+            />
           </div>
         </div>
         <div className={styles.pathActions}>
           <button
-            className={styles.pathActionButton}
+            className={styles.sectionActionButton}
             title="Open directory"
             aria-label="Open worktree directory"
             onClick={() => reportActionError(api.openWorktreeDirectory(details.id))}
@@ -418,7 +402,7 @@ export function WorktreeDetails({
             </div>
             <div className={styles.prActions}>
               <button
-                className={styles.prExternalLink}
+                className={styles.sectionActionButton}
                 aria-label="Open pull request"
                 title="Open pull request"
                 onClick={() => void api.openExternal(pullRequest.url)}
@@ -430,26 +414,13 @@ export function WorktreeDetails({
           <div className={styles.prMeta}>
             <span>Base branch:</span>
             <code>{pullRequest.baseBranch}</code>
-            <button
-              className={styles.copyTextButton}
-              aria-label={
-                copiedText === pullRequest.baseBranch
-                  ? 'Base branch name copied'
-                  : `Copy ${pullRequest.baseBranch} base branch name`
-              }
-              title={
-                copiedText === pullRequest.baseBranch
-                  ? 'Base branch name copied'
-                  : 'Copy base branch name'
-              }
-              onClick={() => copyText(pullRequest.baseBranch)}
-            >
-              {copiedText === pullRequest.baseBranch ? (
-                <Check size={13} />
-              ) : (
-                <Copy size={13} />
-              )}
-            </button>
+            <CopyButton
+              copied={copiedText === pullRequest.baseBranch}
+              copyLabel={`Copy ${pullRequest.baseBranch} base branch name`}
+              copiedLabel="Base branch name copied"
+              onCopy={() => copyText(pullRequest.baseBranch)}
+              className={styles.prCopyButton}
+            />
           </div>
         </section>
       ) : (

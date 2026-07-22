@@ -81,7 +81,6 @@
   text-overflow: ellipsis;
 }
 
-.toolbar-icon-button,
 .commit-details-button {
   flex: 0 0 auto;
   border: 0;
@@ -91,13 +90,6 @@
   background: transparent;
   color: var(--faint);
   -webkit-app-region: no-drag;
-}
-
-.toolbar-icon-button {
-  width: 19px;
-  height: 19px;
-  margin: -3px;
-  border-radius: 4px;
 }
 
 .commit-details-button {
@@ -112,8 +104,6 @@
   transform: rotate(180deg);
 }
 
-.toolbar-icon-button:hover,
-.toolbar-icon-button:focus-visible,
 .commit-details-button:hover,
 .commit-details-button:focus-visible,
 .commit-details-button[aria-expanded='true'] {
@@ -304,8 +294,7 @@
   color: var(--red);
 }
 
-.close-button,
-.copy-button {
+.close-button {
   border: 0;
   display: inline-flex;
   align-items: center;
@@ -322,9 +311,7 @@
 }
 
 .close-button:hover,
-.close-button:focus-visible,
-.copy-button:hover,
-.copy-button:focus-visible {
+.close-button:focus-visible {
   background: rgba(255, 255, 255, 0.065);
   color: var(--text);
 }
@@ -533,11 +520,8 @@
   text-decoration: line-through;
 }
 
-.copy-button {
-  width: 25px;
-  height: 25px;
-  flex: 0 0 auto;
-  border-radius: 5px;
+.file-copy-button {
+  margin: 0;
 }
 
 .collapse-button,

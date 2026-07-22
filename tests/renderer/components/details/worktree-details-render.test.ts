@@ -82,8 +82,12 @@ describe('WorktreeDetails copy controls', () => {
     expect(html).not.toContain('<pre');
     expect(html).toContain('lucide-folder-open');
     expect(html).toContain('View diff');
-    expect(html).toContain('View changes');
+    expect(html).toContain('aria-label="View commit changes"');
+    expect(html).not.toContain('>View changes<');
     expect(html).toContain('lucide-file-diff');
+    expect(html.indexOf('>1234567</code>')).toBeLessThan(
+      html.indexOf('Add commit details'),
+    );
     expect(html).toContain('repo</button>');
     expect(html).toContain('aria-label="Open repo project details"');
     expect(html).toContain('<h1>feature-worktree</h1>');
