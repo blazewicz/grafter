@@ -41,9 +41,12 @@ interface AppServiceOptions {
 }
 
 export class AppService {
-  static readonly maximumConcurrentProjectRefreshes = 4;
-  // Background hydration won't use CommandRunner's full aggregate capacity so
-  // explicit refreshes and other interactive reads always have room to start.
+  // Bulk workflows won't use CommandRunner's full aggregate capacity, so
+  // unrelated interactive commands retain room to start.
+  static readonly maximumConcurrentProjectRefreshes = Math.max(
+    1,
+    Math.floor(CommandRunner.maximumConcurrentCommands / 2),
+  );
   static readonly maximumConcurrentBackgroundPullRequestLookups = Math.max(
     1,
     Math.floor(CommandRunner.maximumConcurrentCommands / 2),
