@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { commandContextKey } from '../shared/command-context';
 import type { CommandContext, CommandRecord, ToolName } from '../shared/contracts';
+import { TaskLimiter } from './task-limiter';
 
 export interface CommandSpec {
   context: CommandContext;
@@ -22,9 +23,14 @@ export interface CommandResult {
 
 interface CommandRunnerOptions {
   now?: () => number;
+  gitTimeoutMs?: number;
+  githubTimeoutMs?: number;
+  terminationGraceMs?: number;
 }
 
 const shellSafe = /^[a-zA-Z0-9_./:@%+=,-]+$/;
+const maximumConcurrentAutomatedCommands = 8;
+const automatedCommands = new TaskLimiter(maximumConcurrentAutomatedCommands);
 
 export function quoteArg(value: string): string {
   if (shellSafe.test(value)) return value;
@@ -38,11 +44,20 @@ export function displayCommand(executable: string, args: string[]): string {
 export class CommandRunner {
   static readonly recordsPerContext = 200;
   static readonly auditedOutputCharacterLimit = 128_000;
+  // Eight preserves useful parallel reads while placing one authoritative ceiling on
+  // every automated git/gh child in the main process. Shell setup scripts are excluded.
+  static readonly maximumConcurrentAutomatedCommands = maximumConcurrentAutomatedCommands;
+  static readonly gitTimeoutMs = 60_000;
+  static readonly githubTimeoutMs = 30_000;
+  static readonly terminationGraceMs = 1_000;
 
   readonly #records = new Map<string, CommandRecord>();
   readonly #recordIdsByContext = new Map<string, string[]>();
   readonly #onUpdate: (record: CommandRecord) => void;
   readonly #now: () => number;
+  readonly #gitTimeoutMs: number;
+  readonly #githubTimeoutMs: number;
+  readonly #terminationGraceMs: number;
 
   constructor(
     onUpdate: (record: CommandRecord) => void,
@@ -50,6 +65,10 @@ export class CommandRunner {
   ) {
     this.#onUpdate = onUpdate;
     this.#now = options.now ?? (() => performance.now());
+    this.#gitTimeoutMs = options.gitTimeoutMs ?? CommandRunner.gitTimeoutMs;
+    this.#githubTimeoutMs = options.githubTimeoutMs ?? CommandRunner.githubTimeoutMs;
+    this.#terminationGraceMs =
+      options.terminationGraceMs ?? CommandRunner.terminationGraceMs;
   }
 
   recordsFor(context: CommandContext): CommandRecord[] {
@@ -88,6 +107,12 @@ export class CommandRunner {
     if (!record) throw new Error('The approved command no longer exists.');
     record.status = 'running';
     this.#save(record);
+
+    const execute = (): Promise<CommandResult> => this.#execute(spec, record);
+    return spec.tool === 'shell' ? execute() : automatedCommands.run(execute);
+  }
+
+  #execute(spec: CommandSpec, record: CommandRecord): Promise<CommandResult> {
     const executionStartedAt = this.#now();
 
     return new Promise((resolve, reject) => {
@@ -101,6 +126,20 @@ export class CommandRunner {
       let stderr = '';
       let auditedOutputCharacters = 0;
       let auditOutputTruncated = false;
+      let settled = false;
+      let timedOut = false;
+      let terminationTimer: ReturnType<typeof setTimeout> | undefined;
+      const timeoutMs =
+        spec.tool === 'git'
+          ? this.#gitTimeoutMs
+          : spec.tool === 'github'
+            ? this.#githubTimeoutMs
+            : undefined;
+
+      const cleanupTimers = (): void => {
+        clearTimeout(timeoutTimer);
+        if (terminationTimer) clearTimeout(terminationTimer);
+      };
 
       const append = (stream: 'stdout' | 'stderr', chunk: Buffer): void => {
         const text = chunk.toString();
@@ -138,7 +177,37 @@ export class CommandRunner {
 
       child.stdout.on('data', (chunk: Buffer) => append('stdout', chunk));
       child.stderr.on('data', (chunk: Buffer) => append('stderr', chunk));
+      const timeoutTimer = timeoutMs
+        ? setTimeout(() => {
+            if (settled) return;
+            timedOut = true;
+            const timestamp = new Date().toISOString();
+            const message = `Command timed out after ${timeoutMs.toLocaleString('en-US')} ms.`;
+            stderr += `${message}\n`;
+            record.output.push({
+              stream: 'system',
+              text: `${message} Sent SIGTERM.\n`,
+              timestamp,
+            });
+            this.#save(record);
+            child.kill('SIGTERM');
+            terminationTimer = setTimeout(() => {
+              if (settled) return;
+              record.output.push({
+                stream: 'system',
+                text: 'Command did not terminate during the grace period. Sent SIGKILL.\n',
+                timestamp: new Date().toISOString(),
+              });
+              this.#save(record);
+              child.kill('SIGKILL');
+            }, this.#terminationGraceMs);
+          }, timeoutMs)
+        : undefined;
+
       child.on('error', (error) => {
+        if (settled) return;
+        settled = true;
+        cleanupTimers();
         record.status = 'failed';
         record.finishedAt = new Date().toISOString();
         record.durationMs = Math.max(0, this.#now() - executionStartedAt);
@@ -151,8 +220,11 @@ export class CommandRunner {
         reject(error);
       });
       child.on('close', (code) => {
+        if (settled) return;
+        settled = true;
+        cleanupTimers();
         record.exitCode = code ?? 1;
-        record.status = code === 0 ? 'succeeded' : 'failed';
+        record.status = !timedOut && code === 0 ? 'succeeded' : 'failed';
         record.finishedAt = new Date().toISOString();
         record.durationMs = Math.max(0, this.#now() - executionStartedAt);
         this.#save(record);

@@ -29,6 +29,7 @@ import {
 import { parseGitHubRepositoryFromRemotes } from '../../shared/github';
 import type { CommandResult, CommandSpec } from '../commands';
 import type { CommandRunner } from '../commands';
+import { TaskLimiter } from '../task-limiter';
 
 interface StoredDiffSession {
   repositoryPath: string;
@@ -41,8 +42,10 @@ interface StoredDiffSession {
 
 export class GitService {
   static readonly maximumDiffSessions = 12;
+  static readonly maximumConcurrentDiffFileReads = 3;
 
   readonly #diffSessions = new Map<string, StoredDiffSession>();
+  readonly #diffFileReads = new TaskLimiter(GitService.maximumConcurrentDiffFileReads);
 
   constructor(private readonly runner: CommandRunner) {}
 
@@ -393,36 +396,49 @@ export class GitService {
   }
 
   async diffFile(request: DiffFileRequest): Promise<DiffFilePatch> {
+    const { file } = this.#diffFile(request);
+    if (file.binary) return { fileId: file.id, binary: true, hunks: [] };
+
+    return this.#diffFileReads.run(async () => {
+      // A request may wait behind other visible files, so do not retain authority from
+      // the initial validation after its session has been closed or evicted.
+      const current = this.#diffFile(request);
+      const paths = [
+        ...(current.file.previousPath && current.file.previousPath !== current.file.path
+          ? [current.file.previousPath]
+          : []),
+        current.file.path,
+      ];
+      const result = await this.#git(
+        current.session.repositoryPath,
+        [
+          'diff',
+          '--no-color',
+          '--no-ext-diff',
+          '--unified=3',
+          '--find-renames',
+          current.session.baseSha,
+          current.session.headSha,
+          '--',
+          ...paths,
+        ],
+        `Read diff for ${current.file.path}`,
+        true,
+        current.session.context,
+      );
+      return parseUnifiedDiff(current.file.id, result.stdout);
+    });
+  }
+
+  #diffFile(request: DiffFileRequest): {
+    session: StoredDiffSession;
+    file: DiffFileSummary;
+  } {
     const session = this.#diffSessions.get(request.sessionId);
     if (!session) throw new Error('The diff session expired. Close and reopen it.');
     const file = session.files.get(request.fileId);
     if (!file) throw new Error('The requested file is not part of this diff.');
-    if (file.binary) return { fileId: file.id, binary: true, hunks: [] };
-
-    const paths = [
-      ...(file.previousPath && file.previousPath !== file.path
-        ? [file.previousPath]
-        : []),
-      file.path,
-    ];
-    const result = await this.#git(
-      session.repositoryPath,
-      [
-        'diff',
-        '--no-color',
-        '--no-ext-diff',
-        '--unified=3',
-        '--find-renames',
-        session.baseSha,
-        session.headSha,
-        '--',
-        ...paths,
-      ],
-      `Read diff for ${file.path}`,
-      true,
-      session.context,
-    );
-    return parseUnifiedDiff(file.id, result.stdout);
+    return { session, file };
   }
 
   diffFilePath(request: DiffFileRequest): string {

@@ -30,8 +30,12 @@ import type { CommandRunner } from '../commands';
 import { GitService } from './git-service';
 import { GitHubService } from './github-service';
 import type { StateStore } from '../store';
+import { TaskLimiter } from '../task-limiter';
 
 const pullRequestLookupConcurrency = 5;
+// Background hydration uses at most half of CommandRunner's aggregate capacity so
+// explicit refreshes and other interactive reads always have room to start.
+const backgroundPullRequestLookupConcurrency = 4;
 const pullRequestFreshnessMs = 30_000;
 
 interface AppServiceOptions {
@@ -51,6 +55,9 @@ export class AppService {
   readonly #homeDirectory: string;
   readonly #systemLocale: string;
   readonly #pullRequestLookups = new Map<string, Promise<PullRequest | undefined>>();
+  readonly #backgroundPullRequestLookups = new TaskLimiter(
+    backgroundPullRequestLookupConcurrency,
+  );
   readonly #pullRequestRefreshedAt = new Map<string, number>();
   readonly #projectRefreshVersions = new Map<string, number>();
 
@@ -365,12 +372,15 @@ export class AppService {
   }
 
   async #hydratePullRequests(worktrees: readonly Worktree[]): Promise<void> {
-    await pMap(worktrees, (worktree) => this.#refreshPullRequest(worktree), {
+    await pMap(worktrees, (worktree) => this.#refreshPullRequest(worktree, true), {
       concurrency: pullRequestLookupConcurrency,
     });
   }
 
-  #refreshPullRequest(worktree: Worktree): Promise<PullRequest | undefined> {
+  #refreshPullRequest(
+    worktree: Worktree,
+    background = false,
+  ): Promise<PullRequest | undefined> {
     const lookupKey = pullRequestLookupKey(worktree);
     const refreshedAt = this.#pullRequestRefreshedAt.get(lookupKey);
     if (refreshedAt !== undefined && this.#now() - refreshedAt < pullRequestFreshnessMs) {
@@ -380,8 +390,11 @@ export class AppService {
     const activeLookup = this.#pullRequestLookups.get(lookupKey);
     if (activeLookup) return activeLookup;
 
-    const lookup = this.github
-      .pullRequest(worktree)
+    const startLookup = (): Promise<PullRequest | undefined> =>
+      this.github.pullRequest(worktree);
+    const lookup = (
+      background ? this.#backgroundPullRequestLookups.run(startLookup) : startLookup()
+    )
       .then((pullRequest) => {
         this.#pullRequestRefreshedAt.set(lookupKey, this.#now());
         if (!pullRequest) return this.#cachedPullRequest(worktree);

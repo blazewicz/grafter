@@ -1,3 +1,6 @@
+import { mkdtemp, writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { CommandContext } from '../../src/shared/contracts';
 import { CommandRunner, displayCommand, quoteArg } from '../../src/main/commands';
@@ -141,6 +144,76 @@ describe('command execution timing', () => {
 
     expect(result.record.status).toBe('failed');
     expect(result.record.durationMs).toBeCloseTo(9.8765);
+  });
+});
+
+describe('automated command admission', () => {
+  it('never spawns more than the aggregate process ceiling', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-admission-'));
+    const gatePath = path.join(directory, 'release');
+    const startedIds = new Set<string>();
+    let resolveCeilingReached: (() => void) | undefined;
+    const ceilingReached = new Promise<void>((resolve) => {
+      resolveCeilingReached = resolve;
+    });
+    const runner = new CommandRunner((record) => {
+      if (record.output.some((entry) => entry.text.includes('started'))) {
+        startedIds.add(record.id);
+        if (startedIds.size === CommandRunner.maximumConcurrentAutomatedCommands) {
+          resolveCeilingReached?.();
+        }
+      }
+    });
+    const script =
+      "const fs=require('node:fs'); process.stdout.write('started\\n'); " +
+      'const timer=setInterval(()=>{if(fs.existsSync(process.argv[1])){' +
+      'clearInterval(timer);process.exit(0)}},5)';
+
+    const commands = Array.from(
+      { length: CommandRunner.maximumConcurrentAutomatedCommands + 4 },
+      (_, index) =>
+        runner.run({
+          context: projectContext,
+          tool: 'git',
+          executable: process.execPath,
+          args: ['-e', script, gatePath],
+          cwd: directory,
+          purpose: `Blocked automated command ${index}`,
+          isReadOnly: true,
+        }),
+    );
+
+    await ceilingReached;
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(startedIds.size).toBe(CommandRunner.maximumConcurrentAutomatedCommands);
+
+    await writeFile(gatePath, 'release\n');
+    await expect(Promise.all(commands)).resolves.toHaveLength(commands.length);
+    expect(startedIds.size).toBe(commands.length);
+  });
+
+  it('kills and audits an automated command that times out', async () => {
+    const updates: string[] = [];
+    const runner = new CommandRunner(
+      (record) => updates.push(...record.output.map((entry) => entry.text)),
+      { gitTimeoutMs: 300, terminationGraceMs: 20 },
+    );
+
+    const result = await runner.run({
+      context: projectContext,
+      tool: 'git',
+      executable: process.execPath,
+      args: ['-e', "process.on('SIGTERM',()=>{}); setInterval(()=>undefined,1000)"],
+      cwd: process.cwd(),
+      purpose: 'Run a command that does not terminate',
+      isReadOnly: true,
+    });
+
+    expect(result.record.status).toBe('failed');
+    expect(result.record.exitCode).not.toBe(0);
+    expect(result.stderr).toContain('Command timed out after 300 ms.');
+    expect(updates.some((text) => text.includes('Sent SIGTERM'))).toBe(true);
+    expect(updates.some((text) => text.includes('Sent SIGKILL'))).toBe(true);
   });
 });
 
