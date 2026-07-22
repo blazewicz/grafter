@@ -400,8 +400,8 @@ export class GitService {
     if (file.binary) return { fileId: file.id, binary: true, hunks: [] };
 
     return this.#diffFileReadsLimit(async () => {
-      // A request may wait behind other visible files, so do not retain authority from
-      // the initial validation after its session has been closed or evicted.
+      // The session may be closed or evicted while this request is queued,
+      // so validate it again before running git diff.
       const current = this.#diffFile(request);
       const paths = [
         ...(current.file.previousPath && current.file.previousPath !== current.file.path
