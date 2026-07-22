@@ -45,7 +45,7 @@ export class AppService {
   // explicit refreshes and other interactive reads always have room to start.
   static readonly maximumConcurrentBackgroundPullRequestLookups = Math.max(
     1,
-    Math.floor(CommandRunner.maximumConcurrentAutomatedCommands / 2),
+    Math.floor(CommandRunner.maximumConcurrentCommands / 2),
   );
 
   readonly git: GitService;

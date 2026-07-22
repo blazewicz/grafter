@@ -6,6 +6,7 @@ import type { CommandSpec } from '../../src/main/commands';
 const command: CommandSpec = {
   context: { kind: 'project', projectId: 'project' },
   tool: 'git',
+  execution: { admission: 'limited', timeoutMs: 60_000 },
   executable: 'git',
   args: ['worktree', 'remove', '/repo.worktrees/feature'],
   cwd: '/repo',

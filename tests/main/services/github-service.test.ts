@@ -40,6 +40,10 @@ describe('GitHubService pull requests', () => {
       {
         context: worktreeCommandContext(worktree),
         tool: 'github',
+        execution: {
+          admission: 'limited',
+          timeoutMs: GitHubService.commandTimeoutMs,
+        },
         executable: 'gh',
         args: [
           'pr',

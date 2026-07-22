@@ -43,6 +43,7 @@ interface StoredDiffSession {
 export class GitService {
   static readonly maximumDiffSessions = 12;
   static readonly maximumConcurrentDiffFileReads = 3;
+  static readonly commandTimeoutMs = 60_000;
 
   readonly #diffSessions = new Map<string, StoredDiffSession>();
   readonly #diffFileReadsLimit = pLimit(GitService.maximumConcurrentDiffFileReads);
@@ -138,6 +139,10 @@ export class GitService {
     return {
       context: projectCommandContext(project),
       tool: 'git',
+      execution: {
+        admission: 'limited',
+        timeoutMs: GitService.commandTimeoutMs,
+      },
       executable: 'git',
       args: ['worktree', 'remove', worktree.path],
       cwd: project.path,
@@ -500,6 +505,7 @@ export class GitService {
     return {
       context: worktreeCommandContext(worktree),
       tool: 'shell',
+      execution: { admission: 'direct' },
       executable,
       args: ['-lc', script],
       cwd: worktree.path,
@@ -660,6 +666,10 @@ export class GitService {
     return this.runner.run({
       context,
       tool: 'git',
+      execution: {
+        admission: 'limited',
+        timeoutMs: GitService.commandTimeoutMs,
+      },
       executable: 'git',
       args,
       cwd,

@@ -18,6 +18,7 @@ describe('GitService worktree status', () => {
     const initialized = await runner.run({
       context: { kind: 'application' },
       tool: 'git',
+      execution: { admission: 'limited' },
       executable: 'git',
       args: ['init'],
       cwd: directory,
@@ -97,12 +98,25 @@ describe('GitService branch operations', () => {
     expect(runner.commands[0]).toEqual({
       context: worktreeCommandContext(worktree),
       tool: 'git',
+      execution: {
+        admission: 'limited',
+        timeoutMs: GitService.commandTimeoutMs,
+      },
       executable: 'git',
       args: ['switch', '--no-guess', '--', 'feature/new'],
       cwd: worktree.path,
       purpose: 'Switch b77c/feature to feature/new',
       isReadOnly: false,
     });
+  });
+
+  it('runs project setup shells without automated admission or timeout policy', () => {
+    const spec = new GitService(new StubCommandRunner(() => ({}))).setupSpec(
+      worktree,
+      'npm install',
+    );
+
+    expect(spec.execution).toEqual({ admission: 'direct' });
   });
 
   it('does not create or track a branch while adding a worktree', async () => {
@@ -141,6 +155,7 @@ describe('GitService worktree details', () => {
     const initialized = await runner.run({
       context: { kind: 'application' },
       tool: 'git',
+      execution: { admission: 'limited' },
       executable: 'git',
       args: ['init', '--initial-branch=main'],
       cwd: directory,
@@ -535,6 +550,10 @@ describe('GitService committed diff sessions', () => {
     expect(runner.commands).toContainEqual({
       context: worktreeCommandContext(worktree),
       tool: 'git',
+      execution: {
+        admission: 'limited',
+        timeoutMs: GitService.commandTimeoutMs,
+      },
       executable: 'git',
       args: ['remote', '-v'],
       cwd: worktree.path,

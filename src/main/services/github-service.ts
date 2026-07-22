@@ -4,6 +4,8 @@ import type { PullRequest, Worktree } from '../../shared/contracts';
 import type { CommandRunner } from '../commands';
 
 export class GitHubService {
+  static readonly commandTimeoutMs = 30_000;
+
   constructor(private readonly runner: CommandRunner) {}
 
   async pullRequest(worktree: Worktree): Promise<PullRequest | undefined> {
@@ -12,6 +14,10 @@ export class GitHubService {
       const result = await this.runner.run({
         context: worktreeCommandContext(worktree),
         tool: 'github',
+        execution: {
+          admission: 'limited',
+          timeoutMs: GitHubService.commandTimeoutMs,
+        },
         executable: 'gh',
         args: [
           'pr',

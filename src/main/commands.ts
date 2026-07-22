@@ -7,6 +7,10 @@ import type { CommandContext, CommandRecord, ToolName } from '../shared/contract
 export interface CommandSpec {
   context: CommandContext;
   tool: ToolName;
+  execution: {
+    admission: 'limited' | 'direct';
+    timeoutMs?: number;
+  };
   executable: string;
   args: string[];
   cwd: string;
@@ -23,8 +27,6 @@ export interface CommandResult {
 
 interface CommandRunnerOptions {
   now?: () => number;
-  gitTimeoutMs?: number;
-  githubTimeoutMs?: number;
   terminationGraceMs?: number;
 }
 
@@ -42,21 +44,15 @@ export function displayCommand(executable: string, args: string[]): string {
 export class CommandRunner {
   static readonly recordsPerContext = 200;
   static readonly auditedOutputCharacterLimit = 128_000;
-  static readonly gitTimeoutMs = 60_000;
-  static readonly githubTimeoutMs = 30_000;
   static readonly terminationGraceMs = 1_000;
-  static readonly maximumConcurrentAutomatedCommands = 8;
+  static readonly maximumConcurrentCommands = 8;
 
   readonly #records = new Map<string, CommandRecord>();
   readonly #recordIdsByContext = new Map<string, string[]>();
   readonly #onUpdate: (record: CommandRecord) => void;
   readonly #now: () => number;
-  readonly #gitTimeoutMs: number;
-  readonly #githubTimeoutMs: number;
   readonly #terminationGraceMs: number;
-  readonly #automatedCommandsLimit = pLimit(
-    CommandRunner.maximumConcurrentAutomatedCommands,
-  );
+  readonly #commandsLimit = pLimit(CommandRunner.maximumConcurrentCommands);
 
   constructor(
     onUpdate: (record: CommandRecord) => void,
@@ -64,8 +60,6 @@ export class CommandRunner {
   ) {
     this.#onUpdate = onUpdate;
     this.#now = options.now ?? (() => performance.now());
-    this.#gitTimeoutMs = options.gitTimeoutMs ?? CommandRunner.gitTimeoutMs;
-    this.#githubTimeoutMs = options.githubTimeoutMs ?? CommandRunner.githubTimeoutMs;
     this.#terminationGraceMs =
       options.terminationGraceMs ?? CommandRunner.terminationGraceMs;
   }
@@ -108,7 +102,9 @@ export class CommandRunner {
     this.#save(record);
 
     const execute = (): Promise<CommandResult> => this.#execute(spec, record);
-    return spec.tool === 'shell' ? execute() : this.#automatedCommandsLimit(execute);
+    return spec.execution.admission === 'direct'
+      ? execute()
+      : this.#commandsLimit(execute);
   }
 
   #execute(spec: CommandSpec, record: CommandRecord): Promise<CommandResult> {
@@ -128,12 +124,7 @@ export class CommandRunner {
       let settled = false;
       let timedOut = false;
       let terminationTimer: ReturnType<typeof setTimeout> | undefined;
-      const timeoutMs =
-        spec.tool === 'git'
-          ? this.#gitTimeoutMs
-          : spec.tool === 'github'
-            ? this.#githubTimeoutMs
-            : undefined;
+      const timeoutMs = spec.execution.timeoutMs;
 
       const cleanupTimers = (): void => {
         clearTimeout(timeoutTimer);

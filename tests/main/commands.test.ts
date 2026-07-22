@@ -11,6 +11,7 @@ const worktreeContext: CommandContext = {
   projectId: 'project',
   worktreeId: 'worktree',
 };
+const limitedExecution = { admission: 'limited' } as const;
 
 describe('command display', () => {
   it('leaves safe arguments readable', () => {
@@ -28,6 +29,7 @@ describe('command display', () => {
     const record = runner.createPending({
       context: worktreeContext,
       tool: 'git',
+      execution: limitedExecution,
       executable: 'git',
       args: ['status'],
       cwd: '/repo',
@@ -46,6 +48,7 @@ describe('command log contexts', () => {
     const projectRecord = runner.createPending({
       context: projectContext,
       tool: 'git',
+      execution: limitedExecution,
       executable: 'git',
       args: ['worktree', 'list'],
       cwd: '/repo',
@@ -55,6 +58,7 @@ describe('command log contexts', () => {
     const worktreeRecord = runner.createPending({
       context: worktreeContext,
       tool: 'git',
+      execution: limitedExecution,
       executable: 'git',
       args: ['status'],
       cwd: '/repo',
@@ -77,6 +81,7 @@ describe('command log contexts', () => {
       const record = runner.createPending({
         context: projectContext,
         tool: 'git',
+        execution: limitedExecution,
         executable: 'git',
         args: ['status'],
         cwd: '/repo',
@@ -88,6 +93,7 @@ describe('command log contexts', () => {
     const worktreeRecord = runner.createPending({
       context: worktreeContext,
       tool: 'git',
+      execution: limitedExecution,
       executable: 'git',
       args: ['status'],
       cwd: '/repo',
@@ -115,6 +121,7 @@ describe('command execution timing', () => {
     const result = await runner.run({
       context: projectContext,
       tool: 'git',
+      execution: limitedExecution,
       executable: process.execPath,
       args: ['-e', 'process.exit(0)'],
       cwd: process.cwd(),
@@ -135,6 +142,7 @@ describe('command execution timing', () => {
     const result = await runner.run({
       context: projectContext,
       tool: 'git',
+      execution: limitedExecution,
       executable: process.execPath,
       args: ['-e', 'process.exit(2)'],
       cwd: process.cwd(),
@@ -159,7 +167,7 @@ describe('automated command admission', () => {
     const runner = new CommandRunner((record) => {
       if (record.output.some((entry) => entry.text.includes('started'))) {
         startedIds.add(record.id);
-        if (startedIds.size === CommandRunner.maximumConcurrentAutomatedCommands) {
+        if (startedIds.size === CommandRunner.maximumConcurrentCommands) {
           resolveCeilingReached?.();
         }
       }
@@ -170,11 +178,12 @@ describe('automated command admission', () => {
       'clearInterval(timer);process.exit(0)}},5)';
 
     const commands = Array.from(
-      { length: CommandRunner.maximumConcurrentAutomatedCommands + 4 },
+      { length: CommandRunner.maximumConcurrentCommands + 4 },
       (_, index) =>
         runner.run({
           context: projectContext,
           tool: 'git',
+          execution: limitedExecution,
           executable: process.execPath,
           args: ['-e', script, gatePath],
           cwd: directory,
@@ -185,7 +194,7 @@ describe('automated command admission', () => {
 
     await ceilingReached;
     await new Promise((resolve) => setTimeout(resolve, 30));
-    expect(startedIds.size).toBe(CommandRunner.maximumConcurrentAutomatedCommands);
+    expect(startedIds.size).toBe(CommandRunner.maximumConcurrentCommands);
 
     await writeFile(gatePath, 'release\n');
     await expect(Promise.all(commands)).resolves.toHaveLength(commands.length);
@@ -196,12 +205,13 @@ describe('automated command admission', () => {
     const updates: string[] = [];
     const runner = new CommandRunner(
       (record) => updates.push(...record.output.map((entry) => entry.text)),
-      { gitTimeoutMs: 300, terminationGraceMs: 20 },
+      { terminationGraceMs: 20 },
     );
 
     const result = await runner.run({
       context: projectContext,
       tool: 'git',
+      execution: { admission: 'limited', timeoutMs: 300 },
       executable: process.execPath,
       args: ['-e', "process.on('SIGTERM',()=>{}); setInterval(()=>undefined,1000)"],
       cwd: process.cwd(),
@@ -221,6 +231,7 @@ describe('automated command admission', () => {
     const missingCommand = runner.run({
       context: projectContext,
       tool: 'git',
+      execution: limitedExecution,
       executable: 'grafter-command-that-does-not-exist',
       args: [],
       cwd: process.cwd(),
@@ -233,6 +244,7 @@ describe('automated command admission', () => {
       runner.run({
         context: projectContext,
         tool: 'git',
+        execution: limitedExecution,
         executable: process.execPath,
         args: ['-e', 'process.exit(0)'],
         cwd: process.cwd(),
@@ -250,6 +262,7 @@ describe('command output auditing', () => {
     const result = await runner.run({
       context: projectContext,
       tool: 'git',
+      execution: limitedExecution,
       executable: process.execPath,
       args: ['-e', `process.stdout.write('x'.repeat(${outputLength}))`],
       cwd: process.cwd(),
