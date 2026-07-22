@@ -90,6 +90,10 @@ export function BranchCard({
   const [localComparison, setLocalComparison] = useState<LocalComparison>();
   const branchPickerRef = useRef<HTMLDivElement>(null);
   const comparisonPickerRef = useRef<HTMLDivElement>(null);
+  const pullRequest = details.pullRequest;
+  const [pullRequestMissingOnMount] = useState(pullRequest === undefined);
+  const animatePullRequestDiscovery =
+    pullRequestMissingOnMount && pullRequest !== undefined;
   const activeLocalComparison =
     localComparison?.worktreeId === details.id && localComparison.head === details.head
       ? localComparison
@@ -104,7 +108,6 @@ export function BranchCard({
   const targetBranch = comparison.targetBranch;
   const comparisonBaseOverride = comparison.comparisonBaseOverride;
   const diff = comparison.diff;
-  const pullRequest = details.pullRequest;
   const branchSwitchDisabledReason = switchingBranch
     ? 'Switching branches…'
     : status === 'dirty'
@@ -351,25 +354,33 @@ export function BranchCard({
 
       {pullRequest && (
         <div
-          className={styles.prSubsection}
-          aria-label={`Pull request #${pullRequest.number}`}
+          className={`${styles.prReveal} ${
+            animatePullRequestDiscovery ? styles.prRevealDiscovered : ''
+          }`}
         >
-          <span className={styles.sectionLabel}>PULL REQUEST</span>
-          <div className={styles.prTitleRow}>
-            <PullRequestStateIcon state={pullRequest.state} />
-            <div className={styles.prTitleCopy}>
-              <span className={styles.prNumber}>#{pullRequest.number}</span>
-              <strong className={styles.prTitle}>{pullRequest.title}</strong>
-            </div>
-            <div className={styles.prActions}>
-              <button
-                className={styles.sectionActionButton}
-                aria-label="Open pull request"
-                title="Open pull request"
-                onClick={() => openPullRequestLink(pullRequest.url, onError)}
-              >
-                <SquareArrowOutUpRight size={15} aria-hidden="true" />
-              </button>
+          <div className={styles.prRevealInner}>
+            <div
+              className={styles.prSubsection}
+              aria-label={`Pull request #${pullRequest.number}`}
+            >
+              <span className={styles.sectionLabel}>PULL REQUEST</span>
+              <div className={styles.prTitleRow}>
+                <PullRequestStateIcon state={pullRequest.state} />
+                <div className={styles.prTitleCopy}>
+                  <span className={styles.prNumber}>#{pullRequest.number}</span>
+                  <strong className={styles.prTitle}>{pullRequest.title}</strong>
+                </div>
+                <div className={styles.prActions}>
+                  <button
+                    className={styles.sectionActionButton}
+                    aria-label="Open pull request"
+                    title="Open pull request"
+                    onClick={() => openPullRequestLink(pullRequest.url, onError)}
+                  >
+                    <SquareArrowOutUpRight size={15} aria-hidden="true" />
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>

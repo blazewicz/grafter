@@ -415,6 +415,41 @@
   margin: -3px -3px -3px auto;
 }
 
+.pr-reveal {
+  display: grid;
+  grid-template-rows: 1fr;
+}
+
+.pr-reveal-discovered {
+  animation: pr-reveal-in 350ms ease both;
+}
+
+.pr-reveal-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.pr-reveal-discovered .pr-subsection {
+  animation: pr-card-in 350ms ease both;
+}
+
+@keyframes pr-reveal-in {
+  from {
+    grid-template-rows: 0fr;
+  }
+
+  to {
+    grid-template-rows: 1fr;
+  }
+}
+
+@keyframes pr-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+}
+
 .pr-subsection {
   position: relative;
   margin: 0 8px;
