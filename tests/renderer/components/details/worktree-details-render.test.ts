@@ -141,7 +141,7 @@ describe('WorktreeDetails copy controls', () => {
             baseBranch: 'feature/merged-base',
           },
           automaticBaseBranch: 'feature/merged-base',
-          unavailableAutomaticBaseBranch: 'feature/merged-base',
+          automaticBaseBranchUnavailable: true,
           targetBranch: 'main',
         },
         projectWorktrees: [mainWorktree, details],
@@ -156,6 +156,37 @@ describe('WorktreeDetails copy controls', () => {
       'PR base <code>feature/merged-base</code> is not available locally',
     );
     expect(html).toContain('<code>main</code>');
+  });
+
+  it('keeps an unavailable saved comparison base visible and selectable', () => {
+    const detailsWithoutDiff = { ...details };
+    delete detailsWithoutDiff.diff;
+    const html = renderToStaticMarkup(
+      createElement(WorktreeDetails, {
+        homeDirectory: '/repo.worktrees',
+        ...displayPreferences,
+        details: {
+          ...detailsWithoutDiff,
+          automaticBaseBranch: 'main',
+          targetBranch: 'release/next',
+          comparisonBaseOverride: 'release/next',
+          comparisonBaseOverrideUnavailable: true,
+        },
+        projectWorktrees: [mainWorktree, details],
+        status: 'clean',
+        onSnapshot: () => undefined,
+        onSelectProject: () => undefined,
+        onOpenDiff: () => undefined,
+        onError: () => undefined,
+      }),
+    );
+
+    expect(html).toContain('<code>release/next</code>');
+    expect(html).toContain(
+      'Comparison base <code>release/next</code> is not available locally. Choose another branch.',
+    );
+    expect(html).toContain('aria-label="Choose comparison base"');
+    expect(html).not.toContain('aria-label="View branch diff"');
   });
 
   it('uses a singular file label for a one-file commit', () => {

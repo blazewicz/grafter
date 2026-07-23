@@ -64,8 +64,11 @@ export function BranchCard({
       : details.targetBranch);
   const targetBranch = comparison.targetBranch;
   const comparisonBaseOverride = comparison.comparisonBaseOverride;
-  const unavailableAutomaticBaseBranch =
-    comparison.unavailableAutomaticBaseBranch ?? details.unavailableAutomaticBaseBranch;
+  const automaticBaseBranchUnavailable =
+    comparison.automaticBaseBranchUnavailable ?? details.automaticBaseBranchUnavailable;
+  const comparisonBaseOverrideUnavailable = activeLocalComparison
+    ? activeLocalComparison.comparisonBaseOverrideUnavailable
+    : details.comparisonBaseOverrideUnavailable;
   const diff = comparison.diff;
   const branchSwitchDisabledReason = switchingBranch
     ? 'Switching branches…'
@@ -213,7 +216,7 @@ export function BranchCard({
             onCopy={() => onCopy(details.branch)}
             className={styles.branchCopyButton}
           />
-          {targetBranch && onOpenDiff && (
+          {targetBranch && diff && onOpenDiff && (
             <button
               className={styles.sectionActionButton}
               aria-label="View branch diff"
@@ -308,10 +311,15 @@ export function BranchCard({
               </div>
             )
           )}
-          {unavailableAutomaticBaseBranch && (
+          {automaticBaseBranchUnavailable && automaticBaseBranch && (
             <span className={styles.comparisonNotice} role="status">
-              PR base <code>{unavailableAutomaticBaseBranch}</code> is not available
-              locally
+              PR base <code>{automaticBaseBranch}</code> is not available locally
+            </span>
+          )}
+          {comparisonBaseOverrideUnavailable && targetBranch && (
+            <span className={styles.comparisonNotice} role="status">
+              Comparison base <code>{targetBranch}</code> is not available locally. Choose
+              another branch.
             </span>
           )}
         </div>

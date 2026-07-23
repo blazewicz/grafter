@@ -41,8 +41,7 @@ export function useWorktreeInspection(
 
         if (
           (cached.comparisonBaseOverride === undefined &&
-            cached.unavailableAutomaticBaseBranch !== pullRequest.baseBranch &&
-            cached.targetBranch !== pullRequest.baseBranch) ||
+            cached.automaticBaseBranch !== pullRequest.baseBranch) ||
           cached.pullRequest === undefined
         ) {
           const refreshed = await api.getWorktreeDetails(worktreeId);

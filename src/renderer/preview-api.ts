@@ -66,7 +66,7 @@ let snapshot: AppSnapshot = {
             title: 'Add the audit console',
             url: 'https://github.com/example/grafter/pull/47',
             state: 'OPEN',
-            baseBranch: 'feature/worktree-picker',
+            baseBranch: 'feature/merged-base',
           },
           head: '81ca492',
           isMain: false,
@@ -262,8 +262,10 @@ const details: Record<string, WorktreeDetails> = {
       authoredAt: '2026-07-19T12:42:00+02:00',
       stats: { files: 2, additions: 124, deletions: 18 },
     },
-    targetBranch: 'main',
-    diff: { files: 7, additions: 438, deletions: 41 },
+    automaticBaseBranch: 'main',
+    targetBranch: 'release/next',
+    comparisonBaseOverride: 'release/next',
+    comparisonBaseOverrideUnavailable: true,
   },
   'grafter:audit': {
     ...snapshot.projects[0]!.worktrees[2]!,
@@ -276,7 +278,9 @@ const details: Record<string, WorktreeDetails> = {
       authoredAt: '2026-07-18T17:08:00+02:00',
       stats: { files: 3, additions: 121, deletions: 9 },
     },
-    targetBranch: 'feature/worktree-picker',
+    automaticBaseBranch: 'feature/merged-base',
+    automaticBaseBranchUnavailable: true,
+    targetBranch: 'main',
     diff: { files: 3, additions: 121, deletions: 9 },
   },
   'garden:main': {
@@ -775,10 +779,16 @@ export const previewApi: GrafterApi = {
       snapshot.projects
         .find((project) => project.id === worktreeDetails.projectId)
         ?.worktrees.find((worktree) => worktree.isMain)?.branch;
-    const nextTarget = targetBranch ?? automaticTarget;
+    const automaticBaseBranchUnavailable =
+      targetBranch === undefined &&
+      worktreeDetails.automaticBaseBranchUnavailable === true;
+    const nextTarget = automaticBaseBranchUnavailable
+      ? 'main'
+      : (targetBranch ?? automaticTarget);
     const comparison = nextTarget
       ? {
           ...(automaticTarget ? { automaticBaseBranch: automaticTarget } : {}),
+          ...(automaticBaseBranchUnavailable ? { automaticBaseBranchUnavailable } : {}),
           targetBranch: nextTarget,
           diff: {
             files: nextTarget === 'main' ? 7 : 4,
@@ -793,6 +803,8 @@ export const previewApi: GrafterApi = {
     delete detailsWithoutComparison.targetBranch;
     delete detailsWithoutComparison.diff;
     delete detailsWithoutComparison.comparisonBaseOverride;
+    delete detailsWithoutComparison.automaticBaseBranchUnavailable;
+    delete detailsWithoutComparison.comparisonBaseOverrideUnavailable;
     details[worktreeId] = { ...detailsWithoutComparison, ...comparison };
     return Promise.resolve(structuredClone(comparison));
   },

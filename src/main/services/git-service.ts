@@ -197,28 +197,34 @@ export class GitService {
       };
     }
 
-    const unavailableAutomaticBaseBranch =
-      comparisonBaseOverride === undefined &&
-      worktree.pullRequest?.baseBranch === targetBranch
-        ? targetBranch
-        : undefined;
-    if (!unavailableAutomaticBaseBranch) {
+    if (comparisonBaseOverride) {
+      return {
+        ...automaticBase,
+        targetBranch,
+        comparisonBaseOverride,
+        comparisonBaseOverrideUnavailable: true,
+      };
+    }
+
+    const automaticBaseBranchUnavailable =
+      worktree.pullRequest?.baseBranch === targetBranch;
+    if (!automaticBaseBranchUnavailable) {
       throw new Error(`The comparison base ${targetBranch} is not available locally.`);
     }
 
     const fallbackBranch = await this.#remoteHeadBranch(project, context);
     if (!fallbackBranch || fallbackBranch === worktree.branch) {
-      return { ...automaticBase, unavailableAutomaticBaseBranch };
+      return { ...automaticBase, automaticBaseBranchUnavailable };
     }
 
     const fallbackDiff = await this.#diffStats(worktree.path, fallbackBranch, context);
     if (!fallbackDiff) {
-      return { ...automaticBase, unavailableAutomaticBaseBranch };
+      return { ...automaticBase, automaticBaseBranchUnavailable };
     }
 
     return {
       ...automaticBase,
-      unavailableAutomaticBaseBranch,
+      automaticBaseBranchUnavailable,
       targetBranch: fallbackBranch,
       diff: fallbackDiff,
     };

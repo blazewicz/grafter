@@ -351,7 +351,7 @@ describe('GitService worktree details', () => {
       new GitService(runner).details(project, worktree),
     ).resolves.toMatchObject({
       automaticBaseBranch: 'feature/merged-base',
-      unavailableAutomaticBaseBranch: 'feature/merged-base',
+      automaticBaseBranchUnavailable: true,
       targetBranch: 'main',
       diff: { files: 1, additions: 4, deletions: 1 },
     });
@@ -393,8 +393,41 @@ describe('GitService worktree details', () => {
 
     await expect(new GitService(runner).comparison(project, worktree)).resolves.toEqual({
       automaticBaseBranch: 'feature/merged-base',
-      unavailableAutomaticBaseBranch: 'feature/merged-base',
+      automaticBaseBranchUnavailable: true,
     });
+  });
+
+  it('reports an unavailable saved comparison override without changing it', async () => {
+    const project: Project = { id: 'project', name: 'project', path: '/repo' };
+    const worktree: Worktree = {
+      id: 'project:/repo.worktrees/feature',
+      projectId: project.id,
+      displayName: 'feature',
+      path: '/repo.worktrees/feature',
+      branch: 'feature/change',
+      head: '1234567',
+      isMain: false,
+      locked: false,
+    };
+    const runner = new StubCommandRunner((spec) => {
+      if (spec.args[0] === 'symbolic-ref') return { stdout: 'origin/main\n' };
+      if (spec.args[0] === 'diff') return { exitCode: 128 };
+      throw new Error(`Unexpected command: ${spec.args.join(' ')}`);
+    });
+
+    await expect(
+      new GitService(runner).comparison(project, worktree, 'release/next'),
+    ).resolves.toEqual({
+      automaticBaseBranch: 'main',
+      targetBranch: 'release/next',
+      comparisonBaseOverride: 'release/next',
+      comparisonBaseOverrideUnavailable: true,
+    });
+    expect(
+      runner.commands
+        .filter((command) => command.args[0] === 'diff')
+        .map((command) => command.args[2]),
+    ).toEqual(['release/next...HEAD', 'origin/release/next...HEAD']);
   });
 
   it('uses an explicit comparison base while retaining the automatic PR base', async () => {
