@@ -313,6 +313,90 @@ describe('GitService worktree details', () => {
     );
   });
 
+  it('falls back to the default branch when a pull request base is unavailable locally', async () => {
+    const project: Project = { id: 'project', name: 'project', path: '/repo' };
+    const worktree: Worktree = {
+      id: 'project:/repo.worktrees/stacked',
+      projectId: project.id,
+      displayName: 'stacked',
+      path: '/repo.worktrees/stacked',
+      branch: 'feature/stacked',
+      pullRequest: {
+        number: 19,
+        title: 'Stacked pull request',
+        url: 'https://github.com/example/project/pull/19',
+        state: 'OPEN',
+        baseBranch: 'feature/merged-base',
+      },
+      head: '1234567',
+      isMain: false,
+      locked: false,
+    };
+    const runner = new StubCommandRunner((spec) => {
+      if (spec.args[0] === 'log') {
+        return {
+          stdout:
+            '1234567890abcdef\nAda Lovelace\n\n2026-07-19T14:25:00+02:00\nStacked pull request\n\u0000\n',
+        };
+      }
+      if (spec.args[0] === 'symbolic-ref') return { stdout: 'origin/main\n' };
+      if (spec.args[0] === 'diff') {
+        if (spec.args[2] === 'main...HEAD') return { stdout: '4\t1\tsrc/example.ts\n' };
+        return { exitCode: 128, stderr: 'fatal: ambiguous argument' };
+      }
+      throw new Error(`Unexpected command: ${spec.args.join(' ')}`);
+    });
+
+    await expect(
+      new GitService(runner).details(project, worktree),
+    ).resolves.toMatchObject({
+      automaticBaseBranch: 'feature/merged-base',
+      unavailableAutomaticBaseBranch: 'feature/merged-base',
+      targetBranch: 'main',
+      diff: { files: 1, additions: 4, deletions: 1 },
+    });
+    expect(
+      runner.commands
+        .filter((command) => command.args[0] === 'diff')
+        .map((command) => command.args[2]),
+    ).toEqual([
+      'feature/merged-base...HEAD',
+      'origin/feature/merged-base...HEAD',
+      'main...HEAD',
+    ]);
+  });
+
+  it('keeps the pull request base warning when no fallback branch is available', async () => {
+    const project: Project = { id: 'project', name: 'project', path: '/repo' };
+    const worktree: Worktree = {
+      id: 'project:/repo.worktrees/stacked',
+      projectId: project.id,
+      displayName: 'stacked',
+      path: '/repo.worktrees/stacked',
+      branch: 'feature/stacked',
+      pullRequest: {
+        number: 19,
+        title: 'Stacked pull request',
+        url: 'https://github.com/example/project/pull/19',
+        state: 'OPEN',
+        baseBranch: 'feature/merged-base',
+      },
+      head: '1234567',
+      isMain: false,
+      locked: false,
+    };
+    const runner = new StubCommandRunner((spec) => {
+      if (spec.args[0] === 'symbolic-ref') return { exitCode: 1 };
+      if (spec.args[0] === 'diff') return { exitCode: 128 };
+      throw new Error(`Unexpected command: ${spec.args.join(' ')}`);
+    });
+
+    await expect(new GitService(runner).comparison(project, worktree)).resolves.toEqual({
+      automaticBaseBranch: 'feature/merged-base',
+      unavailableAutomaticBaseBranch: 'feature/merged-base',
+    });
+  });
+
   it('uses an explicit comparison base while retaining the automatic PR base', async () => {
     const project: Project = { id: 'project', name: 'project', path: '/repo' };
     const worktree: Worktree = {

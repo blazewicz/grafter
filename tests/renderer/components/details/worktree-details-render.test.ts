@@ -126,6 +126,38 @@ describe('WorktreeDetails copy controls', () => {
     expect(html).toContain('aria-disabled="true"');
   });
 
+  it('notifies when a pull request base is unavailable locally', () => {
+    const html = renderToStaticMarkup(
+      createElement(WorktreeDetails, {
+        homeDirectory: '/repo.worktrees',
+        ...displayPreferences,
+        details: {
+          ...details,
+          pullRequest: {
+            number: 18,
+            title: 'Stacked pull request',
+            url: 'https://github.com/example/repo/pull/18',
+            state: 'OPEN',
+            baseBranch: 'feature/merged-base',
+          },
+          automaticBaseBranch: 'feature/merged-base',
+          unavailableAutomaticBaseBranch: 'feature/merged-base',
+          targetBranch: 'main',
+        },
+        projectWorktrees: [mainWorktree, details],
+        status: 'clean',
+        onSnapshot: () => undefined,
+        onSelectProject: () => undefined,
+        onError: () => undefined,
+      }),
+    );
+
+    expect(html).toContain(
+      'PR base <code>feature/merged-base</code> is not available locally',
+    );
+    expect(html).toContain('<code>main</code>');
+  });
+
   it('uses a singular file label for a one-file commit', () => {
     const commit = details.commit;
     if (!commit) throw new Error('Expected commit details.');

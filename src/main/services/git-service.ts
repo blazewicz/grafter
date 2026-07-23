@@ -184,13 +184,43 @@ export class GitService {
     const targetBranch = comparisonBaseOverride ?? automaticBaseBranch;
     const automaticBase = automaticBaseBranch ? { automaticBaseBranch } : {};
     if (!targetBranch || targetBranch === worktree.branch) return automaticBase;
+
+    const diff = await this.#diffStats(worktree.path, targetBranch, context);
+    if (diff) {
+      return {
+        ...automaticBase,
+        targetBranch,
+        diff,
+        ...(comparisonBaseOverride
+          ? { comparisonBaseOverride: comparisonBaseOverride }
+          : {}),
+      };
+    }
+
+    const unavailableAutomaticBaseBranch =
+      comparisonBaseOverride === undefined &&
+      worktree.pullRequest?.baseBranch === targetBranch
+        ? targetBranch
+        : undefined;
+    if (!unavailableAutomaticBaseBranch) {
+      throw new Error(`The comparison base ${targetBranch} is not available locally.`);
+    }
+
+    const fallbackBranch = await this.#remoteHeadBranch(project, context);
+    if (!fallbackBranch || fallbackBranch === worktree.branch) {
+      return { ...automaticBase, unavailableAutomaticBaseBranch };
+    }
+
+    const fallbackDiff = await this.#diffStats(worktree.path, fallbackBranch, context);
+    if (!fallbackDiff) {
+      return { ...automaticBase, unavailableAutomaticBaseBranch };
+    }
+
     return {
       ...automaticBase,
-      targetBranch,
-      diff: await this.#diffStats(worktree.path, targetBranch, context),
-      ...(comparisonBaseOverride
-        ? { comparisonBaseOverride: comparisonBaseOverride }
-        : {}),
+      unavailableAutomaticBaseBranch,
+      targetBranch: fallbackBranch,
+      diff: fallbackDiff,
     };
   }
 
@@ -637,7 +667,7 @@ export class GitService {
     worktreePath: string,
     targetBranch: string,
     context: CommandContext,
-  ): Promise<DiffStats> {
+  ): Promise<DiffStats | undefined> {
     const result = await this.#gitAllowFailure(
       worktreePath,
       ['diff', '--numstat', `${targetBranch}...HEAD`],
@@ -646,14 +676,16 @@ export class GitService {
       context,
     );
     if (result.record.exitCode === 0) return parseNumStat(result.stdout);
-    const remoteResult = await this.#git(
+    const remoteResult = await this.#gitAllowFailure(
       worktreePath,
       ['diff', '--numstat', `origin/${targetBranch}...HEAD`],
       `Compare with origin/${targetBranch}`,
       true,
       context,
     );
-    return parseNumStat(remoteResult.stdout);
+    return remoteResult.record.exitCode === 0
+      ? parseNumStat(remoteResult.stdout)
+      : undefined;
   }
 
   #trimDiffSessions(): void {

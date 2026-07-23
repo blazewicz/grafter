@@ -41,6 +41,7 @@ export function useWorktreeInspection(
 
         if (
           (cached.comparisonBaseOverride === undefined &&
+            cached.unavailableAutomaticBaseBranch !== pullRequest.baseBranch &&
             cached.targetBranch !== pullRequest.baseBranch) ||
           cached.pullRequest === undefined
         ) {

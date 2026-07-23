@@ -64,6 +64,8 @@ export function BranchCard({
       : details.targetBranch);
   const targetBranch = comparison.targetBranch;
   const comparisonBaseOverride = comparison.comparisonBaseOverride;
+  const unavailableAutomaticBaseBranch =
+    comparison.unavailableAutomaticBaseBranch ?? details.unavailableAutomaticBaseBranch;
   const diff = comparison.diff;
   const branchSwitchDisabledReason = switchingBranch
     ? 'Switching branches…'
@@ -305,6 +307,12 @@ export function BranchCard({
                 </strong>
               </div>
             )
+          )}
+          {unavailableAutomaticBaseBranch && (
+            <span className={styles.comparisonNotice} role="status">
+              PR base <code>{unavailableAutomaticBaseBranch}</code> is not available
+              locally
+            </span>
           )}
         </div>
       </div>
