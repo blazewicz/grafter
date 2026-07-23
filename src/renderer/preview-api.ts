@@ -72,6 +72,23 @@ let snapshot: AppSnapshot = {
           isMain: false,
           locked: false,
         },
+        {
+          id: 'grafter:comparison-preview',
+          projectId: 'grafter',
+          displayName: 'comparison-preview',
+          path: '/Users/kasia/Code/grafter.worktrees/comparison-preview',
+          branch: 'feature/comparison-preview',
+          pullRequest: {
+            number: 51,
+            title: 'Refine comparison controls',
+            url: 'https://github.com/example/grafter/pull/51',
+            state: 'OPEN',
+            baseBranch: 'main',
+          },
+          head: 'b91d6a8',
+          isMain: false,
+          locked: false,
+        },
       ],
     },
     {
@@ -282,6 +299,22 @@ const details: Record<string, WorktreeDetails> = {
     automaticBaseBranchUnavailable: true,
     targetBranch: 'main',
     diff: { files: 3, additions: 121, deletions: 9 },
+  },
+  'grafter:comparison-preview': {
+    ...snapshot.projects[0]!.worktrees[3]!,
+    projectName: 'grafter',
+    commit: {
+      hash: 'b91d6a818eb0d8c9c7a1e228b3716e95ac7434d2',
+      title: 'Refine comparison controls',
+      body: 'Keep comparison feedback clear while preserving a compact branch card.',
+      authorName: 'Kasia Nowak',
+      authorEmail: 'kasia@example.com',
+      authoredAt: '2026-07-22T15:18:00+02:00',
+      stats: { files: 4, additions: 86, deletions: 12 },
+    },
+    automaticBaseBranch: 'main',
+    targetBranch: 'main',
+    diff: { files: 4, additions: 86, deletions: 12 },
   },
   'garden:main': {
     ...snapshot.projects[1]!.worktrees[0]!,
@@ -679,6 +712,7 @@ export const previewApi: GrafterApi = {
   listBranches: () =>
     Promise.resolve([
       'audit-console',
+      'feature/comparison-preview',
       'feature/glass-sidebar',
       'feature/worktree-picker',
       'fix/linux-shell',
