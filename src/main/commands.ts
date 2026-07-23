@@ -28,7 +28,7 @@ export interface CommandResult {
 interface CommandRunnerOptions {
   now?: () => number;
   terminationGraceMs?: number;
-  rawOutputCharacterLimit?: number;
+  maximumRawOutputCharacters?: number;
   liveUpdateIntervalMs?: number;
   onUpdateError?: (error: unknown) => void;
 }
@@ -46,10 +46,10 @@ export function displayCommand(executable: string, args: string[]): string {
 
 export class CommandRunner {
   static readonly recordsPerContext = 200;
-  static readonly auditedOutputCharacterLimit = 128_000;
+  static readonly maximumAuditedOutputCharacters = 128_000;
   // Parsers receive complete output up to this combined stdout/stderr ceiling.
   // Crossing it fails and terminates the command instead of silently truncating.
-  static readonly rawOutputCharacterLimit = 16_000_000;
+  static readonly maximumRawOutputCharacters = 16_000_000;
   static readonly liveUpdateIntervalMs = 75;
   static readonly terminationGraceMs = 1_000;
   static readonly maximumConcurrentCommands = 8;
@@ -59,7 +59,7 @@ export class CommandRunner {
   readonly #onUpdate: (record: CommandRecord) => void;
   readonly #now: () => number;
   readonly #terminationGraceMs: number;
-  readonly #rawOutputCharacterLimit: number;
+  readonly #maximumRawOutputCharacters: number;
   readonly #liveUpdateIntervalMs: number;
   readonly #onUpdateError: (error: unknown) => void;
   readonly #pendingUpdates = new Map<string, ReturnType<typeof setTimeout>>();
@@ -73,8 +73,8 @@ export class CommandRunner {
     this.#now = options.now ?? (() => performance.now());
     this.#terminationGraceMs =
       options.terminationGraceMs ?? CommandRunner.terminationGraceMs;
-    this.#rawOutputCharacterLimit =
-      options.rawOutputCharacterLimit ?? CommandRunner.rawOutputCharacterLimit;
+    this.#maximumRawOutputCharacters =
+      options.maximumRawOutputCharacters ?? CommandRunner.maximumRawOutputCharacters;
     this.#liveUpdateIntervalMs =
       options.liveUpdateIntervalMs ?? CommandRunner.liveUpdateIntervalMs;
     this.#onUpdateError =
@@ -153,13 +153,13 @@ export class CommandRunner {
 
       const appendAuditedOutput = (stream: 'stdout' | 'stderr', text: string): void => {
         const remaining =
-          CommandRunner.auditedOutputCharacterLimit - auditedOutputCharacters;
+          CommandRunner.maximumAuditedOutputCharacters - auditedOutputCharacters;
         if (remaining <= 0) {
           if (!auditOutputTruncated) {
             auditOutputTruncated = true;
             record.output.push({
               stream: 'system',
-              text: `Command output truncated after ${CommandRunner.auditedOutputCharacterLimit.toLocaleString('en-US')} characters.\n`,
+              text: `Command output truncated after ${CommandRunner.maximumAuditedOutputCharacters.toLocaleString('en-US')} characters.\n`,
               timestamp: new Date().toISOString(),
             });
             this.#save(record, true);
@@ -174,7 +174,7 @@ export class CommandRunner {
           auditOutputTruncated = true;
           record.output.push({
             stream: 'system',
-            text: `Command output truncated after ${CommandRunner.auditedOutputCharacterLimit.toLocaleString('en-US')} characters.\n`,
+            text: `Command output truncated after ${CommandRunner.maximumAuditedOutputCharacters.toLocaleString('en-US')} characters.\n`,
             timestamp,
           });
         }
@@ -212,7 +212,7 @@ export class CommandRunner {
       const failForOutputLimit = (): void => {
         if (outputLimitExceeded) return;
         outputLimitExceeded = true;
-        const message = `Command output exceeded the ${this.#rawOutputCharacterLimit.toLocaleString('en-US')}-character capture limit.`;
+        const message = `Command output exceeded the ${this.#maximumRawOutputCharacters.toLocaleString('en-US')}-character capture limit.`;
         if (terminationReason) appendSystemMessage(message);
         else beginTermination('output-limit', message);
       };
@@ -220,7 +220,7 @@ export class CommandRunner {
       const append = (stream: 'stdout' | 'stderr', chunk: Buffer): void => {
         if (finalized || outputLimitExceeded) return;
         const text = chunk.toString();
-        const remaining = this.#rawOutputCharacterLimit - rawOutputCharacters;
+        const remaining = this.#maximumRawOutputCharacters - rawOutputCharacters;
         const capturedText = text.slice(0, Math.max(0, remaining));
         if (capturedText) {
           rawOutputCharacters += capturedText.length;

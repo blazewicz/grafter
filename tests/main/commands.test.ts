@@ -302,7 +302,7 @@ describe('command output auditing', () => {
   });
 
   it('returns complete stdout while bounding the stored audit output', async () => {
-    const outputLength = CommandRunner.auditedOutputCharacterLimit + 2000;
+    const outputLength = CommandRunner.maximumAuditedOutputCharacters + 2000;
     const runner = new CommandRunner(() => undefined);
     const result = await runner.run({
       context: projectContext,
@@ -327,14 +327,14 @@ describe('command output auditing', () => {
       result.record.output
         .filter((entry) => entry.stream === 'stdout')
         .reduce((total, entry) => total + entry.text.length, 0),
-    ).toBe(CommandRunner.auditedOutputCharacterLimit);
+    ).toBe(CommandRunner.maximumAuditedOutputCharacters);
   });
 
   it('keeps raw output complete through the limit and fails clearly beyond it', async () => {
-    const rawLimit = 64;
+    const maxRawCharacters = 64;
     const updates: ReturnType<CommandRunner['recordsFor']> = [];
     const runner = new CommandRunner((record) => updates.push(record), {
-      rawOutputCharacterLimit: rawLimit,
+      maximumRawOutputCharacters: maxRawCharacters,
       liveUpdateIntervalMs: 20,
       terminationGraceMs: 20,
     });
@@ -349,15 +349,15 @@ describe('command output auditing', () => {
       isReadOnly: true,
     });
 
-    const withinLimit = await runner.run(spec(rawLimit));
+    const withinLimit = await runner.run(spec(maxRawCharacters));
     expect(withinLimit.record.status).toBe('succeeded');
-    expect(withinLimit.stdout).toBe('x'.repeat(rawLimit));
+    expect(withinLimit.stdout).toBe('x'.repeat(maxRawCharacters));
 
-    const exceeded = await runner.run(spec(rawLimit + 1));
+    const exceeded = await runner.run(spec(maxRawCharacters + 1));
     expect(exceeded.record.status).toBe('failed');
-    expect(exceeded.stdout).toHaveLength(rawLimit);
+    expect(exceeded.stdout).toHaveLength(maxRawCharacters);
     expect(exceeded.stderr).toContain(
-      `Command output exceeded the ${rawLimit}-character capture limit.`,
+      `Command output exceeded the ${maxRawCharacters}-character capture limit.`,
     );
     expect(
       exceeded.record.output.some(

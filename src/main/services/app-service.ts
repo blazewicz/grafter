@@ -69,7 +69,7 @@ export class AppService {
     AppService.maximumConcurrentBackgroundPullRequestLookups,
   );
   readonly #projectRefreshLimit = pLimit(AppService.maximumConcurrentProjectRefreshes);
-  readonly #projectOperationLimits = new Map<string, ReturnType<typeof pLimit>>();
+  readonly #projectOperationLimitById = new Map<string, ReturnType<typeof pLimit>>();
   readonly #pullRequestRefreshedAt = new Map<string, number>();
   readonly #projectRefreshVersions = new Map<string, number>();
 
@@ -426,10 +426,10 @@ export class AppService {
     projectId: string,
     operation: () => Promise<T>,
   ): Promise<T> {
-    let limit = this.#projectOperationLimits.get(projectId);
+    let limit = this.#projectOperationLimitById.get(projectId);
     if (!limit) {
       limit = pLimit(1);
-      this.#projectOperationLimits.set(projectId, limit);
+      this.#projectOperationLimitById.set(projectId, limit);
     }
     return limit(operation);
   }
