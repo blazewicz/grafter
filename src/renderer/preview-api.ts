@@ -767,6 +767,35 @@ export const previewApi: GrafterApi = {
   rejectCommand: () => Promise.resolve(structuredClone(snapshot)),
   getWorktreeDetails: (worktreeId) =>
     Promise.resolve(structuredClone(details[worktreeId]!)),
+  setComparisonBase: ({ worktreeId, targetBranch }) => {
+    const worktreeDetails = details[worktreeId];
+    if (!worktreeDetails) return Promise.reject(new Error('Worktree not found.'));
+    const automaticTarget =
+      worktreeDetails.pullRequest?.baseBranch ??
+      snapshot.projects
+        .find((project) => project.id === worktreeDetails.projectId)
+        ?.worktrees.find((worktree) => worktree.isMain)?.branch;
+    const nextTarget = targetBranch ?? automaticTarget;
+    const comparison = nextTarget
+      ? {
+          ...(automaticTarget ? { automaticBaseBranch: automaticTarget } : {}),
+          targetBranch: nextTarget,
+          diff: {
+            files: nextTarget === 'main' ? 7 : 4,
+            additions: nextTarget === 'main' ? 438 : 91,
+            deletions: nextTarget === 'main' ? 41 : 26,
+          },
+          ...(targetBranch ? { comparisonBaseOverride: targetBranch } : {}),
+        }
+      : {};
+    const detailsWithoutComparison = { ...worktreeDetails };
+    delete detailsWithoutComparison.automaticBaseBranch;
+    delete detailsWithoutComparison.targetBranch;
+    delete detailsWithoutComparison.diff;
+    delete detailsWithoutComparison.comparisonBaseOverride;
+    details[worktreeId] = { ...detailsWithoutComparison, ...comparison };
+    return Promise.resolve(structuredClone(comparison));
+  },
   openDiff: (worktreeId) => {
     const worktreeDetails = details[worktreeId];
     if (!worktreeDetails?.targetBranch) {

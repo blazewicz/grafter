@@ -123,6 +123,11 @@ export interface OpenBranchDiffRequest {
   targetBranch: string;
 }
 
+export interface SetComparisonBaseRequest {
+  worktreeId: string;
+  targetBranch?: string;
+}
+
 export interface OpenCommitDiffRequest {
   projectId: string;
   commitHash: string;
@@ -186,11 +191,16 @@ export interface Worktree {
 
 export type WorktreeStatus = 'clean' | 'dirty';
 
-export interface WorktreeDetails extends Worktree {
-  projectName: string;
-  commit?: CommitDetails;
+export interface WorktreeComparison {
+  automaticBaseBranch?: string;
   targetBranch?: string;
   diff?: DiffStats;
+  comparisonBaseOverride?: string;
+}
+
+export interface WorktreeDetails extends Worktree, WorktreeComparison {
+  projectName: string;
+  commit?: CommitDetails;
 }
 
 export interface ProjectTreeItem extends Project {
@@ -239,6 +249,7 @@ export interface GrafterApi {
   approveCommand(approvalId: string): Promise<AppSnapshot>;
   rejectCommand(approvalId: string): Promise<AppSnapshot>;
   getWorktreeDetails(worktreeId: string): Promise<WorktreeDetails>;
+  setComparisonBase(request: SetComparisonBaseRequest): Promise<WorktreeComparison>;
   openDiff(worktreeId: string): Promise<DiffSession>;
   openBranchDiff(request: OpenBranchDiffRequest): Promise<DiffSession>;
   openCommitDiff(request: OpenCommitDiffRequest): Promise<DiffSession>;

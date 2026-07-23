@@ -313,6 +313,43 @@ describe('GitService worktree details', () => {
     );
   });
 
+  it('uses an explicit comparison base while retaining the automatic PR base', async () => {
+    const project: Project = { id: 'project', name: 'project', path: '/repo' };
+    const worktree: Worktree = {
+      id: 'project:/repo.worktrees/feature',
+      projectId: project.id,
+      displayName: 'feature',
+      path: '/repo.worktrees/feature',
+      branch: 'feature/change',
+      pullRequest: {
+        number: 18,
+        title: 'Feature change',
+        url: 'https://github.com/example/project/pull/18',
+        state: 'OPEN',
+        baseBranch: 'main',
+      },
+      head: '1234567',
+      isMain: false,
+      locked: false,
+    };
+    const runner = new StubCommandRunner((spec) => {
+      if (spec.args[0] === 'diff') return { stdout: '5\t2\tsrc/example.ts\n' };
+      throw new Error(`Unexpected command: ${spec.args.join(' ')}`);
+    });
+
+    await expect(
+      new GitService(runner).comparison(project, worktree, 'release/next'),
+    ).resolves.toEqual({
+      automaticBaseBranch: 'main',
+      targetBranch: 'release/next',
+      comparisonBaseOverride: 'release/next',
+      diff: { files: 1, additions: 5, deletions: 2 },
+    });
+    expect(runner.commands.some((command) => command.args[0] === 'symbolic-ref')).toBe(
+      false,
+    );
+  });
+
   it('keeps independent detail reads concurrent', async () => {
     const project: Project = {
       id: 'project',

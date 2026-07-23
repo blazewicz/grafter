@@ -16,6 +16,7 @@ import type {
   DiffStats,
   Project,
   Worktree,
+  WorktreeComparison,
   WorktreeDetails,
   WorktreeStatus,
 } from '../../shared/contracts';
@@ -152,32 +153,44 @@ export class GitService {
     };
   }
 
-  async details(project: Project, worktree: Worktree): Promise<WorktreeDetails> {
+  async details(
+    project: Project,
+    worktree: Worktree,
+    comparisonBaseOverride?: string,
+  ): Promise<WorktreeDetails> {
     const context = worktreeCommandContext(worktree);
     const commitPromise = this.#latestCommit(worktree, context);
-    const comparisonPromise = this.#comparisonTargetBranch(
-      project,
-      worktree,
-      context,
-    ).then(async (targetBranch) => {
-      const comparableTarget =
-        targetBranch &&
-        (worktree.pullRequest !== undefined || targetBranch !== worktree.branch)
-          ? targetBranch
-          : undefined;
-      return comparableTarget
-        ? {
-            targetBranch: comparableTarget,
-            diff: await this.#diffStats(worktree.path, comparableTarget, context),
-          }
-        : {};
-    });
+    const comparisonPromise = this.comparison(project, worktree, comparisonBaseOverride);
     const [commit, comparison] = await Promise.all([commitPromise, comparisonPromise]);
     return {
       ...worktree,
       projectName: project.name,
       ...(commit ? { commit } : {}),
       ...comparison,
+    };
+  }
+
+  async comparison(
+    project: Project,
+    worktree: Worktree,
+    comparisonBaseOverride?: string,
+  ): Promise<WorktreeComparison> {
+    const context = worktreeCommandContext(worktree);
+    const automaticBaseBranch = await this.#comparisonTargetBranch(
+      project,
+      worktree,
+      context,
+    );
+    const targetBranch = comparisonBaseOverride ?? automaticBaseBranch;
+    const automaticBase = automaticBaseBranch ? { automaticBaseBranch } : {};
+    if (!targetBranch || targetBranch === worktree.branch) return automaticBase;
+    return {
+      ...automaticBase,
+      targetBranch,
+      diff: await this.#diffStats(worktree.path, targetBranch, context),
+      ...(comparisonBaseOverride
+        ? { comparisonBaseOverride: comparisonBaseOverride }
+        : {}),
     };
   }
 
@@ -193,16 +206,19 @@ export class GitService {
     return parseWorktreeStatus(result.stdout);
   }
 
-  async openDiff(project: Project, worktree: Worktree): Promise<DiffSession> {
-    const targetBranch = await this.#comparisonTargetBranch(
-      project,
-      worktree,
-      worktreeCommandContext(worktree),
-    );
-    if (
-      !targetBranch ||
-      (worktree.pullRequest === undefined && targetBranch === worktree.branch)
-    ) {
+  async openDiff(
+    project: Project,
+    worktree: Worktree,
+    comparisonBaseOverride?: string,
+  ): Promise<DiffSession> {
+    const targetBranch =
+      comparisonBaseOverride ??
+      (await this.#comparisonTargetBranch(
+        project,
+        worktree,
+        worktreeCommandContext(worktree),
+      ));
+    if (!targetBranch || targetBranch === worktree.branch) {
       throw new Error('This branch does not have a committed comparison target.');
     }
 

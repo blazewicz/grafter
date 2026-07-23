@@ -13,6 +13,7 @@ describe('StateStore', () => {
     expect(store.state.settings.defaultWorktreePath).toBe('../<repo_name>.worktrees');
     expect(store.state.settings.dateFormat).toBe('system');
     expect(store.state.settings.timeFormat).toBe('system');
+    expect(store.state.comparisonBaseOverrides).toEqual({});
 
     await store.update((state) => {
       state.settings.defaultWorktreePath = '/worktrees/<repo_name>';
@@ -54,6 +55,31 @@ describe('StateStore', () => {
       defaultWorktreePath: '/legacy/<repo_name>',
       dateFormat: 'system',
       timeFormat: 'system',
+    });
+    expect(store.state.comparisonBaseOverrides).toEqual({});
+  });
+
+  it('loads only valid persisted comparison base overrides', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-store-'));
+    await writeFile(
+      path.join(directory, 'grafter-state.json'),
+      JSON.stringify({
+        projects: [],
+        settings: {},
+        comparisonBaseOverrides: {
+          valid: { sourceBranch: 'feature', targetBranch: 'release' },
+          empty: { sourceBranch: '', targetBranch: 'main' },
+          malformed: 'main',
+        },
+      }),
+      'utf8',
+    );
+
+    const store = new StateStore(directory);
+    await store.load();
+
+    expect(store.state.comparisonBaseOverrides).toEqual({
+      valid: { sourceBranch: 'feature', targetBranch: 'release' },
     });
   });
 
