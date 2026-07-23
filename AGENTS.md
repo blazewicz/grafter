@@ -6,7 +6,8 @@ This file applies to the entire repository.
 
 Grafter is an Electron app for managing Git worktrees. It is a transparent wrapper around
 the `git` and `gh` command-line tools, with a compact interface inspired by native macOS
-developer tools. Supported platforms are macOS and Linux; Windows is out of scope.
+developer tools. Primary supported platform is macOS. It might work on Linux, but we don't
+really care. Windows is out of scope.
 
 Requirements:
 
@@ -49,14 +50,21 @@ These constraints are architectural invariants:
 
 ## Concurrency and async safety
 
-- Assume IPC handlers can overlap. Enforce locking, deduplication, and concurrency limits in the main process, not through renderer loading states.
-- Serialize mutating Git operations per repository. Allow independent repositories and safe read-only operations to run concurrently.
-- Use `p-map` for bounded batches and a shared limiter when the limit must apply across multiple calls.
-- Give background subprocesses their own limit below the total subprocess limit so interactive commands retain capacity.
+- Assume IPC handlers can overlap. Enforce locking, deduplication, and concurrency limits in
+  the main process, not through renderer loading states.
+- Serialize mutating Git operations per repository. Allow independent repositories and safe
+  read-only operations to run concurrently.
+- Use `p-map` for bounded batches of operations.
+- Use a shared `p-limit` limiter when the limit must apply across multiple calls.
+- Give background subprocesses their own limit below the total subprocess limit so interactive
+  commands retain capacity.
 - Serialize persistence as complete transactions: mutate, write, rename, and publish state in order.
-- Every fire-and-forget promise must handle rejection. Unexpected background failures must remain observable.
-- Ensure subprocess execution settles once and cleans up timers, listeners, and queued work on every terminal path.
-- Bound captured subprocess output and live IPC update frequency. Never silently truncate output consumed by parsers.
+- Every fire-and-forget promise must handle rejection. Unexpected background failures
+  must remain observable.
+- Ensure subprocess execution settles once and cleans up timers, listeners, and queued work
+  on every terminal path.
+- Bound captured subprocess output and live IPC update frequency. Never silently truncate
+  output consumed by parsers.
 - Add deterministic tests for concurrency limits, ordering, failure recovery, and lock release.
 
 ## Code and interface conventions
@@ -75,6 +83,8 @@ These constraints are architectural invariants:
   user explicitly asks.
 - Keep renderer components grouped by feature area under `src/renderer/components/`,
   and co-locate feature-specific hooks with their components.
+- Don't bundle multiple components in a single source file, except tiny helpers very
+  tightly coupled with the main component of the file.
 - Keep `App.tsx` focused on cross-feature composition and shared orchestration; keep
   feature-local state and behavior in the component that owns it.
 
@@ -102,11 +112,19 @@ Do not claim completion with failing type checking, linting, formatting, or test
 Keep the npm quality scripts, `.husky/pre-commit`, and `.github/workflows/ci.yml` aligned
 when checks change. Do not bypass hooks or weaken CI checks as part of unrelated work.
 
+### Codex In-app Browser
+
+If you're Codex and you need to preview the app then instead of running `npm start`
+run `./node_modules/.bin/vite --config vite.renderer.config.ts --host 127.0.0.1` to
+start a local server and connect to it using Codes In-app Browser on http://127.0.0.1:5173.
+
+When running from Visual Studio Code, the browser is not available. Don't attempt using it.
+
 ## Commands
 
 ```sh
 npm install              # Install dependencies
-npm start                # Run Electron in development
+npm start                # Run Electron in development mode
 npm run check            # Typecheck, lint, format-check, and test
 npm run typecheck        # TypeScript only
 npm run lint             # ESLint only
@@ -120,9 +138,3 @@ npm run make             # Build distributable artifacts
 ```
 
 Electron Forge packaging may need network access for platform artifacts.
-
-## Codex In-app Browser
-
-If you're Codex and you need to preview the app then instead of running `npm start`
-run `./node_modules/.bin/vite --config vite.renderer.config.ts --host 127.0.0.1` to
-start a local server and connect to it using Codes In-app Browser on http:127.0.0.1:5173.
