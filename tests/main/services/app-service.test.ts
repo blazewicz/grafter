@@ -1332,7 +1332,7 @@ describe('AppService branch comparisons', () => {
       automaticBaseBranch: 'main',
       targetBranch: 'release/next',
       comparisonBaseOverride: 'release/next',
-      diff: { files: 2, additions: 8, deletions: 3 },
+      diffStats: { files: 2, additions: 8, deletions: 3 },
     });
     const session: DiffSession = {
       kind: 'branch',
@@ -1366,7 +1366,7 @@ describe('AppService branch comparisons', () => {
     comparison.mockResolvedValueOnce({
       automaticBaseBranch: 'main',
       targetBranch: 'main',
-      diff: { files: 1, additions: 2, deletions: 1 },
+      diffStats: { files: 1, additions: 2, deletions: 1 },
     });
     await service.setComparisonBase({ worktreeId: feature.id });
     expect(store.state.comparisonBaseOverrides[feature.id]).toBeUndefined();

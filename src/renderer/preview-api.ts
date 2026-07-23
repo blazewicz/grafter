@@ -298,7 +298,7 @@ const details: Record<string, WorktreeDetails> = {
     automaticBaseBranch: 'feature/merged-base',
     automaticBaseBranchUnavailable: true,
     targetBranch: 'main',
-    diff: { files: 3, additions: 121, deletions: 9 },
+    diffStats: { files: 3, additions: 121, deletions: 9 },
   },
   'grafter:comparison-preview': {
     ...snapshot.projects[0]!.worktrees[3]!,
@@ -314,7 +314,7 @@ const details: Record<string, WorktreeDetails> = {
     },
     automaticBaseBranch: 'main',
     targetBranch: 'main',
-    diff: { files: 4, additions: 86, deletions: 12 },
+    diffStats: { files: 4, additions: 86, deletions: 12 },
   },
   'garden:main': {
     ...snapshot.projects[1]!.worktrees[0]!,
@@ -765,7 +765,7 @@ export const previewApi: GrafterApi = {
         ? {}
         : {
             targetBranch: 'main',
-            diff: { files: 2, additions: 18, deletions: 4 },
+            diffStats: { files: 2, additions: 18, deletions: 4 },
           }),
     };
     return Promise.resolve(structuredClone(snapshot));
@@ -835,7 +835,7 @@ export const previewApi: GrafterApi = {
     const detailsWithoutComparison = { ...worktreeDetails };
     delete detailsWithoutComparison.automaticBaseBranch;
     delete detailsWithoutComparison.targetBranch;
-    delete detailsWithoutComparison.diff;
+    delete detailsWithoutComparison.diffStats;
     delete detailsWithoutComparison.comparisonBaseOverride;
     delete detailsWithoutComparison.automaticBaseBranchUnavailable;
     delete detailsWithoutComparison.comparisonBaseOverrideUnavailable;

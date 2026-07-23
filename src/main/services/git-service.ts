@@ -185,12 +185,12 @@ export class GitService {
     const automaticBase = automaticBaseBranch ? { automaticBaseBranch } : {};
     if (!targetBranch || targetBranch === worktree.branch) return automaticBase;
 
-    const diff = await this.#diffStats(worktree.path, targetBranch, context);
-    if (diff) {
+    const diffStats = await this.#diffStats(worktree.path, targetBranch, context);
+    if (diffStats) {
       return {
         ...automaticBase,
         targetBranch,
-        diff,
+        diffStats,
         ...(comparisonBaseOverride
           ? { comparisonBaseOverride: comparisonBaseOverride }
           : {}),
@@ -217,8 +217,12 @@ export class GitService {
       return { ...automaticBase, automaticBaseBranchUnavailable };
     }
 
-    const fallbackDiff = await this.#diffStats(worktree.path, fallbackBranch, context);
-    if (!fallbackDiff) {
+    const fallbackDiffStats = await this.#diffStats(
+      worktree.path,
+      fallbackBranch,
+      context,
+    );
+    if (!fallbackDiffStats) {
       return { ...automaticBase, automaticBaseBranchUnavailable };
     }
 
@@ -226,7 +230,7 @@ export class GitService {
       ...automaticBase,
       automaticBaseBranchUnavailable,
       targetBranch: fallbackBranch,
-      diff: fallbackDiff,
+      diffStats: fallbackDiffStats,
     };
   }
 
@@ -682,6 +686,7 @@ export class GitService {
       context,
     );
     if (result.record.exitCode === 0) return parseNumStat(result.stdout);
+
     const remoteResult = await this.#gitAllowFailure(
       worktreePath,
       ['diff', '--numstat', `origin/${targetBranch}...HEAD`],
@@ -689,9 +694,9 @@ export class GitService {
       true,
       context,
     );
-    return remoteResult.record.exitCode === 0
-      ? parseNumStat(remoteResult.stdout)
-      : undefined;
+    if (remoteResult.record.exitCode === 0) return parseNumStat(remoteResult.stdout);
+
+    return undefined;
   }
 
   #trimDiffSessions(): void {

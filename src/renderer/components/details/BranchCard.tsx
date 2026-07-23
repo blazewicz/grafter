@@ -69,7 +69,7 @@ export function BranchCard({
   const comparisonBaseOverrideUnavailable = activeLocalComparison
     ? activeLocalComparison.comparisonBaseOverrideUnavailable
     : details.comparisonBaseOverrideUnavailable;
-  const diff = comparison.diff;
+  const diffStats = comparison.diffStats;
   const branchSwitchDisabledReason = switchingBranch
     ? 'Switching branches…'
     : status === 'dirty'
@@ -216,7 +216,7 @@ export function BranchCard({
             onCopy={() => onCopy(details.branch)}
             className={styles.branchCopyButton}
           />
-          {targetBranch && diff && onOpenDiff && (
+          {targetBranch && diffStats && onOpenDiff && (
             <button
               className={styles.sectionActionButton}
               aria-label="View branch diff"
@@ -286,27 +286,27 @@ export function BranchCard({
               <LoaderCircle className="spin" size={12} /> Updating…
             </span>
           ) : (
-            diff && (
+            diffStats && (
               <div
                 className={styles.comparisonStats}
                 aria-label="Branch comparison stats"
               >
                 <span aria-hidden="true">·</span>
                 <span>
-                  {diff.files} {diff.files === 1 ? 'file' : 'files'}
+                  {diffStats.files} {diffStats.files === 1 ? 'file' : 'files'}
                 </span>
                 <span aria-hidden="true">·</span>
                 <strong
                   className={styles.positive}
-                  aria-label={`${diff.additions} additions`}
+                  aria-label={`${diffStats.additions} additions`}
                 >
-                  +{diff.additions}
+                  +{diffStats.additions}
                 </strong>
                 <strong
                   className={styles.negative}
-                  aria-label={`${diff.deletions} deletions`}
+                  aria-label={`${diffStats.deletions} deletions`}
                 >
-                  −{diff.deletions}
+                  −{diffStats.deletions}
                 </strong>
               </div>
             )

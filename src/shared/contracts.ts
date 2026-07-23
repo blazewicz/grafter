@@ -194,10 +194,10 @@ export type WorktreeStatus = 'clean' | 'dirty';
 export interface WorktreeComparison {
   automaticBaseBranch?: string;
   automaticBaseBranchUnavailable?: boolean;
-  targetBranch?: string;
-  diff?: DiffStats;
   comparisonBaseOverride?: string;
   comparisonBaseOverrideUnavailable?: boolean;
+  targetBranch?: string;
+  diffStats?: DiffStats;
 }
 
 export interface WorktreeDetails extends Worktree, WorktreeComparison {

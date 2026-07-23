@@ -236,7 +236,7 @@ describe('GitService worktree details', () => {
         stats: { files: 1, additions: 8, deletions: 2 },
       },
       targetBranch: 'main',
-      diff: { files: 1, additions: 3, deletions: 1 },
+      diffStats: { files: 1, additions: 3, deletions: 1 },
     });
     expect(runner.commands.find((command) => command.args[0] === 'log')?.args).toEqual([
       'log',
@@ -306,7 +306,7 @@ describe('GitService worktree details', () => {
       new GitService(runner).details(project, worktree),
     ).resolves.toMatchObject({
       targetBranch: 'release',
-      diff: { files: 1, additions: 2, deletions: 0 },
+      diffStats: { files: 1, additions: 2, deletions: 0 },
     });
     expect(runner.commands.some((command) => command.args[0] === 'symbolic-ref')).toBe(
       false,
@@ -353,7 +353,7 @@ describe('GitService worktree details', () => {
       automaticBaseBranch: 'feature/merged-base',
       automaticBaseBranchUnavailable: true,
       targetBranch: 'main',
-      diff: { files: 1, additions: 4, deletions: 1 },
+      diffStats: { files: 1, additions: 4, deletions: 1 },
     });
     expect(
       runner.commands
@@ -460,7 +460,7 @@ describe('GitService worktree details', () => {
       automaticBaseBranch: 'main',
       targetBranch: 'release/next',
       comparisonBaseOverride: 'release/next',
-      diff: { files: 1, additions: 5, deletions: 2 },
+      diffStats: { files: 1, additions: 5, deletions: 2 },
     });
     expect(runner.commands.some((command) => command.args[0] === 'symbolic-ref')).toBe(
       false,
@@ -555,7 +555,7 @@ describe('GitService worktree details', () => {
 
     await expect(details).resolves.toMatchObject({
       targetBranch: 'main',
-      diff: { files: 1, additions: 2, deletions: 1 },
+      diffStats: { files: 1, additions: 2, deletions: 1 },
     });
   });
 

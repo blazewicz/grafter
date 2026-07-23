@@ -24,7 +24,7 @@ const details: WorktreeDetailsData = {
     stats: { files: 2, additions: 8, deletions: 2 },
   },
   targetBranch: 'main',
-  diff: { files: 1, additions: 2, deletions: 0 },
+  diffStats: { files: 1, additions: 2, deletions: 0 },
 };
 
 const mainWorktree: WorktreeDetailsData = {
@@ -160,7 +160,7 @@ describe('WorktreeDetails copy controls', () => {
 
   it('keeps an unavailable saved comparison base visible and selectable', () => {
     const detailsWithoutDiff = { ...details };
-    delete detailsWithoutDiff.diff;
+    delete detailsWithoutDiff.diffStats;
     const html = renderToStaticMarkup(
       createElement(WorktreeDetails, {
         homeDirectory: '/repo.worktrees',
@@ -233,7 +233,7 @@ describe('WorktreeDetails copy controls', () => {
             baseBranch: 'main',
           },
           targetBranch: 'main',
-          diff: { files: 2, additions: 3, deletions: 1 },
+          diffStats: { files: 2, additions: 3, deletions: 1 },
         },
         projectWorktrees: [mainWorktree, details],
         status: 'clean',
