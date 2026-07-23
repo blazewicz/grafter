@@ -824,7 +824,7 @@ export const previewApi: GrafterApi = {
           ...(automaticTarget ? { automaticBaseBranch: automaticTarget } : {}),
           ...(automaticBaseBranchUnavailable ? { automaticBaseBranchUnavailable } : {}),
           targetBranch: nextTarget,
-          diff: {
+          diffStats: {
             files: nextTarget === 'main' ? 7 : 4,
             additions: nextTarget === 'main' ? 438 : 91,
             deletions: nextTarget === 'main' ? 41 : 26,

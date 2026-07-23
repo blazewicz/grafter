@@ -140,6 +140,9 @@ export function BranchCard({
         worktreeId: details.id,
         head: details.head,
         ...next,
+        ...(automaticBaseBranchUnavailable
+          ? { automaticBaseBranchUnavailable: true }
+          : {}),
       });
       setOpenMenu(undefined);
     } catch (caught) {
@@ -247,7 +250,13 @@ export function BranchCard({
                 <button
                   className={styles.automaticBaseButton}
                   type="button"
+                  disabled={automaticBaseBranchUnavailable}
                   onClick={() => void setComparisonBase()}
+                  title={
+                    automaticBaseBranchUnavailable && automaticBaseBranch
+                      ? `PR base ${automaticBaseBranch} is not available locally`
+                      : undefined
+                  }
                 >
                   <span>
                     <strong>Automatic</strong>

@@ -356,10 +356,19 @@
   text-align: left;
 }
 
-.automatic-base-button:hover,
+.automatic-base-button:hover:not(:disabled),
 .automatic-base-button:focus-visible {
   background: var(--accent-bg);
   color: #e3e6ff;
+}
+
+.automatic-base-button:disabled {
+  color: var(--faint);
+  cursor: not-allowed;
+}
+
+.automatic-base-button:disabled small {
+  color: inherit;
 }
 
 .automatic-base-button > span {
