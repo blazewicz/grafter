@@ -6,7 +6,7 @@
 
 > **Grafting** is the practice of joining parts of plants so they grow together as one.
 
-**A transparent desktop workflow for Git worktrees.**
+**A compact desktop workflow for Git worktrees.**
 
 ## What is Grafter?
 

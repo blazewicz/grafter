@@ -1,12 +1,4 @@
-import {
-  app,
-  BrowserWindow,
-  clipboard,
-  dialog,
-  ipcMain,
-  nativeTheme,
-  shell,
-} from 'electron';
+import { app, BrowserWindow, clipboard, dialog, ipcMain, shell } from 'electron';
 import path from 'node:path';
 import { validateClipboardText } from '../shared/clipboard';
 import type {
@@ -26,14 +18,6 @@ import { StateStore } from './store';
 let mainWindow: BrowserWindow | undefined;
 let service: AppService;
 
-function applyMacWindowMaterial(window: BrowserWindow): void {
-  if (process.platform !== 'darwin') return;
-
-  const useOpaqueSurface = nativeTheme.prefersReducedTransparency || !window.isFocused();
-  window.setBackgroundColor(useOpaqueSurface ? '#151619' : '#00000000');
-  window.setVibrancy(useOpaqueSurface ? null : 'menu');
-}
-
 function broadcastCommand(command: CommandRecord): void {
   for (const window of BrowserWindow.getAllWindows()) {
     window.webContents.send(ipc.commandUpdate, command);
@@ -47,17 +31,14 @@ function broadcastSnapshot(snapshot: AppSnapshot): void {
 }
 
 async function createWindow(): Promise<void> {
-  const useMacVibrancy =
-    process.platform === 'darwin' && !nativeTheme.prefersReducedTransparency;
   mainWindow = new BrowserWindow({
     width: 1220,
     height: 790,
     minWidth: 860,
     minHeight: 560,
     titleBarStyle: 'hiddenInset',
-    trafficLightPosition: { x: 16, y: 16 },
-    backgroundColor: useMacVibrancy ? '#00000000' : '#151619',
-    ...(useMacVibrancy ? { vibrancy: 'menu' as const } : {}),
+    trafficLightPosition: { x: 30, y: 20 },
+    backgroundColor: '#141517',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -65,13 +46,6 @@ async function createWindow(): Promise<void> {
       sandbox: true,
     },
   });
-  mainWindow.on('focus', () => {
-    if (mainWindow) applyMacWindowMaterial(mainWindow);
-  });
-  mainWindow.on('blur', () => {
-    if (mainWindow) applyMacWindowMaterial(mainWindow);
-  });
-
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith('https://')) {
       void shell
@@ -199,12 +173,6 @@ async function startApplication(): Promise<void> {
   await service.initialize();
   registerIpc();
   await createWindow();
-
-  nativeTheme.on('updated', () => {
-    for (const window of BrowserWindow.getAllWindows()) {
-      applyMacWindowMaterial(window);
-    }
-  });
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

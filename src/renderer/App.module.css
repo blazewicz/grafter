@@ -1,9 +1,9 @@
 .app-shell {
   height: 100%;
   display: grid;
-  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
-  grid-template-rows: 46px minmax(0, 1fr) auto;
-  background: transparent;
+  grid-template-columns: calc(var(--sidebar-width) + 10px) minmax(0, 1fr);
+  grid-template-rows: 52px minmax(0, 1fr) auto;
+  background: var(--app-background);
 }
 
 .workspace {

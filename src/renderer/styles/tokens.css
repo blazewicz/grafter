@@ -8,11 +8,12 @@
     'Segoe UI',
     sans-serif;
   color: #e8e8e8;
-  background: #171717;
+  background: #141517;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
-  --bg: #171717;
-  --sidebar: rgba(42, 42, 42, 0.6);
+  --app-background: #18191b;
+  --bg: #18191b;
+  --sidebar: #232427;
   --surface: rgba(255, 255, 255, 0.025);
   --surface-strong: rgba(255, 255, 255, 0.055);
   --line: rgba(255, 255, 255, 0.065);
@@ -26,16 +27,6 @@
   --red: #ee6b67;
   --amber: #d8ad68;
   --sidebar-width: 292px;
-}
-
-:root[data-runtime='electron'] {
-  background: transparent;
-}
-
-@media (prefers-reduced-transparency: reduce) {
-  :root {
-    --sidebar: #2a2a2a;
-  }
 }
 
 @media (max-width: 900px) {
