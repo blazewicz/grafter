@@ -904,7 +904,7 @@ export const previewApi: GrafterApi = {
       args: ['status', '--porcelain=v1', '--untracked-files=normal'],
       cwd: worktree.path,
       displayCommand: 'git status --porcelain=v1 --untracked-files=normal',
-      purpose: `Check ${worktree.branch} worktree status`,
+      purpose: `Check ${worktree.displayName} worktree status`,
       isReadOnly: true,
       status: 'running',
       requiresApproval: false,

@@ -147,7 +147,7 @@ export class GitService {
       executable: 'git',
       args: ['worktree', 'remove', worktree.path],
       cwd: project.path,
-      purpose: `Remove the ${worktree.branch} worktree`,
+      purpose: `Remove the ${worktree.displayName} worktree`,
       isReadOnly: false,
       requiresApproval: true,
     };
@@ -199,7 +199,7 @@ export class GitService {
     const result = await this.#git(
       worktree.path,
       ['status', '--porcelain=v1', '--untracked-files=normal'],
-      `Check ${worktree.branch} worktree status`,
+      `Check ${worktree.displayName} worktree status`,
       true,
       context,
     );
