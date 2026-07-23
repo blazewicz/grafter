@@ -51,24 +51,15 @@ export function BranchCard({
   const [pullRequestMissingOnMount] = useState(pullRequest === undefined);
   const animatePullRequestDiscovery =
     pullRequestMissingOnMount && pullRequest !== undefined;
-  const activeLocalComparison =
+  const comparison =
     localComparison?.worktreeId === details.id && localComparison.head === details.head
       ? localComparison
-      : undefined;
-  const comparison = activeLocalComparison ?? details;
-  const automaticBaseBranch =
-    comparison.automaticBaseBranch ??
-    details.automaticBaseBranch ??
-    (details.comparisonBaseOverride
-      ? details.pullRequest?.baseBranch
-      : details.targetBranch);
+      : details;
+  const automaticBaseBranch = comparison.automaticBaseBranch;
   const targetBranch = comparison.targetBranch;
   const comparisonBaseOverride = comparison.comparisonBaseOverride;
-  const automaticBaseBranchUnavailable =
-    comparison.automaticBaseBranchUnavailable ?? details.automaticBaseBranchUnavailable;
-  const comparisonBaseOverrideUnavailable = activeLocalComparison
-    ? activeLocalComparison.comparisonBaseOverrideUnavailable
-    : details.comparisonBaseOverrideUnavailable;
+  const automaticBaseBranchUnavailable = comparison.automaticBaseBranchUnavailable;
+  const comparisonBaseOverrideUnavailable = comparison.comparisonBaseOverrideUnavailable;
   const diffStats = comparison.diffStats;
   const branchSwitchDisabledReason = switchingBranch
     ? 'Switching branches…'
