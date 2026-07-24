@@ -21,6 +21,20 @@ interface LocalComparison extends WorktreeComparison {
   sourceAutomaticBaseBranchUnavailable?: boolean;
 }
 
+export function isLocalComparisonCurrent(
+  comparison: LocalComparison | undefined,
+  details: WorktreeDetails,
+): comparison is LocalComparison {
+  return (
+    comparison?.worktreeId === details.id &&
+    comparison.branch === details.branch &&
+    comparison.head === details.head &&
+    comparison.sourceAutomaticBaseBranch === details.automaticBaseBranch &&
+    comparison.sourceAutomaticBaseBranchUnavailable ===
+      details.automaticBaseBranchUnavailable
+  );
+}
+
 export function BranchCard({
   details,
   projectWorktrees,
@@ -54,15 +68,9 @@ export function BranchCard({
   const [pullRequestMissingOnMount] = useState(pullRequest === undefined);
   const animatePullRequestDiscovery =
     pullRequestMissingOnMount && pullRequest !== undefined;
-  const comparison =
-    localComparison?.worktreeId === details.id &&
-    localComparison.branch === details.branch &&
-    localComparison.head === details.head &&
-    localComparison.sourceAutomaticBaseBranch === details.automaticBaseBranch &&
-    localComparison.sourceAutomaticBaseBranchUnavailable ===
-      details.automaticBaseBranchUnavailable
-      ? localComparison
-      : details;
+  const comparison = isLocalComparisonCurrent(localComparison, details)
+    ? localComparison
+    : details;
   const automaticBaseBranch = comparison.automaticBaseBranch;
   const targetBranch = comparison.targetBranch;
   const comparisonBaseOverride = comparison.comparisonBaseOverride;
