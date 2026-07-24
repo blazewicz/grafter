@@ -5,6 +5,7 @@ import { isCommandContext } from '../../shared/command-context';
 import type {
   AppSnapshot,
   ApprovalRequest,
+  BranchCommitPage,
   CommandRecord,
   CreateWorktreeRequest,
   DiffFilePatch,
@@ -14,6 +15,7 @@ import type {
   OpenCommitDiffRequest,
   OpenDiffFileRequest,
   DiffSession,
+  ListBranchCommitsRequest,
   Project,
   ProjectTreeItem,
   PullRequest,
@@ -321,6 +323,19 @@ export class AppService {
     });
   }
 
+  async listBranchCommits(request: unknown): Promise<BranchCommitPage> {
+    if (!isListBranchCommitsRequest(request)) {
+      throw new Error('Invalid branch commit request.');
+    }
+    const worktree = this.#worktree(request.worktreeId);
+    return this.git.branchCommits(
+      worktree,
+      request.targetBranch.trim(),
+      request.offset,
+      request.limit,
+    );
+  }
+
   async openDiff(worktreeId: string): Promise<DiffSession> {
     const worktree = this.#worktree(worktreeId);
     return this.git.openDiff(
@@ -602,6 +617,23 @@ function isSetComparisonBaseRequest(value: unknown): value is SetComparisonBaseR
   return (
     typeof request.worktreeId === 'string' &&
     (request.targetBranch === undefined || typeof request.targetBranch === 'string')
+  );
+}
+
+function isListBranchCommitsRequest(value: unknown): value is ListBranchCommitsRequest {
+  if (!value || typeof value !== 'object') return false;
+  const request = value as Record<string, unknown>;
+  return (
+    typeof request.worktreeId === 'string' &&
+    typeof request.targetBranch === 'string' &&
+    Boolean(request.targetBranch.trim()) &&
+    typeof request.offset === 'number' &&
+    Number.isSafeInteger(request.offset) &&
+    request.offset >= 0 &&
+    typeof request.limit === 'number' &&
+    Number.isSafeInteger(request.limit) &&
+    request.limit >= 1 &&
+    request.limit <= 50
   );
 }
 

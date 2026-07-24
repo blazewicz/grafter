@@ -7,7 +7,7 @@ import {
   worktreeCommandContext,
 } from '../../shared/command-context';
 import type {
-  CommitDetails,
+  BranchCommitPage,
   CommandContext,
   DiffFilePatch,
   DiffFileRequest,
@@ -21,6 +21,7 @@ import type {
   WorktreeStatus,
 } from '../../shared/contracts';
 import {
+  parseBranchCommits,
   parseCommitDetails,
   parseDiffFiles,
   parseNumStat,
@@ -158,14 +159,10 @@ export class GitService {
     worktree: Worktree,
     comparisonBaseOverride?: string,
   ): Promise<WorktreeDetails> {
-    const context = worktreeCommandContext(worktree);
-    const commitPromise = this.#latestCommit(worktree, context);
-    const comparisonPromise = this.comparison(project, worktree, comparisonBaseOverride);
-    const [commit, comparison] = await Promise.all([commitPromise, comparisonPromise]);
+    const comparison = await this.comparison(project, worktree, comparisonBaseOverride);
     return {
       ...worktree,
       projectName: project.name,
-      ...(commit ? { commit } : {}),
       ...comparison,
     };
   }
@@ -231,6 +228,57 @@ export class GitService {
       automaticBaseBranchUnavailable,
       targetBranch: fallbackBranch,
       diffStats: fallbackDiffStats,
+    };
+  }
+
+  async branchCommits(
+    worktree: Worktree,
+    targetBranch: string,
+    offset: number,
+    limit: number,
+  ): Promise<BranchCommitPage> {
+    const context = worktreeCommandContext(worktree);
+    const targetRef = await this.#comparisonBranchRef(
+      worktree.path,
+      targetBranch,
+      context,
+    );
+    if (!targetRef) {
+      throw new Error(`The comparison base ${targetBranch} is not available locally.`);
+    }
+    const range = `${targetRef}..HEAD`;
+    const [countResult, logResult] = await Promise.all([
+      this.#git(
+        worktree.path,
+        ['rev-list', '--count', range],
+        `Count commits ahead of ${targetBranch}`,
+        true,
+        context,
+      ),
+      this.#git(
+        worktree.path,
+        [
+          'log',
+          '--topo-order',
+          `--skip=${offset}`,
+          `--max-count=${limit}`,
+          '--format=%H%x1f%s%x1f%an%x1f%aI%x00',
+          range,
+        ],
+        `Read commits ahead of ${targetBranch}`,
+        true,
+        context,
+      ),
+    ]);
+    const total = Number.parseInt(countResult.stdout.trim(), 10);
+    if (!Number.isSafeInteger(total) || total < 0) {
+      throw new Error(`Could not count commits ahead of ${targetBranch}.`);
+    }
+    const commits = parseBranchCommits(logResult.stdout);
+    return {
+      commits,
+      total,
+      hasMore: offset + commits.length < total,
     };
   }
 
@@ -647,28 +695,6 @@ export class GitService {
     return remote.stdout.trim();
   }
 
-  async #latestCommit(
-    worktree: Worktree,
-    context: CommandContext,
-  ): Promise<CommitDetails | undefined> {
-    if (!worktree.head) return undefined;
-    const result = await this.#gitAllowFailure(
-      worktree.path,
-      [
-        'log',
-        '-1',
-        '--numstat',
-        '--diff-merges=first-parent',
-        '--format=%H%n%an%n%ae%n%aI%n%s%n%b%x00',
-        'HEAD',
-      ],
-      'Read latest commit',
-      true,
-      context,
-    );
-    return result.record.exitCode === 0 ? parseCommitDetails(result.stdout) : undefined;
-  }
-
   async #diffStats(
     worktreePath: string,
     targetBranch: string,
@@ -734,6 +760,26 @@ export class GitService {
     throw new Error(
       result.stderr.trim() || `Could not check for the ${branchLabel} branch.`,
     );
+  }
+
+  async #comparisonBranchRef(
+    worktreePath: string,
+    targetBranch: string,
+    context: CommandContext,
+  ): Promise<string | undefined> {
+    const localRef = `refs/heads/${targetBranch}`;
+    if (await this.#branchRefExists(worktreePath, localRef, targetBranch, context)) {
+      return localRef;
+    }
+    const remoteRef = `refs/remotes/origin/${targetBranch}`;
+    return (await this.#branchRefExists(
+      worktreePath,
+      remoteRef,
+      `origin/${targetBranch}`,
+      context,
+    ))
+      ? remoteRef
+      : undefined;
   }
 
   #comparisonFailure(targetBranch: string, result: CommandResult): Error {

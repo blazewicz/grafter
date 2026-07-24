@@ -268,17 +268,6 @@
   height: 23px;
 }
 
-.comparison-row {
-  min-width: 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  margin: 3px 34px 0 23px;
-  color: var(--faint);
-  font-size: 10.5px;
-}
-
 .comparison-picker {
   position: relative;
   min-width: 0;
@@ -420,8 +409,200 @@
   font-size: 10px;
 }
 
-.branch-title-row > .section-action-button {
+.branch-changes-group {
+  position: relative;
+  margin-top: 12px;
+}
+
+.branch-changes-card {
+  z-index: 2;
+  position: relative;
+  padding: 11px 13px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.branch-changes-row {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.branch-changes-icon {
+  flex: 0 0 auto;
+  color: var(--accent);
+}
+
+.branch-changes-prefix {
+  flex: 0 0 auto;
+  color: var(--faint);
+  font-size: 10.5px;
+}
+
+.branch-changes-row .comparison-picker {
+  flex: 0 1 auto;
+}
+
+.branch-changes-row .comparison-menu-button {
+  height: 23px;
+  color: #d8d9de;
+  font-weight: 600;
+}
+
+.branch-changes-row .comparison-menu-button code {
+  font-size: 11px;
+}
+
+.branch-target-copy-button {
+  width: 23px;
+  height: 23px;
+  flex: 0 0 auto;
+}
+
+.branch-changes-row > .section-action-button {
+  flex: 0 0 auto;
   margin: -3px -3px -3px auto;
+}
+
+.branch-changes-card > .comparison-notice {
+  display: block;
+  margin: 6px 0 0 22px;
+  font-size: 10px;
+}
+
+.commit-history-card {
+  position: relative;
+  margin: 0 8px;
+  padding: 10px 5px 6px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-top: 0;
+  border-radius: 0 0 7px 7px;
+  background: rgba(28, 28, 29, 0.96);
+}
+
+.commit-history-header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 8px;
+}
+
+.commit-history-header .section-label {
+  margin-bottom: 4px;
+}
+
+.commit-history-count {
+  margin: 0 0 4px auto;
+  color: var(--faint);
+  font-size: 9.5px;
+}
+
+.commit-history-loading,
+.commit-history-empty {
+  min-height: 31px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: var(--faint);
+  font-size: 10.5px;
+}
+
+.commit-history-list {
+  max-height: 210px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+.commit-history-row {
+  min-width: 0;
+  min-height: 31px;
+  display: grid;
+  grid-template-columns: 13px auto 21px minmax(100px, 1fr) minmax(60px, auto) auto 24px;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 5px 2px 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.045);
+}
+
+.commit-history-row > svg {
+  color: var(--muted);
+}
+
+.commit-history-row code {
+  color: #aeb1ba;
+  font-family: 'SFMono-Regular', monospace;
+  font-size: 9.5px;
+}
+
+.commit-history-row strong,
+.commit-history-author,
+.commit-history-row time {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.commit-history-row strong {
+  color: #d3d4d9;
+  font-size: 10.5px;
+  font-weight: 550;
+}
+
+.commit-history-author,
+.commit-history-row time {
+  color: var(--faint);
+  font-size: 9.5px;
+}
+
+.commit-history-copy-button {
+  width: 21px;
+  height: 21px;
+}
+
+.commit-history-diff-button {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+}
+
+.commit-history-diff-button:hover:not(:disabled),
+.commit-history-diff-button:focus-visible {
+  background: rgba(255, 255, 255, 0.055);
+  color: var(--text);
+}
+
+.commit-history-more {
+  min-height: 27px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  margin: 3px auto 0;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.commit-history-more:hover:not(:disabled),
+.commit-history-more:focus-visible {
+  background: rgba(255, 255, 255, 0.055);
+  color: var(--text);
 }
 
 .pr-reveal {
@@ -668,124 +849,8 @@
   white-space: nowrap;
 }
 
-.commit-card {
-  margin-top: 12px;
-  padding: 11px 13px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface);
-}
-
-.commit-title-row {
-  min-width: 0;
-  display: flex;
-  align-items: flex-start;
-  gap: 7px;
-}
-
-.commit-title-icon {
-  flex: 0 0 auto;
-  margin-top: 1px;
-  color: var(--accent);
-}
-
-.commit-title-copy {
-  min-width: 0;
-  flex: 1;
-  display: flex;
-  align-items: flex-start;
-  gap: 5px;
-}
-
-.commit-hash {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  margin: -3px 0 -3px 0;
-}
-
-.commit-hash code {
-  color: var(--faint);
-  font-family: 'SFMono-Regular', monospace;
-  font-size: 10px;
-}
-
-.commit-title {
-  min-width: 0;
-  flex: 1 1 auto;
-  overflow-wrap: anywhere;
-  color: #d8d9de;
-  font-size: 12.5px;
-  font-weight: 600;
-  line-height: 1.4;
-}
-
-.commit-body-button {
-  width: 20px;
-  height: 18px;
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  margin-top: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--faint);
-}
-
-.commit-body-button:hover,
-.commit-body-button:focus-visible,
-.commit-body-button[aria-expanded='true'] {
-  background: rgba(255, 255, 255, 0.055);
-  color: #c7c8cd;
-}
-
-.commit-meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  margin: 3px 0 0 23px;
-  color: var(--faint);
-  font-size: 10.5px;
-}
-
-.commit-additions,
-.commit-deletions {
-  font-family: 'SFMono-Regular', monospace;
-  font-size: 10px;
-  font-weight: 650;
-}
-
-.commit-additions {
-  color: var(--green);
-}
-
-.commit-deletions {
-  color: var(--red);
-}
-
-.commit-title-row > .section-action-button {
-  margin: -3px -3px -3px 4px;
-}
-
 .section-action-button:disabled {
   color: var(--faint);
-}
-
-.commit-body {
-  max-height: 180px;
-  margin: 5px 0 1px 23px;
-  padding: 0;
-  overflow: auto;
-  color: #afb0b5;
-  font-size: 11.5px;
-  line-height: 1.55;
-  overflow-wrap: anywhere;
-  white-space: pre-wrap;
 }
 
 .pr-title-row {

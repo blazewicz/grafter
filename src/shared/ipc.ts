@@ -15,6 +15,7 @@ export const ipc = {
   rejectCommand: 'grafter:reject-command',
   worktreeDetails: 'grafter:worktree-details',
   setComparisonBase: 'grafter:set-comparison-base',
+  listBranchCommits: 'grafter:list-branch-commits',
   openDiff: 'grafter:open-diff',
   openBranchDiff: 'grafter:open-branch-diff',
   openCommitDiff: 'grafter:open-commit-diff',

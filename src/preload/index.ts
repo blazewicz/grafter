@@ -6,6 +6,7 @@ import type {
   CreateWorktreeRequest,
   DiffFileRequest,
   GrafterApi,
+  ListBranchCommitsRequest,
   OpenBranchDiffRequest,
   OpenCommitDiffRequest,
   OpenDiffFileRequest,
@@ -36,6 +37,8 @@ const api: GrafterApi = {
   getWorktreeDetails: (worktreeId) => ipcRenderer.invoke(ipc.worktreeDetails, worktreeId),
   setComparisonBase: (request: SetComparisonBaseRequest) =>
     ipcRenderer.invoke(ipc.setComparisonBase, request),
+  listBranchCommits: (request: ListBranchCommitsRequest) =>
+    ipcRenderer.invoke(ipc.listBranchCommits, request),
   openDiff: (worktreeId) => ipcRenderer.invoke(ipc.openDiff, worktreeId),
   openBranchDiff: (request: OpenBranchDiffRequest) =>
     ipcRenderer.invoke(ipc.openBranchDiff, request),

@@ -14,7 +14,7 @@ import { FinderMark, VisualStudioCodeMark } from '../ui/BrandMarks';
 import { CopyButton } from '../ui/CopyButton';
 import styles from './details.module.css';
 import { BranchCard } from './BranchCard';
-import { LatestCommitCard } from './LatestCommitCard';
+import { BranchChangesCard } from './BranchChangesCard';
 
 const editorOptions: readonly {
   id: EditorTool;
@@ -55,7 +55,6 @@ export function WorktreeDetails({
   const copyResetTimer = useRef<number | undefined>(undefined);
   const selectedEditorLabel =
     editorOptions.find((option) => option.id === editor)?.label ?? 'IDE';
-  const commit = details.commit;
   const mainClonePath =
     projectWorktrees.find((worktree) => worktree.isMain)?.path ?? details.path;
   const statusClass =
@@ -208,26 +207,22 @@ export function WorktreeDetails({
         projectWorktrees={projectWorktrees}
         status={status}
         copiedText={copiedText}
-        diffOpening={diffOpening}
         onSnapshot={onSnapshot}
         onCopy={copyText}
-        {...(onOpenDiff ? { onOpenDiff } : {})}
         onError={onError}
       />
-      {commit && (
-        <LatestCommitCard
-          key={commit.hash}
-          commit={commit}
-          settings={settings}
-          systemLocale={systemLocale}
-          copied={copiedText === commit.hash}
-          onCopy={() => copyText(commit.hash)}
-          opening={diffOpening}
-          {...(onOpenCommitDiff
-            ? { onViewChanges: () => onOpenCommitDiff(commit.hash) }
-            : {})}
-        />
-      )}
+      <BranchChangesCard
+        details={details}
+        projectWorktrees={projectWorktrees}
+        settings={settings}
+        systemLocale={systemLocale}
+        copiedText={copiedText}
+        diffOpening={diffOpening}
+        onCopy={copyText}
+        {...(onOpenDiff ? { onOpenDiff } : {})}
+        {...(onOpenCommitDiff ? { onOpenCommitDiff } : {})}
+        onError={onError}
+      />
     </div>
   );
 }

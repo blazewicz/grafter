@@ -2,10 +2,11 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import type { WorktreeDetails } from '../../../../src/shared/contracts';
+import { BranchCard } from '../../../../src/renderer/components/details/BranchCard';
 import {
-  BranchCard,
+  BranchChangesCard,
   isLocalComparisonCurrent,
-} from '../../../../src/renderer/components/details/BranchCard';
+} from '../../../../src/renderer/components/details/BranchChangesCard';
 
 const details: WorktreeDetails = {
   id: 'project:/repo.worktrees/feature',
@@ -33,7 +34,6 @@ const comparison = {
 function renderBranchCard(
   nextDetails: WorktreeDetails,
   status: 'clean' | 'dirty' = 'clean',
-  onOpenDiff?: () => void,
 ): string {
   return renderToStaticMarkup(
     createElement(BranchCard, {
@@ -41,16 +41,30 @@ function renderBranchCard(
       projectWorktrees: [details, nextDetails],
       status,
       copiedText: undefined,
-      diffOpening: false,
       onSnapshot: () => undefined,
       onCopy: () => undefined,
-      ...(onOpenDiff ? { onOpenDiff } : {}),
       onError: () => undefined,
     }),
   );
 }
 
-describe('BranchCard local comparison state', () => {
+function renderBranchChanges(nextDetails: WorktreeDetails): string {
+  return renderToStaticMarkup(
+    createElement(BranchChangesCard, {
+      details: nextDetails,
+      projectWorktrees: [details, nextDetails],
+      settings: { dateFormat: 'year-month-day' },
+      systemLocale: 'en-GB',
+      copiedText: undefined,
+      diffOpening: false,
+      onCopy: () => undefined,
+      onOpenDiff: () => undefined,
+      onError: () => undefined,
+    }),
+  );
+}
+
+describe('Branch changes local comparison state', () => {
   it('accepts state created from the current worktree details', () => {
     expect(isLocalComparisonCurrent(comparison, details)).toBe(true);
   });
@@ -82,8 +96,45 @@ describe('BranchCard rendering', () => {
     expect(html).toContain('aria-disabled="true"');
   });
 
-  it('notifies when a pull request base is unavailable locally', () => {
+  it('contains only checked-out branch controls before its pull request child', () => {
     const html = renderBranchCard({
+      ...details,
+      pullRequest: {
+        number: 18,
+        title: 'Stacked pull request',
+        url: 'https://github.com/example/repo/pull/18',
+        state: 'OPEN',
+        baseBranch: 'feature/merged-base',
+      },
+    });
+
+    expect(html).toContain('CHECKED-OUT BRANCH');
+    expect(html).toContain('PULL REQUEST');
+    expect(html).not.toContain('BRANCH CHANGES');
+    expect(html).not.toContain('Choose target branch');
+  });
+});
+
+describe('BranchChangesCard rendering', () => {
+  it('shows the target picker, copy control, stats, and commit-history child', () => {
+    const html = renderBranchChanges({
+      ...details,
+      targetBranch: 'main',
+      diffStats: { files: 2, additions: 8, deletions: 3 },
+    });
+
+    expect(html).toContain('BRANCH CHANGES');
+    expect(html).toContain('Changes into');
+    expect(html).toContain('aria-label="Choose target branch"');
+    expect(html).toContain('aria-label="Copy main branch name"');
+    expect(html).toContain('aria-label="Branch comparison stats"');
+    expect(html).toContain('aria-label="View branch diff"');
+    expect(html).toContain('aria-label="Commits to merge"');
+    expect(html).toContain('Loading commits');
+  });
+
+  it('notifies when a pull request base is unavailable locally', () => {
+    const html = renderBranchChanges({
       ...details,
       pullRequest: {
         number: 18,
@@ -95,6 +146,7 @@ describe('BranchCard rendering', () => {
       automaticBaseBranch: 'feature/merged-base',
       automaticBaseBranchUnavailable: true,
       targetBranch: 'main',
+      diffStats: { files: 1, additions: 2, deletions: 1 },
     });
 
     expect(html).toContain(
@@ -104,25 +156,20 @@ describe('BranchCard rendering', () => {
   });
 
   it('keeps an unavailable saved comparison base visible and selectable', () => {
-    const detailsWithoutDiff = { ...details };
-    delete detailsWithoutDiff.diffStats;
-    const html = renderBranchCard(
-      {
-        ...detailsWithoutDiff,
-        automaticBaseBranch: 'main',
-        targetBranch: 'release/next',
-        comparisonBaseOverride: 'release/next',
-        comparisonBaseOverrideUnavailable: true,
-      },
-      'clean',
-      () => undefined,
-    );
+    const html = renderBranchChanges({
+      ...details,
+      automaticBaseBranch: 'main',
+      targetBranch: 'release/next',
+      comparisonBaseOverride: 'release/next',
+      comparisonBaseOverrideUnavailable: true,
+    });
 
     expect(html).toContain('<code>release/next</code>');
     expect(html).toContain(
       'Comparison base <code>release/next</code> is not available locally. Choose another branch.',
     );
-    expect(html).toContain('aria-label="Choose comparison base"');
+    expect(html).toContain('aria-label="Choose target branch"');
     expect(html).not.toContain('aria-label="View branch diff"');
+    expect(html).not.toContain('aria-label="Commits to merge"');
   });
 });

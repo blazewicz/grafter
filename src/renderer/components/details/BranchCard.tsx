@@ -1,9 +1,8 @@
-import { Check, ChevronDown, FileDiff, GitBranch, LoaderCircle } from 'lucide-react';
+import { ChevronDown, GitBranch } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type {
   AppSnapshot,
   Worktree,
-  WorktreeComparison,
   WorktreeDetails,
   WorktreeStatus,
 } from '../../../shared/contracts';
@@ -13,70 +12,32 @@ import { CopyButton } from '../ui/CopyButton';
 import styles from './details.module.css';
 import { PullRequestCard } from './PullRequestCard';
 
-interface LocalComparison extends WorktreeComparison {
-  worktreeId: string;
-  branch: string;
-  head: string;
-  sourceAutomaticBaseBranch?: string;
-  sourceAutomaticBaseBranchUnavailable?: boolean;
-}
-
-export function isLocalComparisonCurrent(
-  comparison: LocalComparison | undefined,
-  details: WorktreeDetails,
-): comparison is LocalComparison {
-  return (
-    comparison?.worktreeId === details.id &&
-    comparison.branch === details.branch &&
-    comparison.head === details.head &&
-    comparison.sourceAutomaticBaseBranch === details.automaticBaseBranch &&
-    comparison.sourceAutomaticBaseBranchUnavailable ===
-      details.automaticBaseBranchUnavailable
-  );
-}
-
 export function BranchCard({
   details,
   projectWorktrees,
   status,
   copiedText,
-  diffOpening,
   onSnapshot,
   onCopy,
-  onOpenDiff,
   onError,
 }: {
   details: WorktreeDetails;
   projectWorktrees: Worktree[];
   status: WorktreeStatus | undefined;
   copiedText: string | undefined;
-  diffOpening: boolean;
   onSnapshot: (snapshot: AppSnapshot) => void;
   onCopy: (text: string) => void;
-  onOpenDiff?: () => void;
   onError: (message: string) => void;
 }): React.JSX.Element {
-  const [openMenu, setOpenMenu] = useState<'branch' | 'comparison'>();
+  const [menuOpen, setMenuOpen] = useState(false);
   const [branches, setBranches] = useState<string[]>([]);
   const [loadingBranches, setLoadingBranches] = useState(false);
   const [switchingBranch, setSwitchingBranch] = useState(false);
-  const [updatingComparison, setUpdatingComparison] = useState(false);
-  const [localComparison, setLocalComparison] = useState<LocalComparison>();
   const branchPickerRef = useRef<HTMLDivElement>(null);
-  const comparisonPickerRef = useRef<HTMLDivElement>(null);
   const pullRequest = details.pullRequest;
   const [pullRequestMissingOnMount] = useState(pullRequest === undefined);
   const animatePullRequestDiscovery =
     pullRequestMissingOnMount && pullRequest !== undefined;
-  const comparison = isLocalComparisonCurrent(localComparison, details)
-    ? localComparison
-    : details;
-  const automaticBaseBranch = comparison.automaticBaseBranch;
-  const targetBranch = comparison.targetBranch;
-  const comparisonBaseOverride = comparison.comparisonBaseOverride;
-  const automaticBaseBranchUnavailable = comparison.automaticBaseBranchUnavailable;
-  const comparisonBaseOverrideUnavailable = comparison.comparisonBaseOverrideUnavailable;
-  const diffStats = comparison.diffStats;
   const branchSwitchDisabledReason = switchingBranch
     ? 'Switching branches…'
     : status === 'dirty'
@@ -86,14 +47,12 @@ export function BranchCard({
         : undefined;
 
   useEffect(() => {
-    if (!openMenu) return;
+    if (!menuOpen) return;
     const closeOnOutsideClick = (event: PointerEvent): void => {
-      const picker =
-        openMenu === 'branch' ? branchPickerRef.current : comparisonPickerRef.current;
-      if (!picker?.contains(event.target as Node)) setOpenMenu(undefined);
+      if (!branchPickerRef.current?.contains(event.target as Node)) setMenuOpen(false);
     };
     const closeOnEscape = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') setOpenMenu(undefined);
+      if (event.key === 'Escape') setMenuOpen(false);
     };
     document.addEventListener('pointerdown', closeOnOutsideClick);
     document.addEventListener('keydown', closeOnEscape);
@@ -101,10 +60,10 @@ export function BranchCard({
       document.removeEventListener('pointerdown', closeOnOutsideClick);
       document.removeEventListener('keydown', closeOnEscape);
     };
-  }, [openMenu]);
+  }, [menuOpen]);
 
   useEffect(() => {
-    if (!openMenu) return;
+    if (!menuOpen) return;
     let active = true;
     void api
       .listBranches(details.projectId)
@@ -120,23 +79,13 @@ export function BranchCard({
     return () => {
       active = false;
     };
-  }, [details.projectId, onError, openMenu]);
-
-  const toggleMenu = (menu: 'branch' | 'comparison'): void => {
-    if (openMenu === menu) {
-      setOpenMenu(undefined);
-      return;
-    }
-    setBranches([]);
-    setLoadingBranches(true);
-    setOpenMenu(menu);
-  };
+  }, [details.projectId, menuOpen, onError]);
 
   const switchBranch = async (branch: string): Promise<void> => {
     setSwitchingBranch(true);
     try {
       const snapshot = await api.switchBranch({ worktreeId: details.id, branch });
-      setOpenMenu(undefined);
+      setMenuOpen(false);
       onSnapshot(snapshot);
     } catch (caught) {
       onError(friendlyError(caught));
@@ -145,34 +94,15 @@ export function BranchCard({
     }
   };
 
-  const setComparisonBase = async (target?: string): Promise<void> => {
-    setUpdatingComparison(true);
-    try {
-      const next = await api.setComparisonBase({
-        worktreeId: details.id,
-        ...(target ? { targetBranch: target } : {}),
-      });
-      setLocalComparison({
-        worktreeId: details.id,
-        branch: details.branch,
-        head: details.head,
-        ...(details.automaticBaseBranch
-          ? { sourceAutomaticBaseBranch: details.automaticBaseBranch }
-          : {}),
-        ...(details.automaticBaseBranchUnavailable
-          ? { sourceAutomaticBaseBranchUnavailable: true }
-          : {}),
-        ...next,
-      });
-      setOpenMenu(undefined);
-    } catch (caught) {
-      onError(friendlyError(caught));
-    } finally {
-      setUpdatingComparison(false);
+  const toggleMenu = (): void => {
+    if (menuOpen) {
+      setMenuOpen(false);
+      return;
     }
+    setBranches([]);
+    setLoadingBranches(true);
+    setMenuOpen(true);
   };
-
-  const automaticSource = pullRequest ? 'Pull request base' : 'Repository default';
 
   return (
     <section className={styles.branchCard} aria-label="Checked-out branch">
@@ -191,23 +121,21 @@ export function BranchCard({
                     : 'Switch checked-out branch'
                 }
                 aria-haspopup="dialog"
-                aria-expanded={openMenu === 'branch' && !branchSwitchDisabledReason}
+                aria-expanded={menuOpen && !branchSwitchDisabledReason}
                 onClick={
-                  branchSwitchDisabledReason === undefined
-                    ? () => toggleMenu('branch')
-                    : undefined
+                  branchSwitchDisabledReason === undefined ? toggleMenu : undefined
                 }
               >
                 <code>{details.branch}</code>
                 <ChevronDown size={13} />
               </button>
-              {openMenu !== 'branch' && (
+              {!menuOpen && (
                 <span className={styles.branchPickerTooltip} role="tooltip">
                   {branchSwitchDisabledReason ?? 'Switch branch'}
                 </span>
               )}
             </span>
-            {openMenu === 'branch' && !branchSwitchDisabledReason && (
+            {menuOpen && !branchSwitchDisabledReason && (
               <div
                 className={styles.branchMenu}
                 role="dialog"
@@ -230,112 +158,6 @@ export function BranchCard({
             onCopy={() => onCopy(details.branch)}
             className={styles.branchCopyButton}
           />
-          {targetBranch && diffStats && onOpenDiff && (
-            <button
-              className={styles.sectionActionButton}
-              aria-label="View branch diff"
-              title="View branch diff"
-              disabled={diffOpening || updatingComparison}
-              onClick={onOpenDiff}
-            >
-              {diffOpening ? (
-                <LoaderCircle className="spin" size={14} />
-              ) : (
-                <FileDiff size={14} />
-              )}
-            </button>
-          )}
-        </div>
-
-        <div className={styles.comparisonRow}>
-          <span>Compared with</span>
-          <div className={styles.comparisonPicker} ref={comparisonPickerRef}>
-            <button
-              className={styles.comparisonMenuButton}
-              aria-label="Choose comparison base"
-              aria-haspopup="dialog"
-              aria-expanded={openMenu === 'comparison'}
-              disabled={updatingComparison}
-              onClick={() => toggleMenu('comparison')}
-            >
-              <code>{targetBranch ?? 'Choose a branch'}</code>
-              <ChevronDown size={13} />
-            </button>
-            {openMenu === 'comparison' && (
-              <div
-                className={styles.comparisonMenu}
-                role="dialog"
-                aria-label="Choose comparison base"
-              >
-                <button
-                  className={styles.automaticBaseButton}
-                  type="button"
-                  onClick={() => void setComparisonBase()}
-                >
-                  <span>
-                    <strong>Automatic</strong>
-                    <small>
-                      {automaticBaseBranch ?? 'No default found'} · {automaticSource}
-                    </small>
-                  </span>
-                  {!comparisonBaseOverride && <Check size={13} />}
-                </button>
-                <div className={styles.comparisonMenuDivider} />
-                <BranchPicker
-                  branches={branches}
-                  worktrees={projectWorktrees}
-                  {...(comparisonBaseOverride
-                    ? { selectedBranch: comparisonBaseOverride }
-                    : {})}
-                  disableCheckedOut={false}
-                  disabledBranches={[details.branch]}
-                  loading={loadingBranches}
-                  onSelect={(branch) => void setComparisonBase(branch)}
-                />
-              </div>
-            )}
-          </div>
-          {updatingComparison ? (
-            <span className={styles.comparisonLoading}>
-              <LoaderCircle className="spin" size={12} /> Updating…
-            </span>
-          ) : (
-            diffStats && (
-              <div
-                className={styles.comparisonStats}
-                aria-label="Branch comparison stats"
-              >
-                <span aria-hidden="true">·</span>
-                <span>
-                  {diffStats.files} {diffStats.files === 1 ? 'file' : 'files'}
-                </span>
-                <span aria-hidden="true">·</span>
-                <strong
-                  className={styles.positive}
-                  aria-label={`${diffStats.additions} additions`}
-                >
-                  +{diffStats.additions}
-                </strong>
-                <strong
-                  className={styles.negative}
-                  aria-label={`${diffStats.deletions} deletions`}
-                >
-                  −{diffStats.deletions}
-                </strong>
-              </div>
-            )
-          )}
-          {automaticBaseBranchUnavailable && automaticBaseBranch && (
-            <span className={styles.comparisonNotice} role="status">
-              PR base <code>{automaticBaseBranch}</code> is not available locally
-            </span>
-          )}
-          {comparisonBaseOverrideUnavailable && targetBranch && (
-            <span className={styles.comparisonNotice} role="status">
-              Comparison base <code>{targetBranch}</code> is not available locally. Choose
-              another branch.
-            </span>
-          )}
         </div>
       </div>
 
