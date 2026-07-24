@@ -15,7 +15,24 @@ import { PullRequestCard } from './PullRequestCard';
 
 interface LocalComparison extends WorktreeComparison {
   worktreeId: string;
+  branch: string;
   head: string;
+  sourceAutomaticBaseBranch?: string;
+  sourceAutomaticBaseBranchUnavailable?: boolean;
+}
+
+export function isLocalComparisonCurrent(
+  comparison: LocalComparison | undefined,
+  details: WorktreeDetails,
+): comparison is LocalComparison {
+  return (
+    comparison?.worktreeId === details.id &&
+    comparison.branch === details.branch &&
+    comparison.head === details.head &&
+    comparison.sourceAutomaticBaseBranch === details.automaticBaseBranch &&
+    comparison.sourceAutomaticBaseBranchUnavailable ===
+      details.automaticBaseBranchUnavailable
+  );
 }
 
 export function BranchCard({
@@ -51,20 +68,15 @@ export function BranchCard({
   const [pullRequestMissingOnMount] = useState(pullRequest === undefined);
   const animatePullRequestDiscovery =
     pullRequestMissingOnMount && pullRequest !== undefined;
-  const activeLocalComparison =
-    localComparison?.worktreeId === details.id && localComparison.head === details.head
-      ? localComparison
-      : undefined;
-  const comparison = activeLocalComparison ?? details;
-  const automaticBaseBranch =
-    comparison.automaticBaseBranch ??
-    details.automaticBaseBranch ??
-    (details.comparisonBaseOverride
-      ? details.pullRequest?.baseBranch
-      : details.targetBranch);
+  const comparison = isLocalComparisonCurrent(localComparison, details)
+    ? localComparison
+    : details;
+  const automaticBaseBranch = comparison.automaticBaseBranch;
   const targetBranch = comparison.targetBranch;
   const comparisonBaseOverride = comparison.comparisonBaseOverride;
-  const diff = comparison.diff;
+  const automaticBaseBranchUnavailable = comparison.automaticBaseBranchUnavailable;
+  const comparisonBaseOverrideUnavailable = comparison.comparisonBaseOverrideUnavailable;
+  const diffStats = comparison.diffStats;
   const branchSwitchDisabledReason = switchingBranch
     ? 'Switching branches…'
     : status === 'dirty'
@@ -142,7 +154,14 @@ export function BranchCard({
       });
       setLocalComparison({
         worktreeId: details.id,
+        branch: details.branch,
         head: details.head,
+        ...(details.automaticBaseBranch
+          ? { sourceAutomaticBaseBranch: details.automaticBaseBranch }
+          : {}),
+        ...(details.automaticBaseBranchUnavailable
+          ? { sourceAutomaticBaseBranchUnavailable: true }
+          : {}),
         ...next,
       });
       setOpenMenu(undefined);
@@ -211,7 +230,7 @@ export function BranchCard({
             onCopy={() => onCopy(details.branch)}
             className={styles.branchCopyButton}
           />
-          {targetBranch && onOpenDiff && (
+          {targetBranch && diffStats && onOpenDiff && (
             <button
               className={styles.sectionActionButton}
               aria-label="View branch diff"
@@ -281,30 +300,41 @@ export function BranchCard({
               <LoaderCircle className="spin" size={12} /> Updating…
             </span>
           ) : (
-            diff && (
+            diffStats && (
               <div
                 className={styles.comparisonStats}
                 aria-label="Branch comparison stats"
               >
                 <span aria-hidden="true">·</span>
                 <span>
-                  {diff.files} {diff.files === 1 ? 'file' : 'files'}
+                  {diffStats.files} {diffStats.files === 1 ? 'file' : 'files'}
                 </span>
                 <span aria-hidden="true">·</span>
                 <strong
                   className={styles.positive}
-                  aria-label={`${diff.additions} additions`}
+                  aria-label={`${diffStats.additions} additions`}
                 >
-                  +{diff.additions}
+                  +{diffStats.additions}
                 </strong>
                 <strong
                   className={styles.negative}
-                  aria-label={`${diff.deletions} deletions`}
+                  aria-label={`${diffStats.deletions} deletions`}
                 >
-                  −{diff.deletions}
+                  −{diffStats.deletions}
                 </strong>
               </div>
             )
+          )}
+          {automaticBaseBranchUnavailable && automaticBaseBranch && (
+            <span className={styles.comparisonNotice} role="status">
+              PR base <code>{automaticBaseBranch}</code> is not available locally
+            </span>
+          )}
+          {comparisonBaseOverrideUnavailable && targetBranch && (
+            <span className={styles.comparisonNotice} role="status">
+              Comparison base <code>{targetBranch}</code> is not available locally. Choose
+              another branch.
+            </span>
           )}
         </div>
       </div>

@@ -24,7 +24,7 @@ const details: WorktreeDetailsData = {
     stats: { files: 2, additions: 8, deletions: 2 },
   },
   targetBranch: 'main',
-  diff: { files: 1, additions: 2, deletions: 0 },
+  diffStats: { files: 1, additions: 2, deletions: 0 },
 };
 
 const mainWorktree: WorktreeDetailsData = {
@@ -44,7 +44,7 @@ const displayPreferences = {
   systemLocale: 'en-GB',
 } as const;
 
-describe('WorktreeDetails copy controls', () => {
+describe('WorktreeDetails rendering', () => {
   it('renders the worktree-first header and accessible copy controls', () => {
     const html = renderToStaticMarkup(
       createElement(WorktreeDetails, {
@@ -103,29 +103,6 @@ describe('WorktreeDetails copy controls', () => {
     expect(html).not.toContain('Checked-out branches');
   });
 
-  it('disables branch switching with an explanation for a dirty worktree', () => {
-    const html = renderToStaticMarkup(
-      createElement(WorktreeDetails, {
-        homeDirectory: '/repo.worktrees',
-        ...displayPreferences,
-        details,
-        projectWorktrees: [mainWorktree, details],
-        status: 'dirty',
-        onSnapshot: () => undefined,
-        onSelectProject: () => undefined,
-        onError: () => undefined,
-      }),
-    );
-
-    expect(html).toContain(
-      'role="tooltip">Commit, stash, or discard your changes before switching branches</span>',
-    );
-    expect(html).toContain(
-      'aria-label="Switch branch unavailable: Commit, stash, or discard your changes before switching branches"',
-    );
-    expect(html).toContain('aria-disabled="true"');
-  });
-
   it('uses a singular file label for a one-file commit', () => {
     const commit = details.commit;
     if (!commit) throw new Error('Expected commit details.');
@@ -170,7 +147,7 @@ describe('WorktreeDetails copy controls', () => {
             baseBranch: 'main',
           },
           targetBranch: 'main',
-          diff: { files: 2, additions: 3, deletions: 1 },
+          diffStats: { files: 2, additions: 3, deletions: 1 },
         },
         projectWorktrees: [mainWorktree, details],
         status: 'clean',

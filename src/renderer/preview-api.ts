@@ -66,9 +66,26 @@ let snapshot: AppSnapshot = {
             title: 'Add the audit console',
             url: 'https://github.com/example/grafter/pull/47',
             state: 'OPEN',
-            baseBranch: 'feature/worktree-picker',
+            baseBranch: 'feature/merged-base',
           },
           head: '81ca492',
+          isMain: false,
+          locked: false,
+        },
+        {
+          id: 'grafter:comparison-preview',
+          projectId: 'grafter',
+          displayName: 'comparison-preview',
+          path: '/Users/kasia/Code/grafter.worktrees/comparison-preview',
+          branch: 'feature/comparison-preview',
+          pullRequest: {
+            number: 51,
+            title: 'Refine comparison controls',
+            url: 'https://github.com/example/grafter/pull/51',
+            state: 'OPEN',
+            baseBranch: 'main',
+          },
+          head: 'b91d6a8',
           isMain: false,
           locked: false,
         },
@@ -104,9 +121,9 @@ let commands: CommandRecord[] = [
     },
     tool: 'git',
     executable: 'git',
-    args: ['diff', '--numstat', 'main...HEAD'],
+    args: ['diff', '--numstat', 'refs/heads/main...HEAD'],
     cwd: '/Users/kasia/Code/grafter.worktrees/feature-glass-sidebar',
-    displayCommand: 'git diff --numstat main...HEAD',
+    displayCommand: 'git diff --numstat refs/heads/main...HEAD',
     purpose: 'Compare with main',
     isReadOnly: true,
     status: 'succeeded',
@@ -133,9 +150,9 @@ let commands: CommandRecord[] = [
     },
     tool: 'git',
     executable: 'git',
-    args: ['diff', '--numstat', 'main...HEAD'],
+    args: ['diff', '--numstat', 'refs/heads/main...HEAD'],
     cwd: '/Users/kasia/Code/grafter.worktrees/feature-glass-sidebar',
-    displayCommand: 'git diff --numstat main...HEAD',
+    displayCommand: 'git diff --numstat refs/heads/main...HEAD',
     purpose: 'Compare with main',
     isReadOnly: true,
     status: 'succeeded',
@@ -262,8 +279,10 @@ const details: Record<string, WorktreeDetails> = {
       authoredAt: '2026-07-19T12:42:00+02:00',
       stats: { files: 2, additions: 124, deletions: 18 },
     },
-    targetBranch: 'main',
-    diff: { files: 7, additions: 438, deletions: 41 },
+    automaticBaseBranch: 'main',
+    targetBranch: 'release/next',
+    comparisonBaseOverride: 'release/next',
+    comparisonBaseOverrideUnavailable: true,
   },
   'grafter:audit': {
     ...snapshot.projects[0]!.worktrees[2]!,
@@ -276,8 +295,26 @@ const details: Record<string, WorktreeDetails> = {
       authoredAt: '2026-07-18T17:08:00+02:00',
       stats: { files: 3, additions: 121, deletions: 9 },
     },
-    targetBranch: 'feature/worktree-picker',
-    diff: { files: 3, additions: 121, deletions: 9 },
+    automaticBaseBranch: 'feature/merged-base',
+    automaticBaseBranchUnavailable: true,
+    targetBranch: 'main',
+    diffStats: { files: 3, additions: 121, deletions: 9 },
+  },
+  'grafter:comparison-preview': {
+    ...snapshot.projects[0]!.worktrees[3]!,
+    projectName: 'grafter',
+    commit: {
+      hash: 'b91d6a818eb0d8c9c7a1e228b3716e95ac7434d2',
+      title: 'Refine comparison controls',
+      body: 'Keep comparison feedback clear while preserving a compact branch card.',
+      authorName: 'Kasia Nowak',
+      authorEmail: 'kasia@example.com',
+      authoredAt: '2026-07-22T15:18:00+02:00',
+      stats: { files: 4, additions: 86, deletions: 12 },
+    },
+    automaticBaseBranch: 'main',
+    targetBranch: 'main',
+    diffStats: { files: 4, additions: 86, deletions: 12 },
   },
   'garden:main': {
     ...snapshot.projects[1]!.worktrees[0]!,
@@ -675,6 +712,7 @@ export const previewApi: GrafterApi = {
   listBranches: () =>
     Promise.resolve([
       'audit-console',
+      'feature/comparison-preview',
       'feature/glass-sidebar',
       'feature/worktree-picker',
       'fix/linux-shell',
@@ -727,7 +765,7 @@ export const previewApi: GrafterApi = {
         ? {}
         : {
             targetBranch: 'main',
-            diff: { files: 2, additions: 18, deletions: 4 },
+            diffStats: { files: 2, additions: 18, deletions: 4 },
           }),
     };
     return Promise.resolve(structuredClone(snapshot));
@@ -775,12 +813,18 @@ export const previewApi: GrafterApi = {
       snapshot.projects
         .find((project) => project.id === worktreeDetails.projectId)
         ?.worktrees.find((worktree) => worktree.isMain)?.branch;
-    const nextTarget = targetBranch ?? automaticTarget;
+    const automaticBaseBranchUnavailable =
+      targetBranch === undefined &&
+      worktreeDetails.automaticBaseBranchUnavailable === true;
+    const nextTarget = automaticBaseBranchUnavailable
+      ? 'main'
+      : (targetBranch ?? automaticTarget);
     const comparison = nextTarget
       ? {
           ...(automaticTarget ? { automaticBaseBranch: automaticTarget } : {}),
+          ...(automaticBaseBranchUnavailable ? { automaticBaseBranchUnavailable } : {}),
           targetBranch: nextTarget,
-          diff: {
+          diffStats: {
             files: nextTarget === 'main' ? 7 : 4,
             additions: nextTarget === 'main' ? 438 : 91,
             deletions: nextTarget === 'main' ? 41 : 26,
@@ -791,8 +835,10 @@ export const previewApi: GrafterApi = {
     const detailsWithoutComparison = { ...worktreeDetails };
     delete detailsWithoutComparison.automaticBaseBranch;
     delete detailsWithoutComparison.targetBranch;
-    delete detailsWithoutComparison.diff;
+    delete detailsWithoutComparison.diffStats;
     delete detailsWithoutComparison.comparisonBaseOverride;
+    delete detailsWithoutComparison.automaticBaseBranchUnavailable;
+    delete detailsWithoutComparison.comparisonBaseOverrideUnavailable;
     details[worktreeId] = { ...detailsWithoutComparison, ...comparison };
     return Promise.resolve(structuredClone(comparison));
   },

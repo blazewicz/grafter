@@ -236,7 +236,7 @@ describe('GitService worktree details', () => {
         stats: { files: 1, additions: 8, deletions: 2 },
       },
       targetBranch: 'main',
-      diff: { files: 1, additions: 3, deletions: 1 },
+      diffStats: { files: 1, additions: 3, deletions: 1 },
     });
     expect(runner.commands.find((command) => command.args[0] === 'log')?.args).toEqual([
       'log',
@@ -306,10 +306,171 @@ describe('GitService worktree details', () => {
       new GitService(runner).details(project, worktree),
     ).resolves.toMatchObject({
       targetBranch: 'release',
-      diff: { files: 1, additions: 2, deletions: 0 },
+      diffStats: { files: 1, additions: 2, deletions: 0 },
     });
     expect(runner.commands.some((command) => command.args[0] === 'symbolic-ref')).toBe(
       false,
+    );
+  });
+
+  it('falls back to the default branch when a pull request base is unavailable locally', async () => {
+    const project: Project = { id: 'project', name: 'project', path: '/repo' };
+    const worktree: Worktree = {
+      id: 'project:/repo.worktrees/stacked',
+      projectId: project.id,
+      displayName: 'stacked',
+      path: '/repo.worktrees/stacked',
+      branch: 'feature/stacked',
+      pullRequest: {
+        number: 19,
+        title: 'Stacked pull request',
+        url: 'https://github.com/example/project/pull/19',
+        state: 'OPEN',
+        baseBranch: 'feature/merged-base',
+      },
+      head: '1234567',
+      isMain: false,
+      locked: false,
+    };
+    const runner = new StubCommandRunner((spec) => {
+      if (spec.args[0] === 'log') {
+        return {
+          stdout:
+            '1234567890abcdef\nAda Lovelace\n\n2026-07-19T14:25:00+02:00\nStacked pull request\n\u0000\n',
+        };
+      }
+      if (spec.args[0] === 'symbolic-ref') return { stdout: 'origin/main\n' };
+      if (spec.args[0] === 'diff') {
+        if (spec.args[2] === 'refs/heads/main...HEAD') {
+          return { stdout: '4\t1\tsrc/example.ts\n' };
+        }
+        return { exitCode: 128, stderr: 'fatal: ambiguous argument' };
+      }
+      if (spec.args[0] === 'show-ref') return { exitCode: 1 };
+      throw new Error(`Unexpected command: ${spec.args.join(' ')}`);
+    });
+
+    await expect(
+      new GitService(runner).details(project, worktree),
+    ).resolves.toMatchObject({
+      automaticBaseBranch: 'feature/merged-base',
+      automaticBaseBranchUnavailable: true,
+      targetBranch: 'main',
+      diffStats: { files: 1, additions: 4, deletions: 1 },
+    });
+    expect(
+      runner.commands
+        .filter((command) => command.args[0] === 'diff')
+        .map((command) => command.args[2]),
+    ).toEqual([
+      'refs/heads/feature/merged-base...HEAD',
+      'refs/remotes/origin/feature/merged-base...HEAD',
+      'refs/heads/main...HEAD',
+    ]);
+  });
+
+  it('keeps the pull request base warning when no fallback branch is available', async () => {
+    const project: Project = { id: 'project', name: 'project', path: '/repo' };
+    const worktree: Worktree = {
+      id: 'project:/repo.worktrees/stacked',
+      projectId: project.id,
+      displayName: 'stacked',
+      path: '/repo.worktrees/stacked',
+      branch: 'feature/stacked',
+      pullRequest: {
+        number: 19,
+        title: 'Stacked pull request',
+        url: 'https://github.com/example/project/pull/19',
+        state: 'OPEN',
+        baseBranch: 'feature/merged-base',
+      },
+      head: '1234567',
+      isMain: false,
+      locked: false,
+    };
+    const runner = new StubCommandRunner((spec) => {
+      if (spec.args[0] === 'symbolic-ref') return { exitCode: 1 };
+      if (spec.args[0] === 'diff') return { exitCode: 128 };
+      if (spec.args[0] === 'show-ref') return { exitCode: 1 };
+      throw new Error(`Unexpected command: ${spec.args.join(' ')}`);
+    });
+
+    await expect(new GitService(runner).comparison(project, worktree)).resolves.toEqual({
+      automaticBaseBranch: 'feature/merged-base',
+      automaticBaseBranchUnavailable: true,
+    });
+  });
+
+  it('reports an unavailable saved comparison override without changing it', async () => {
+    const project: Project = { id: 'project', name: 'project', path: '/repo' };
+    const worktree: Worktree = {
+      id: 'project:/repo.worktrees/feature',
+      projectId: project.id,
+      displayName: 'feature',
+      path: '/repo.worktrees/feature',
+      branch: 'feature/change',
+      head: '1234567',
+      isMain: false,
+      locked: false,
+    };
+    const runner = new StubCommandRunner((spec) => {
+      if (spec.args[0] === 'symbolic-ref') return { stdout: 'origin/main\n' };
+      if (spec.args[0] === 'diff') return { exitCode: 128 };
+      if (spec.args[0] === 'show-ref') return { exitCode: 1 };
+      throw new Error(`Unexpected command: ${spec.args.join(' ')}`);
+    });
+
+    await expect(
+      new GitService(runner).comparison(project, worktree, 'release/next'),
+    ).resolves.toEqual({
+      automaticBaseBranch: 'main',
+      targetBranch: 'release/next',
+      comparisonBaseOverride: 'release/next',
+      comparisonBaseOverrideUnavailable: true,
+    });
+    expect(
+      runner.commands
+        .filter((command) => command.args[0] === 'diff')
+        .map((command) => command.args[2]),
+    ).toEqual([
+      'refs/heads/release/next...HEAD',
+      'refs/remotes/origin/release/next...HEAD',
+    ]);
+  });
+
+  it('does not report an existing branch as unavailable when comparison fails', async () => {
+    const project: Project = { id: 'project', name: 'project', path: '/repo' };
+    const worktree: Worktree = {
+      id: 'project:/repo.worktrees/feature',
+      projectId: project.id,
+      displayName: 'feature',
+      path: '/repo.worktrees/feature',
+      branch: 'feature/change',
+      pullRequest: {
+        number: 18,
+        title: 'Feature change',
+        url: 'https://github.com/example/project/pull/18',
+        state: 'OPEN',
+        baseBranch: 'main',
+      },
+      head: '1234567',
+      isMain: false,
+      locked: false,
+    };
+    const runner = new StubCommandRunner((spec) => {
+      if (spec.args[0] === 'diff') {
+        return { exitCode: 128, stderr: 'fatal: main and HEAD have no merge base' };
+      }
+      if (spec.args[0] === 'show-ref') {
+        return {
+          exitCode: spec.args[3] === 'refs/heads/main' ? 0 : 1,
+        };
+      }
+      throw new Error(`Unexpected command: ${spec.args.join(' ')}`);
+    });
+
+    await expect(new GitService(runner).comparison(project, worktree)).rejects.toThrow(
+      'main and HEAD have no merge base',
     );
   });
 
@@ -343,7 +504,7 @@ describe('GitService worktree details', () => {
       automaticBaseBranch: 'main',
       targetBranch: 'release/next',
       comparisonBaseOverride: 'release/next',
-      diff: { files: 1, additions: 5, deletions: 2 },
+      diffStats: { files: 1, additions: 5, deletions: 2 },
     });
     expect(runner.commands.some((command) => command.args[0] === 'symbolic-ref')).toBe(
       false,
@@ -438,7 +599,7 @@ describe('GitService worktree details', () => {
 
     await expect(details).resolves.toMatchObject({
       targetBranch: 'main',
-      diff: { files: 1, additions: 2, deletions: 1 },
+      diffStats: { files: 1, additions: 2, deletions: 1 },
     });
   });
 
@@ -487,6 +648,57 @@ describe('GitService committed diff sessions', () => {
     isMain: false,
     locked: false,
   };
+
+  it('opens the fallback branch shown when a pull request base is unavailable', async () => {
+    const stackedWorktree: Worktree = {
+      ...worktree,
+      branch: 'feature/stacked',
+      pullRequest: {
+        number: 19,
+        title: 'Stacked pull request',
+        url: 'https://github.com/example/repo/pull/19',
+        state: 'OPEN',
+        baseBranch: 'feature/merged-base',
+      },
+    };
+    const runner = new StubCommandRunner((spec) => {
+      if (spec.args[0] === 'symbolic-ref') return { stdout: 'origin/main\n' };
+      if (spec.args[0] === 'show-ref') return { exitCode: 1 };
+      if (
+        spec.args[0] === 'diff' &&
+        spec.args[1] === '--numstat' &&
+        spec.args.length === 3
+      ) {
+        return spec.args[2] === 'refs/heads/main...HEAD'
+          ? { stdout: '2\t1\tsrc/example.ts\n' }
+          : { exitCode: 128, stderr: 'fatal: ambiguous argument' };
+      }
+      if (spec.args[0] === 'rev-parse') return { stdout: 'head-sha\n' };
+      if (spec.args[0] === 'merge-base') return { stdout: 'base-sha\n' };
+      if (spec.args[0] === 'remote') return { stdout: '' };
+      if (spec.args.includes('--name-status')) {
+        return { stdout: 'M\0src/example.ts\0' };
+      }
+      if (spec.args.includes('--numstat')) {
+        return { stdout: '2\t1\tsrc/example.ts\0' };
+      }
+      throw new Error(`Unexpected command: ${spec.args.join(' ')}`);
+    });
+
+    const session = await new GitService(runner).openDiff(project, stackedWorktree);
+
+    expect(session).toMatchObject({
+      kind: 'branch',
+      branch: 'feature/stacked',
+      targetBranch: 'main',
+      baseSha: 'base-sha',
+      headSha: 'head-sha',
+      stats: { files: 1, additions: 2, deletions: 1 },
+    });
+    expect(
+      runner.commands.find((command) => command.args[0] === 'merge-base')?.args,
+    ).toEqual(['merge-base', 'refs/heads/main', 'head-sha']);
+  });
 
   it('opens an exact commit against its first parent without editor access', async () => {
     const commitHash = '1234567890abcdef1234567890abcdef12345678';

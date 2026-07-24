@@ -184,13 +184,53 @@ export class GitService {
     const targetBranch = comparisonBaseOverride ?? automaticBaseBranch;
     const automaticBase = automaticBaseBranch ? { automaticBaseBranch } : {};
     if (!targetBranch || targetBranch === worktree.branch) return automaticBase;
+
+    const diffStats = await this.#diffStats(worktree.path, targetBranch, context);
+    if (diffStats) {
+      return {
+        ...automaticBase,
+        targetBranch,
+        diffStats,
+        ...(comparisonBaseOverride
+          ? { comparisonBaseOverride: comparisonBaseOverride }
+          : {}),
+      };
+    }
+
+    if (comparisonBaseOverride) {
+      return {
+        ...automaticBase,
+        targetBranch,
+        comparisonBaseOverride,
+        comparisonBaseOverrideUnavailable: true,
+      };
+    }
+
+    const automaticBaseBranchUnavailable =
+      worktree.pullRequest?.baseBranch === targetBranch;
+    if (!automaticBaseBranchUnavailable) {
+      throw new Error(`The comparison base ${targetBranch} is not available locally.`);
+    }
+
+    const fallbackBranch = await this.#remoteHeadBranch(project, context);
+    if (!fallbackBranch || fallbackBranch === worktree.branch) {
+      return { ...automaticBase, automaticBaseBranchUnavailable };
+    }
+
+    const fallbackDiffStats = await this.#diffStats(
+      worktree.path,
+      fallbackBranch,
+      context,
+    );
+    if (!fallbackDiffStats) {
+      return { ...automaticBase, automaticBaseBranchUnavailable };
+    }
+
     return {
       ...automaticBase,
-      targetBranch,
-      diff: await this.#diffStats(worktree.path, targetBranch, context),
-      ...(comparisonBaseOverride
-        ? { comparisonBaseOverride: comparisonBaseOverride }
-        : {}),
+      automaticBaseBranchUnavailable,
+      targetBranch: fallbackBranch,
+      diffStats: fallbackDiffStats,
     };
   }
 
@@ -211,14 +251,12 @@ export class GitService {
     worktree: Worktree,
     comparisonBaseOverride?: string,
   ): Promise<DiffSession> {
-    const targetBranch =
-      comparisonBaseOverride ??
-      (await this.#comparisonTargetBranch(
-        project,
-        worktree,
-        worktreeCommandContext(worktree),
-      ));
-    if (!targetBranch || targetBranch === worktree.branch) {
+    const comparison = await this.comparison(project, worktree, comparisonBaseOverride);
+    const { targetBranch } = comparison;
+    if (!targetBranch || !comparison.diffStats) {
+      if (comparison.comparisonBaseOverrideUnavailable && targetBranch) {
+        throw new Error(`The comparison base ${targetBranch} is not available locally.`);
+      }
       throw new Error('This branch does not have a committed comparison target.');
     }
 
@@ -592,23 +630,21 @@ export class GitService {
   ): Promise<string> {
     const local = await this.#gitAllowFailure(
       worktreePath,
-      ['merge-base', targetBranch, headSha],
+      ['merge-base', `refs/heads/${targetBranch}`, headSha],
       `Resolve merge base with ${targetBranch}`,
       true,
       context,
     );
     if (local.record.exitCode === 0 && local.stdout.trim()) return local.stdout.trim();
 
-    const remoteBranch = `origin/${targetBranch}`;
-    return (
-      await this.#git(
-        worktreePath,
-        ['merge-base', remoteBranch, headSha],
-        `Resolve merge base with ${remoteBranch}`,
-        true,
-        context,
-      )
-    ).stdout.trim();
+    const remote = await this.#git(
+      worktreePath,
+      ['merge-base', `refs/remotes/origin/${targetBranch}`, headSha],
+      `Resolve merge base with origin/${targetBranch}`,
+      true,
+      context,
+    );
+    return remote.stdout.trim();
   }
 
   async #latestCommit(
@@ -637,23 +673,71 @@ export class GitService {
     worktreePath: string,
     targetBranch: string,
     context: CommandContext,
-  ): Promise<DiffStats> {
+  ): Promise<DiffStats | undefined> {
     const result = await this.#gitAllowFailure(
       worktreePath,
-      ['diff', '--numstat', `${targetBranch}...HEAD`],
+      ['diff', '--numstat', `refs/heads/${targetBranch}...HEAD`],
       `Compare with ${targetBranch}`,
       true,
       context,
     );
     if (result.record.exitCode === 0) return parseNumStat(result.stdout);
-    const remoteResult = await this.#git(
+
+    const remoteResult = await this.#gitAllowFailure(
       worktreePath,
-      ['diff', '--numstat', `origin/${targetBranch}...HEAD`],
+      ['diff', '--numstat', `refs/remotes/origin/${targetBranch}...HEAD`],
       `Compare with origin/${targetBranch}`,
       true,
       context,
     );
-    return parseNumStat(remoteResult.stdout);
+    if (remoteResult.record.exitCode === 0) return parseNumStat(remoteResult.stdout);
+
+    if (
+      await this.#branchRefExists(
+        worktreePath,
+        `refs/heads/${targetBranch}`,
+        targetBranch,
+        context,
+      )
+    ) {
+      throw this.#comparisonFailure(targetBranch, result);
+    }
+    if (
+      await this.#branchRefExists(
+        worktreePath,
+        `refs/remotes/origin/${targetBranch}`,
+        `origin/${targetBranch}`,
+        context,
+      )
+    ) {
+      throw this.#comparisonFailure(`origin/${targetBranch}`, remoteResult);
+    }
+
+    return undefined;
+  }
+
+  async #branchRefExists(
+    worktreePath: string,
+    ref: string,
+    branchLabel: string,
+    context: CommandContext,
+  ): Promise<boolean> {
+    const result = await this.#gitAllowFailure(
+      worktreePath,
+      ['show-ref', '--verify', '--quiet', ref],
+      `Check for ${branchLabel}`,
+      true,
+      context,
+    );
+    if (result.record.exitCode === 0) return true;
+    if (result.record.exitCode === 1) return false;
+    throw new Error(
+      result.stderr.trim() || `Could not check for the ${branchLabel} branch.`,
+    );
+  }
+
+  #comparisonFailure(targetBranch: string, result: CommandResult): Error {
+    return new Error(result.stderr.trim() || `Could not compare with ${targetBranch}.`);
   }
 
   #trimDiffSessions(): void {

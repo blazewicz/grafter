@@ -286,6 +286,15 @@
   align-items: center;
 }
 
+.comparison-notice {
+  color: var(--amber);
+}
+
+.comparison-notice code {
+  color: inherit;
+  font-size: 10px;
+}
+
 .comparison-menu-button {
   min-width: 0;
   height: 19px;
