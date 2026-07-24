@@ -105,7 +105,12 @@ export function BranchCard({
   };
 
   return (
-    <section className={styles.branchCard} aria-label="Checked-out branch">
+    <section
+      className={`${styles.branchCard} ${
+        menuOpen && !branchSwitchDisabledReason ? styles.branchCardMenuOpen : ''
+      }`}
+      aria-label="Checked-out branch"
+    >
       <div className={styles.branchSection}>
         <span className={styles.sectionLabel}>CHECKED-OUT BRANCH</span>
         <div className={styles.branchTitleRow}>

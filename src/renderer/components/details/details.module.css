@@ -230,6 +230,10 @@
   margin-top: 12px;
 }
 
+.branch-card-menu-open {
+  z-index: 3;
+}
+
 .branch-section {
   z-index: 2;
   position: relative;
@@ -329,6 +333,11 @@
   border-radius: 8px;
   background: rgba(38, 39, 44, 0.99);
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.38);
+}
+
+.comparison-menu-portal {
+  z-index: 90;
+  position: fixed;
 }
 
 .automatic-base-button {
