@@ -15,7 +15,10 @@ import { PullRequestCard } from './PullRequestCard';
 
 interface LocalComparison extends WorktreeComparison {
   worktreeId: string;
+  branch: string;
   head: string;
+  sourceAutomaticBaseBranch?: string;
+  sourceAutomaticBaseBranchUnavailable?: boolean;
 }
 
 export function BranchCard({
@@ -52,7 +55,12 @@ export function BranchCard({
   const animatePullRequestDiscovery =
     pullRequestMissingOnMount && pullRequest !== undefined;
   const comparison =
-    localComparison?.worktreeId === details.id && localComparison.head === details.head
+    localComparison?.worktreeId === details.id &&
+    localComparison.branch === details.branch &&
+    localComparison.head === details.head &&
+    localComparison.sourceAutomaticBaseBranch === details.automaticBaseBranch &&
+    localComparison.sourceAutomaticBaseBranchUnavailable ===
+      details.automaticBaseBranchUnavailable
       ? localComparison
       : details;
   const automaticBaseBranch = comparison.automaticBaseBranch;
@@ -138,11 +146,15 @@ export function BranchCard({
       });
       setLocalComparison({
         worktreeId: details.id,
+        branch: details.branch,
         head: details.head,
-        ...next,
-        ...(automaticBaseBranchUnavailable
-          ? { automaticBaseBranchUnavailable: true }
+        ...(details.automaticBaseBranch
+          ? { sourceAutomaticBaseBranch: details.automaticBaseBranch }
           : {}),
+        ...(details.automaticBaseBranchUnavailable
+          ? { sourceAutomaticBaseBranchUnavailable: true }
+          : {}),
+        ...next,
       });
       setOpenMenu(undefined);
     } catch (caught) {
@@ -250,13 +262,7 @@ export function BranchCard({
                 <button
                   className={styles.automaticBaseButton}
                   type="button"
-                  disabled={automaticBaseBranchUnavailable}
                   onClick={() => void setComparisonBase()}
-                  title={
-                    automaticBaseBranchUnavailable && automaticBaseBranch
-                      ? `PR base ${automaticBaseBranch} is not available locally`
-                      : undefined
-                  }
                 >
                   <span>
                     <strong>Automatic</strong>
