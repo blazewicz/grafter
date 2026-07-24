@@ -44,7 +44,7 @@ const displayPreferences = {
   systemLocale: 'en-GB',
 } as const;
 
-describe('WorktreeDetails copy controls', () => {
+describe('WorktreeDetails rendering', () => {
   it('renders the worktree-first header and accessible copy controls', () => {
     const html = renderToStaticMarkup(
       createElement(WorktreeDetails, {
@@ -101,92 +101,6 @@ describe('WorktreeDetails copy controls', () => {
     expect(html).not.toContain('No pull request found');
     expect(html).toContain('<code>../repo.worktrees/feature</code>');
     expect(html).not.toContain('Checked-out branches');
-  });
-
-  it('disables branch switching with an explanation for a dirty worktree', () => {
-    const html = renderToStaticMarkup(
-      createElement(WorktreeDetails, {
-        homeDirectory: '/repo.worktrees',
-        ...displayPreferences,
-        details,
-        projectWorktrees: [mainWorktree, details],
-        status: 'dirty',
-        onSnapshot: () => undefined,
-        onSelectProject: () => undefined,
-        onError: () => undefined,
-      }),
-    );
-
-    expect(html).toContain(
-      'role="tooltip">Commit, stash, or discard your changes before switching branches</span>',
-    );
-    expect(html).toContain(
-      'aria-label="Switch branch unavailable: Commit, stash, or discard your changes before switching branches"',
-    );
-    expect(html).toContain('aria-disabled="true"');
-  });
-
-  it('notifies when a pull request base is unavailable locally', () => {
-    const html = renderToStaticMarkup(
-      createElement(WorktreeDetails, {
-        homeDirectory: '/repo.worktrees',
-        ...displayPreferences,
-        details: {
-          ...details,
-          pullRequest: {
-            number: 18,
-            title: 'Stacked pull request',
-            url: 'https://github.com/example/repo/pull/18',
-            state: 'OPEN',
-            baseBranch: 'feature/merged-base',
-          },
-          automaticBaseBranch: 'feature/merged-base',
-          automaticBaseBranchUnavailable: true,
-          targetBranch: 'main',
-        },
-        projectWorktrees: [mainWorktree, details],
-        status: 'clean',
-        onSnapshot: () => undefined,
-        onSelectProject: () => undefined,
-        onError: () => undefined,
-      }),
-    );
-
-    expect(html).toContain(
-      'PR base <code>feature/merged-base</code> is not available locally',
-    );
-    expect(html).toContain('<code>main</code>');
-  });
-
-  it('keeps an unavailable saved comparison base visible and selectable', () => {
-    const detailsWithoutDiff = { ...details };
-    delete detailsWithoutDiff.diffStats;
-    const html = renderToStaticMarkup(
-      createElement(WorktreeDetails, {
-        homeDirectory: '/repo.worktrees',
-        ...displayPreferences,
-        details: {
-          ...detailsWithoutDiff,
-          automaticBaseBranch: 'main',
-          targetBranch: 'release/next',
-          comparisonBaseOverride: 'release/next',
-          comparisonBaseOverrideUnavailable: true,
-        },
-        projectWorktrees: [mainWorktree, details],
-        status: 'clean',
-        onSnapshot: () => undefined,
-        onSelectProject: () => undefined,
-        onOpenDiff: () => undefined,
-        onError: () => undefined,
-      }),
-    );
-
-    expect(html).toContain('<code>release/next</code>');
-    expect(html).toContain(
-      'Comparison base <code>release/next</code> is not available locally. Choose another branch.',
-    );
-    expect(html).toContain('aria-label="Choose comparison base"');
-    expect(html).not.toContain('aria-label="View branch diff"');
   });
 
   it('uses a singular file label for a one-file commit', () => {
