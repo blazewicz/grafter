@@ -54,7 +54,7 @@ export function BranchChangesCard({
 }: {
   details: WorktreeDetails;
   projectWorktrees: Worktree[];
-  settings: Pick<Settings, 'dateFormat'>;
+  settings: Pick<Settings, 'dateFormat' | 'timeFormat'>;
   systemLocale: string;
   copiedText: string | undefined;
   diffOpening: boolean;

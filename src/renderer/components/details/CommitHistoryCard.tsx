@@ -1,7 +1,7 @@
 import { FileDiff, GitCommitHorizontal, LoaderCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { BranchCommit, BranchCommitPage, Settings } from '../../../shared/contracts';
-import { formatDate } from '../../date-time';
+import { formatDate, formatTime } from '../../date-time';
 import { api, friendlyError } from '../../grafter-api';
 import { CopyButton } from '../ui/CopyButton';
 import styles from './details.module.css';
@@ -38,7 +38,7 @@ export function CommitHistoryCard({
 }: {
   worktreeId: string;
   targetBranch: string;
-  settings: Pick<Settings, 'dateFormat'>;
+  settings: Pick<Settings, 'dateFormat' | 'timeFormat'>;
   systemLocale: string;
   copiedText: string | undefined;
   opening: boolean;
@@ -120,7 +120,7 @@ export function CommitHistoryCardContent({
 }: {
   history: CommitHistoryState | undefined;
   failed: boolean;
-  settings: Pick<Settings, 'dateFormat'>;
+  settings: Pick<Settings, 'dateFormat' | 'timeFormat'>;
   systemLocale: string;
   copiedText: string | undefined;
   opening: boolean;
@@ -190,7 +190,7 @@ function CommitRow({
   onViewChanges,
 }: {
   commit: BranchCommit;
-  settings: Pick<Settings, 'dateFormat'>;
+  settings: Pick<Settings, 'dateFormat' | 'timeFormat'>;
   systemLocale: string;
   copied: boolean;
   opening: boolean;
@@ -213,7 +213,8 @@ function CommitRow({
         {commit.authorName}
       </span>
       <time dateTime={commit.authoredAt} title={commit.authoredAt}>
-        {formatDate(commit.authoredAt, settings.dateFormat, systemLocale)}
+        {formatDate(commit.authoredAt, settings.dateFormat, systemLocale)} at{' '}
+        {formatTime(commit.authoredAt, settings.timeFormat, false, systemLocale)}
       </time>
       {onViewChanges && (
         <button
