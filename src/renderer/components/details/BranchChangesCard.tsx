@@ -2,27 +2,21 @@ import {
   Check,
   ChevronDown,
   FileDiff,
-  GitCommitHorizontal,
   GitCompareArrows,
   LoaderCircle,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type {
-  BranchCommit,
-  BranchCommitPage,
   Settings,
   Worktree,
   WorktreeComparison,
   WorktreeDetails,
 } from '../../../shared/contracts';
 import { api, friendlyError } from '../../grafter-api';
-import { formatDate } from '../../date-time';
 import { BranchPicker } from '../branches/BranchPicker';
 import { CopyButton } from '../ui/CopyButton';
+import { CommitHistoryCard } from './CommitHistoryCard';
 import styles from './details.module.css';
-
-const initialCommitLimit = 5;
-const additionalCommitLimit = 25;
 
 interface LocalComparison extends WorktreeComparison {
   worktreeId: string;
@@ -30,11 +24,6 @@ interface LocalComparison extends WorktreeComparison {
   head: string;
   sourceAutomaticBaseBranch?: string;
   sourceAutomaticBaseBranchUnavailable?: boolean;
-}
-
-interface CommitHistoryState extends BranchCommitPage {
-  key: string;
-  loadingMore: boolean;
 }
 
 export function isLocalComparisonCurrent(
@@ -79,8 +68,6 @@ export function BranchChangesCard({
   const [loadingBranches, setLoadingBranches] = useState(false);
   const [updatingComparison, setUpdatingComparison] = useState(false);
   const [localComparison, setLocalComparison] = useState<LocalComparison>();
-  const [commitHistory, setCommitHistory] = useState<CommitHistoryState>();
-  const [commitHistoryErrorKey, setCommitHistoryErrorKey] = useState<string>();
   const comparisonPickerRef = useRef<HTMLDivElement>(null);
   const comparison = isLocalComparisonCurrent(localComparison, details)
     ? localComparison
@@ -96,8 +83,6 @@ export function BranchChangesCard({
   const historyKey = targetBranch
     ? `${details.id}\0${details.branch}\0${details.head}\0${targetBranch}`
     : undefined;
-  const currentHistory =
-    historyKey && commitHistory?.key === historyKey ? commitHistory : undefined;
   const automaticSource = details.pullRequest
     ? 'Pull request base'
     : 'Repository default';
@@ -139,33 +124,6 @@ export function BranchChangesCard({
     };
   }, [details.projectId, menuOpen, onError]);
 
-  useEffect(() => {
-    if (!historyKey || !targetBranch || !diffStats) return;
-    let active = true;
-    void api
-      .listBranchCommits({
-        worktreeId: details.id,
-        targetBranch,
-        offset: 0,
-        limit: initialCommitLimit,
-      })
-      .then((page) => {
-        if (active) {
-          setCommitHistoryErrorKey(undefined);
-          setCommitHistory({ key: historyKey, ...page, loadingMore: false });
-        }
-      })
-      .catch((caught: unknown) => {
-        if (active) {
-          setCommitHistoryErrorKey(historyKey);
-          onError(friendlyError(caught));
-        }
-      });
-    return () => {
-      active = false;
-    };
-  }, [details.id, diffStats, historyKey, onError, targetBranch]);
-
   const setComparisonBase = async (target?: string): Promise<void> => {
     setUpdatingComparison(true);
     try {
@@ -201,35 +159,6 @@ export function BranchChangesCard({
     setBranches([]);
     setLoadingBranches(true);
     setMenuOpen(true);
-  };
-
-  const loadMoreCommits = async (): Promise<void> => {
-    if (!currentHistory || !targetBranch || currentHistory.loadingMore) return;
-    const currentKey = currentHistory.key;
-    setCommitHistory({ ...currentHistory, loadingMore: true });
-    try {
-      const page = await api.listBranchCommits({
-        worktreeId: details.id,
-        targetBranch,
-        offset: currentHistory.commits.length,
-        limit: additionalCommitLimit,
-      });
-      setCommitHistory((current) => {
-        if (current?.key !== currentKey) return current;
-        return {
-          key: current.key,
-          commits: [...current.commits, ...page.commits],
-          total: page.total,
-          hasMore: page.hasMore,
-          loadingMore: false,
-        };
-      });
-    } catch (caught) {
-      setCommitHistory((current) =>
-        current?.key === currentKey ? { ...current, loadingMore: false } : current,
-      );
-      onError(friendlyError(caught));
-    }
   };
 
   return (
@@ -335,16 +264,17 @@ export function BranchChangesCard({
       </div>
 
       {targetBranch && diffStats && (
-        <CommitHistory
-          history={currentHistory}
-          failed={commitHistoryErrorKey === historyKey}
+        <CommitHistoryCard
+          key={historyKey}
+          worktreeId={details.id}
+          targetBranch={targetBranch}
           settings={settings}
           systemLocale={systemLocale}
           copiedText={copiedText}
           opening={diffOpening}
           onCopy={onCopy}
           {...(onOpenCommitDiff ? { onViewChanges: onOpenCommitDiff } : {})}
-          onLoadMore={() => void loadMoreCommits()}
+          onError={onError}
         />
       )}
     </section>
@@ -368,129 +298,6 @@ function ComparisonStats({
       <strong className={styles.negative} aria-label={`${stats.deletions} deletions`}>
         −{stats.deletions}
       </strong>
-    </div>
-  );
-}
-
-function CommitHistory({
-  history,
-  failed,
-  settings,
-  systemLocale,
-  copiedText,
-  opening,
-  onCopy,
-  onViewChanges,
-  onLoadMore,
-}: {
-  history: CommitHistoryState | undefined;
-  failed: boolean;
-  settings: Pick<Settings, 'dateFormat'>;
-  systemLocale: string;
-  copiedText: string | undefined;
-  opening: boolean;
-  onCopy: (text: string) => void;
-  onViewChanges?: (commitHash: string) => void;
-  onLoadMore: () => void;
-}): React.JSX.Element {
-  return (
-    <div className={styles.commitHistoryCard} aria-label="Commits to merge">
-      <div className={styles.commitHistoryHeader}>
-        <span className={styles.sectionLabel}>COMMITS</span>
-        {history && (
-          <span className={styles.commitHistoryCount}>
-            {history.total} {history.total === 1 ? 'commit' : 'commits'}
-          </span>
-        )}
-      </div>
-      {failed ? (
-        <div className={styles.commitHistoryEmpty}>Could not load commits.</div>
-      ) : !history ? (
-        <div className={styles.commitHistoryLoading}>
-          <LoaderCircle className="spin" size={13} /> Loading commits…
-        </div>
-      ) : history.total === 0 ? (
-        <div className={styles.commitHistoryEmpty}>No commits to merge.</div>
-      ) : (
-        <>
-          <div className={styles.commitHistoryList}>
-            {history.commits.map((commit) => (
-              <CommitRow
-                key={commit.hash}
-                commit={commit}
-                settings={settings}
-                systemLocale={systemLocale}
-                copied={copiedText === commit.hash}
-                opening={opening}
-                onCopy={() => onCopy(commit.hash)}
-                {...(onViewChanges
-                  ? { onViewChanges: () => onViewChanges(commit.hash) }
-                  : {})}
-              />
-            ))}
-          </div>
-          {history.hasMore && (
-            <button
-              className={styles.commitHistoryMore}
-              disabled={history.loadingMore}
-              onClick={onLoadMore}
-            >
-              {history.loadingMore && <LoaderCircle className="spin" size={12} />}
-              {history.loadingMore ? 'Loading…' : 'Show more'}
-            </button>
-          )}
-        </>
-      )}
-    </div>
-  );
-}
-
-function CommitRow({
-  commit,
-  settings,
-  systemLocale,
-  copied,
-  opening,
-  onCopy,
-  onViewChanges,
-}: {
-  commit: BranchCommit;
-  settings: Pick<Settings, 'dateFormat'>;
-  systemLocale: string;
-  copied: boolean;
-  opening: boolean;
-  onCopy: () => void;
-  onViewChanges?: () => void;
-}): React.JSX.Element {
-  return (
-    <div className={styles.commitHistoryRow}>
-      <GitCommitHorizontal size={13} aria-hidden="true" />
-      <code title={commit.hash}>{commit.hash.slice(0, 7)}</code>
-      <CopyButton
-        copied={copied}
-        copyLabel={`Copy ${commit.hash} commit hash`}
-        copiedLabel="Commit hash copied"
-        onCopy={onCopy}
-        className={styles.commitHistoryCopyButton}
-      />
-      <strong title={commit.title}>{commit.title || 'Untitled commit'}</strong>
-      <span className={styles.commitHistoryAuthor} title={commit.authorName}>
-        {commit.authorName}
-      </span>
-      <time dateTime={commit.authoredAt} title={commit.authoredAt}>
-        {formatDate(commit.authoredAt, settings.dateFormat, systemLocale)}
-      </time>
-      {onViewChanges && (
-        <button
-          className={styles.commitHistoryDiffButton}
-          disabled={opening}
-          aria-label={`View changes in ${commit.hash.slice(0, 7)}`}
-          title="View commit changes"
-          onClick={onViewChanges}
-        >
-          <FileDiff size={13} />
-        </button>
-      )}
     </div>
   );
 }

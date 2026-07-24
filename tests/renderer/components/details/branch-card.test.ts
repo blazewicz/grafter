@@ -130,7 +130,6 @@ describe('BranchChangesCard rendering', () => {
     expect(html).toContain('aria-label="Branch comparison stats"');
     expect(html).toContain('aria-label="View branch diff"');
     expect(html).toContain('aria-label="Commits to merge"');
-    expect(html).toContain('Loading commits');
   });
 
   it('notifies when a pull request base is unavailable locally', () => {
