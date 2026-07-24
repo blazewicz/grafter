@@ -7,6 +7,12 @@ import {
   CommitHistoryCardContent,
   type CommitHistoryState,
 } from '../../../../src/renderer/components/details/CommitHistoryCard';
+import { formatDate, formatTime } from '../../../../src/renderer/date-time';
+
+const dateSettings = {
+  dateFormat: 'year-month-day',
+  timeFormat: '24-hour',
+} as const;
 
 const newest: BranchCommit = {
   hash: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
@@ -37,7 +43,7 @@ function renderHistory({
     createElement(CommitHistoryCardContent, {
       history,
       failed,
-      settings: { dateFormat: 'year-month-day', timeFormat: '24-hour' },
+      settings: dateSettings,
       systemLocale: 'en-GB',
       copiedText,
       opening,
@@ -74,7 +80,14 @@ describe('CommitHistoryCardContent rendering', () => {
     expect(html.indexOf('Newest change')).toBeLessThan(html.indexOf('Earlier change'));
     expect(html).toContain(`<code title="${newest.hash}">bbbbbbb</code>`);
     expect(html).toContain('Ada Lovelace');
-    expect(html).toContain('2026-07-22 at 15:18');
+    expect(html).toContain(
+      `${formatDate(newest.authoredAt, dateSettings.dateFormat, 'en-GB')} at ${formatTime(
+        newest.authoredAt,
+        dateSettings.timeFormat,
+        false,
+        'en-GB',
+      )}`,
+    );
     expect(html).toContain(`aria-label="Copy ${newest.hash} commit hash"`);
     expect(html).toContain('aria-label="Commit hash copied"');
     expect(html).toContain('aria-label="View changes in bbbbbbb"');
