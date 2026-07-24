@@ -209,7 +209,14 @@ function CommitRow({
         className={styles.commitHistoryCopyButton}
       />
       <strong title={commit.title}>{commit.title || 'Untitled commit'}</strong>
-      <span className={styles.commitHistoryAuthor} title={commit.authorName}>
+      <span
+        className={styles.commitHistoryAuthor}
+        title={
+          commit.authorEmail
+            ? `${commit.authorName} <${commit.authorEmail}>`
+            : commit.authorName
+        }
+      >
         {commit.authorName}
       </span>
       <time dateTime={commit.authoredAt} title={commit.authoredAt}>

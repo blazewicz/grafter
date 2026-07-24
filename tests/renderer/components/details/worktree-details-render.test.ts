@@ -136,7 +136,7 @@ describe('WorktreeDetails rendering', () => {
     expect(html).toContain('PULL REQUEST');
     expect(html).toContain('>#18</span>');
     expect(html).toContain('PR from the main clone');
-    expect(html).toContain('aria-label="Open pull request"');
+    expect(html).toContain('aria-label="Open pull request #18: PR from the main clone"');
     expect(html).toContain('lucide-git-pull-request');
     expect(html).toContain('lucide-square-arrow-out-up-right');
     expect(html).toContain('BRANCH CHANGES');

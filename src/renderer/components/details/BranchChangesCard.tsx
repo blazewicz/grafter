@@ -172,68 +172,64 @@ export function BranchChangesCard({
             aria-hidden="true"
           />
           <span className={styles.branchChangesPrefix}>Changes into</span>
-          <div className={styles.comparisonPicker} ref={comparisonPickerRef}>
-            <button
-              className={styles.comparisonMenuButton}
-              aria-label="Choose target branch"
-              aria-haspopup="dialog"
-              aria-expanded={menuOpen}
-              disabled={updatingComparison}
-              onClick={toggleMenu}
-            >
-              <code>{targetBranch ?? 'Choose a branch'}</code>
-              <ChevronDown size={13} />
-            </button>
-            {menuOpen && (
-              <div
-                className={styles.comparisonMenu}
-                role="dialog"
+          <div className={styles.branchTargetGroup}>
+            <div className={styles.comparisonPicker} ref={comparisonPickerRef}>
+              <button
+                className={styles.comparisonMenuButton}
                 aria-label="Choose target branch"
+                aria-haspopup="dialog"
+                aria-expanded={menuOpen}
+                disabled={updatingComparison}
+                onClick={toggleMenu}
+                title={targetBranch ?? 'Choose a branch'}
               >
-                <button
-                  className={styles.automaticBaseButton}
-                  type="button"
-                  onClick={() => void setComparisonBase()}
+                <code>{targetBranch ?? 'Choose a branch'}</code>
+                <ChevronDown size={13} />
+              </button>
+              {menuOpen && (
+                <div
+                  className={styles.comparisonMenu}
+                  role="dialog"
+                  aria-label="Choose target branch"
                 >
-                  <span>
-                    <strong>Automatic</strong>
-                    <small>
-                      {automaticBaseBranch ?? 'No default found'} · {automaticSource}
-                    </small>
-                  </span>
-                  {!comparisonBaseOverride && <Check size={13} />}
-                </button>
-                <div className={styles.comparisonMenuDivider} />
-                <BranchPicker
-                  branches={branches}
-                  worktrees={projectWorktrees}
-                  {...(comparisonBaseOverride
-                    ? { selectedBranch: comparisonBaseOverride }
-                    : {})}
-                  disableCheckedOut={false}
-                  disabledBranches={[details.branch]}
-                  loading={loadingBranches}
-                  onSelect={(branch) => void setComparisonBase(branch)}
-                />
-              </div>
+                  <button
+                    className={styles.automaticBaseButton}
+                    type="button"
+                    onClick={() => void setComparisonBase()}
+                  >
+                    <span>
+                      <strong>Automatic</strong>
+                      <small>
+                        {automaticBaseBranch ?? 'No default found'} · {automaticSource}
+                      </small>
+                    </span>
+                    {!comparisonBaseOverride && <Check size={13} />}
+                  </button>
+                  <div className={styles.comparisonMenuDivider} />
+                  <BranchPicker
+                    branches={branches}
+                    worktrees={projectWorktrees}
+                    {...(comparisonBaseOverride
+                      ? { selectedBranch: comparisonBaseOverride }
+                      : {})}
+                    disableCheckedOut={false}
+                    disabledBranches={[details.branch]}
+                    loading={loadingBranches}
+                    onSelect={(branch) => void setComparisonBase(branch)}
+                  />
+                </div>
+              )}
+            </div>
+            {targetBranch && (
+              <CopyButton
+                copied={copiedText === targetBranch}
+                copyLabel={`Copy ${targetBranch} branch name`}
+                copiedLabel="Branch name copied"
+                onCopy={() => onCopy(targetBranch)}
+                className={styles.branchTargetCopyButton}
+              />
             )}
           </div>
-          {targetBranch && (
-            <CopyButton
-              copied={copiedText === targetBranch}
-              copyLabel={`Copy ${targetBranch} branch name`}
-              copiedLabel="Branch name copied"
-              onCopy={() => onCopy(targetBranch)}
-              className={styles.branchTargetCopyButton}
-            />
-          )}
-          {updatingComparison ? (
-            <span className={styles.comparisonLoading}>
-              <LoaderCircle className="spin" size={12} /> Updating…
-            </span>
-          ) : (
-            diffStats && <ComparisonStats stats={diffStats} />
-          )}
           {targetBranch && diffStats && onOpenDiff && (
             <button
               className={styles.sectionActionButton}
@@ -248,6 +244,13 @@ export function BranchChangesCard({
                 <FileDiff size={14} />
               )}
             </button>
+          )}
+          {updatingComparison ? (
+            <span className={styles.comparisonLoading}>
+              <LoaderCircle className="spin" size={12} /> Updating…
+            </span>
+          ) : (
+            diffStats && <ComparisonStats stats={diffStats} />
           )}
         </div>
         {automaticBaseBranchUnavailable && automaticBaseBranch && (

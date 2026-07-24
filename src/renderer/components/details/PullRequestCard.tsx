@@ -65,17 +65,15 @@ export function PullRequestCard({
           <div className={styles.prTitleRow}>
             <PullRequestStateIcon state={pullRequest.state} />
             <div className={styles.prTitleCopy}>
-              <span className={styles.prNumber}>#{pullRequest.number}</span>
-              <strong className={styles.prTitle}>{pullRequest.title}</strong>
-            </div>
-            <div className={styles.prActions}>
               <button
-                className={styles.sectionActionButton}
-                aria-label="Open pull request"
-                title="Open pull request"
+                className={styles.prLink}
+                aria-label={`Open pull request #${pullRequest.number}: ${pullRequest.title}`}
+                title="Open pull request on GitHub"
                 onClick={() => openPullRequestLink(pullRequest.url, onError)}
               >
-                <SquareArrowOutUpRight size={15} aria-hidden="true" />
+                <strong className={styles.prTitle}>{pullRequest.title}</strong>
+                <span className={styles.prNumber}>#{pullRequest.number}</span>
+                <SquareArrowOutUpRight size={11} aria-hidden="true" />
               </button>
             </div>
           </div>

@@ -31,6 +31,13 @@ describe('PullRequestCard', () => {
     expect(html).toContain(`aria-label="Pull request status: ${label.toLowerCase()}"`);
     expect(html).toContain(`data-state="${state}"`);
     expect(html).toContain(iconClass);
+    expect(html).toContain(
+      'aria-label="Open pull request #18: State-aware pull request"',
+    );
+    expect(html).toContain('lucide-square-arrow-out-up-right');
+    expect(html.indexOf('State-aware pull request')).toBeLessThan(
+      html.indexOf('#18</span>'),
+    );
   });
 
   it('reports link failures through the shared error UI', async () => {

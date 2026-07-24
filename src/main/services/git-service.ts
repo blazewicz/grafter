@@ -262,7 +262,7 @@ export class GitService {
           '--topo-order',
           `--skip=${offset}`,
           `--max-count=${limit}`,
-          '--format=%H%x1f%s%x1f%an%x1f%aI%x00',
+          '--format=%H%x1f%s%x1f%an%x1f%ae%x1f%aI%x00',
           range,
         ],
         `Read commits ahead of ${targetBranch}`,

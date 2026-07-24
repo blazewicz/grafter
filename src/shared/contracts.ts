@@ -188,6 +188,7 @@ export interface BranchCommit {
   hash: string;
   title: string;
   authorName: string;
+  authorEmail?: string;
   authoredAt: string;
 }
 
