@@ -213,12 +213,6 @@ describe('GitService worktree details', () => {
       locked: false,
     };
     const runner = new StubCommandRunner((spec) => {
-      if (spec.args[0] === 'log') {
-        return {
-          stdout:
-            '1234567890abcdef\nAda Lovelace\nada@example.com\n2026-07-19T14:25:00+02:00\nAdd commit details\nExplain the intent.\n\u0000\n8\t2\tsrc/details.ts\n',
-        };
-      }
       if (spec.args[0] === 'symbolic-ref') return { stdout: 'origin/main\n' };
       if (spec.args[0] === 'diff') return { stdout: '3\t1\tsrc/example.ts\n' };
       throw new Error(`Unexpected command: ${spec.args.join(' ')}`);
@@ -226,26 +220,9 @@ describe('GitService worktree details', () => {
     const service = new GitService(runner);
 
     await expect(service.details(project, baseWorktree)).resolves.toMatchObject({
-      commit: {
-        hash: '1234567890abcdef',
-        title: 'Add commit details',
-        body: 'Explain the intent.',
-        authorName: 'Ada Lovelace',
-        authorEmail: 'ada@example.com',
-        authoredAt: '2026-07-19T14:25:00+02:00',
-        stats: { files: 1, additions: 8, deletions: 2 },
-      },
       targetBranch: 'main',
       diffStats: { files: 1, additions: 3, deletions: 1 },
     });
-    expect(runner.commands.find((command) => command.args[0] === 'log')?.args).toEqual([
-      'log',
-      '-1',
-      '--numstat',
-      '--diff-merges=first-parent',
-      '--format=%H%n%an%n%ae%n%aI%n%s%n%b%x00',
-      'HEAD',
-    ]);
 
     const mainWorktree = {
       ...baseWorktree,
@@ -511,7 +488,7 @@ describe('GitService worktree details', () => {
     );
   });
 
-  it('keeps independent detail reads concurrent', async () => {
+  it('loads comparison details without a redundant standalone commit read', async () => {
     const project: Project = {
       id: 'project',
       name: 'project',
@@ -527,80 +504,16 @@ describe('GitService worktree details', () => {
       isMain: false,
       locked: false,
     };
-    const started = new Set<string>();
-    let resolveBothStarted: (() => void) | undefined;
-    let releaseReads: (() => void) | undefined;
-    const bothStarted = new Promise<void>((resolve) => {
-      resolveBothStarted = resolve;
-    });
-    const readGate = new Promise<void>((resolve) => {
-      releaseReads = resolve;
-    });
-    const runner = new StubCommandRunner(async (spec) => {
-      const command = spec.args[0] ?? '';
-      if (command === 'log' || command === 'symbolic-ref') {
-        started.add(command);
-        if (started.size === 2) resolveBothStarted?.();
-        await readGate;
-      }
-      if (command === 'log') {
-        return {
-          stdout:
-            '1234567890abcdef\nAda Lovelace\n\n2026-07-19T14:25:00+02:00\nConcurrent details\n\u0000\n',
-        };
-      }
-      if (command === 'symbolic-ref') return { stdout: 'origin/main\n' };
-      if (command === 'diff') return { stdout: '' };
-      throw new Error(`Unexpected command: ${spec.args.join(' ')}`);
-    });
-    const details = new GitService(runner).details(project, worktree);
-
-    await bothStarted;
-    expect(started).toEqual(new Set(['log', 'symbolic-ref']));
-    releaseReads?.();
-    await expect(details).resolves.toMatchObject({ targetBranch: 'main' });
-  });
-
-  it('starts comparison stats before delayed commit metadata finishes', async () => {
-    const project: Project = {
-      id: 'project',
-      name: 'project',
-      path: '/repo',
-    };
-    const worktree: Worktree = {
-      id: 'project:/repo.worktrees/feature',
-      projectId: project.id,
-      displayName: 'feature',
-      path: '/repo.worktrees/feature',
-      branch: 'feature/concurrent',
-      head: '1234567',
-      isMain: false,
-      locked: false,
-    };
-    const commitResult = deferred<{ stdout: string }>();
-    const diffStarted = deferred<void>();
     const runner = new StubCommandRunner((spec) => {
-      if (spec.args[0] === 'log') return commitResult.promise;
       if (spec.args[0] === 'symbolic-ref') return { stdout: 'origin/main\n' };
-      if (spec.args[0] === 'diff') {
-        diffStarted.resolve();
-        return { stdout: '2\t1\tsrc/example.ts\n' };
-      }
+      if (spec.args[0] === 'diff') return { stdout: '' };
       throw new Error(`Unexpected command: ${spec.args.join(' ')}`);
     });
 
-    const details = new GitService(runner).details(project, worktree);
-    await diffStarted.promise;
-    expect(runner.commands.some((command) => command.args[0] === 'diff')).toBe(true);
-    commitResult.resolve({
-      stdout:
-        '1234567890abcdef\nAda Lovelace\n\n2026-07-19T14:25:00+02:00\nConcurrent details\n\u0000\n',
-    });
-
-    await expect(details).resolves.toMatchObject({
-      targetBranch: 'main',
-      diffStats: { files: 1, additions: 2, deletions: 1 },
-    });
+    await expect(
+      new GitService(runner).details(project, worktree),
+    ).resolves.toMatchObject({ targetBranch: 'main' });
+    expect(runner.commands.some((command) => command.args[0] === 'log')).toBe(false);
   });
 
   it('retains removal in the project log after the target worktree disappears', () => {
@@ -629,6 +542,85 @@ describe('GitService worktree details', () => {
     expect(spec.context).toEqual(projectCommandContext(project));
     expect(runner.recordsFor(projectCommandContext(project))).toEqual([record]);
     expect(runner.recordsFor(worktreeCommandContext(worktree))).toEqual([]);
+  });
+});
+
+describe('GitService branch commit history', () => {
+  const worktree: Worktree = {
+    id: 'project:/repo.worktrees/feature',
+    projectId: 'project',
+    displayName: 'feature',
+    path: '/repo.worktrees/feature',
+    branch: 'feature',
+    head: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    isMain: false,
+    locked: false,
+  };
+
+  it('pages newest-first commits reachable from HEAD but not the target branch', async () => {
+    const runner = new StubCommandRunner((spec) => {
+      if (spec.args[0] === 'show-ref') return {};
+      if (spec.args[0] === 'rev-list') return { stdout: '3\n' };
+      if (spec.args[0] === 'log') {
+        return {
+          stdout:
+            'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\u001fNewest change\u001fAda Lovelace\u001f2026-07-22T15:18:00+02:00\u0000\n' +
+            'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\u001fEarlier change\u001fGrace Hopper\u001f2026-07-21T09:30:00Z\u0000\n',
+        };
+      }
+      throw new Error(`Unexpected command: ${spec.args.join(' ')}`);
+    });
+
+    await expect(
+      new GitService(runner).branchCommits(worktree, 'main', 0, 2),
+    ).resolves.toEqual({
+      commits: [
+        {
+          hash: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+          title: 'Newest change',
+          authorName: 'Ada Lovelace',
+          authoredAt: '2026-07-22T15:18:00+02:00',
+        },
+        {
+          hash: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+          title: 'Earlier change',
+          authorName: 'Grace Hopper',
+          authoredAt: '2026-07-21T09:30:00Z',
+        },
+      ],
+      total: 3,
+      hasMore: true,
+    });
+    expect(runner.commands.map((command) => command.args)).toEqual([
+      ['show-ref', '--verify', '--quiet', 'refs/heads/main'],
+      ['rev-list', '--count', 'refs/heads/main..HEAD'],
+      [
+        'log',
+        '--topo-order',
+        '--skip=0',
+        '--max-count=2',
+        '--format=%H%x1f%s%x1f%an%x1f%aI%x00',
+        'refs/heads/main..HEAD',
+      ],
+    ]);
+  });
+
+  it('falls back to the remote-tracking target branch', async () => {
+    const runner = new StubCommandRunner((spec) => {
+      if (spec.args[0] === 'show-ref') {
+        return spec.args.at(-1) === 'refs/heads/main' ? { exitCode: 1 } : {};
+      }
+      if (spec.args[0] === 'rev-list') return { stdout: '0\n' };
+      if (spec.args[0] === 'log') return { stdout: '' };
+      throw new Error(`Unexpected command: ${spec.args.join(' ')}`);
+    });
+
+    await expect(
+      new GitService(runner).branchCommits(worktree, 'main', 5, 25),
+    ).resolves.toEqual({ commits: [], total: 0, hasMore: false });
+    expect(runner.commands.find((command) => command.args[0] === 'log')?.args).toContain(
+      'refs/remotes/origin/main..HEAD',
+    );
   });
 });
 

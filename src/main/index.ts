@@ -114,6 +114,9 @@ function registerIpc(): void {
   ipcMain.handle(ipc.setComparisonBase, (_event, request: unknown) =>
     service.setComparisonBase(request),
   );
+  ipcMain.handle(ipc.listBranchCommits, (_event, request: unknown) =>
+    service.listBranchCommits(request),
+  );
   ipcMain.handle(ipc.openDiff, (_event, worktreeId: string) =>
     service.openDiff(worktreeId),
   );

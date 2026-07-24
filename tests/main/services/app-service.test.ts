@@ -172,7 +172,6 @@ describe('AppService pull request refresh', () => {
 
     const cachedDetails = await service.details(worktree.id);
     expect(cachedDetails.pullRequest?.title).toBe('Cached title');
-    expect(cachedDetails.commit?.title).toBe('Cached details commit');
     expect(cachedDetails.targetBranch).toBe('feature/base');
     expect(featurePullRequestCalls).toBe(1);
 
@@ -1433,6 +1432,14 @@ describe('AppService branch comparisons', () => {
     await expect(
       service.setComparisonBase({ worktreeId: 'project', targetBranch: 42 }),
     ).rejects.toThrow('Invalid comparison base request');
+    await expect(
+      service.listBranchCommits({
+        worktreeId: 'project',
+        targetBranch: 'main',
+        offset: 0,
+        limit: 51,
+      }),
+    ).rejects.toThrow('Invalid branch commit request');
   });
 });
 

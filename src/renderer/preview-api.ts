@@ -12,6 +12,44 @@ import { commandContextKey } from '../shared/command-context';
 const now = new Date().toISOString();
 const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString();
 const fourMinutesAgo = new Date(Date.now() - 4 * 60 * 1000).toISOString();
+const previewBranchCommits = [
+  {
+    hash: 'b91d6a818eb0d8c9c7a1e228b3716e95ac7434d2',
+    title: 'Refine comparison controls',
+    authorName: 'Kasia Nowak',
+    authoredAt: '2026-07-22T15:18:00+02:00',
+  },
+  {
+    hash: '6a43e5b6140dc9024df47cb421de3fb2273376de',
+    title: 'Keep branch selection feedback compact',
+    authorName: 'Kasia Nowak',
+    authoredAt: '2026-07-22T13:04:00+02:00',
+  },
+  {
+    hash: 'f7d3f984f3c02f16c64b63730347267f9135cd72',
+    title: 'Add comparison base persistence',
+    authorName: 'Marek Zieliński',
+    authoredAt: '2026-07-21T17:31:00+02:00',
+  },
+  {
+    hash: 'd61c94173060a62c1b6e49ad67ef04e4f58451ea',
+    title: 'Open branch comparisons in the diff viewer',
+    authorName: 'Alicja Kowalska',
+    authoredAt: '2026-07-21T11:46:00+02:00',
+  },
+  {
+    hash: '54c47b48052d86434733930e1444d494117761aa',
+    title: 'Resolve the automatic target branch',
+    authorName: 'Kasia Nowak',
+    authoredAt: '2026-07-20T16:22:00+02:00',
+  },
+  {
+    hash: '27f25fe02935509765a78d85cded9e40d36ec2a9',
+    title: 'Introduce branch diff statistics',
+    authorName: 'Marek Zieliński',
+    authoredAt: '2026-07-20T10:09:00+02:00',
+  },
+];
 
 let snapshot: AppSnapshot = {
   homeDirectory: '/Users/kasia',
@@ -257,28 +295,10 @@ const details: Record<string, WorktreeDetails> = {
   'grafter:main': {
     ...snapshot.projects[0]!.worktrees[0]!,
     projectName: 'grafter',
-    commit: {
-      hash: '3e7cb81771d9d59de29f052c2fc7852d12b2a990',
-      title: 'Polish branch switching feedback',
-      body: '',
-      authorName: 'Kasia Nowak',
-      authorEmail: 'kasia@example.com',
-      authoredAt: '2026-07-19T10:14:00+02:00',
-      stats: { files: 2, additions: 18, deletions: 4 },
-    },
   },
   'grafter:glass': {
     ...snapshot.projects[0]!.worktrees[1]!,
     projectName: 'grafter',
-    commit: {
-      hash: 'cf91e24bc937201570241099a8d04377c705426a',
-      title: 'Build translucent sidebar',
-      body: 'Tighten the selected worktree hierarchy and keep secondary actions hidden until hover.\n\nThis also aligns spacing with the details view.',
-      authorName: 'Kasia Nowak',
-      authorEmail: 'kasia@example.com',
-      authoredAt: '2026-07-19T12:42:00+02:00',
-      stats: { files: 2, additions: 124, deletions: 18 },
-    },
     automaticBaseBranch: 'main',
     targetBranch: 'release/next',
     comparisonBaseOverride: 'release/next',
@@ -287,14 +307,6 @@ const details: Record<string, WorktreeDetails> = {
   'grafter:audit': {
     ...snapshot.projects[0]!.worktrees[2]!,
     projectName: 'grafter',
-    commit: {
-      hash: '81ca4922f8233eb7bab2fb30ec764f473296f484',
-      title: 'Add the audit console',
-      body: 'Group command attempts by their worktree context.',
-      authorName: 'Marek Zieliński',
-      authoredAt: '2026-07-18T17:08:00+02:00',
-      stats: { files: 3, additions: 121, deletions: 9 },
-    },
     automaticBaseBranch: 'feature/merged-base',
     automaticBaseBranchUnavailable: true,
     targetBranch: 'main',
@@ -303,15 +315,6 @@ const details: Record<string, WorktreeDetails> = {
   'grafter:comparison-preview': {
     ...snapshot.projects[0]!.worktrees[3]!,
     projectName: 'grafter',
-    commit: {
-      hash: 'b91d6a818eb0d8c9c7a1e228b3716e95ac7434d2',
-      title: 'Refine comparison controls',
-      body: 'Keep comparison feedback clear while preserving a compact branch card.',
-      authorName: 'Kasia Nowak',
-      authorEmail: 'kasia@example.com',
-      authoredAt: '2026-07-22T15:18:00+02:00',
-      stats: { files: 4, additions: 86, deletions: 12 },
-    },
     automaticBaseBranch: 'main',
     targetBranch: 'main',
     diffStats: { files: 4, additions: 86, deletions: 12 },
@@ -319,14 +322,6 @@ const details: Record<string, WorktreeDetails> = {
   'garden:main': {
     ...snapshot.projects[1]!.worktrees[0]!,
     projectName: 'garden-api',
-    commit: {
-      hash: '30dd5c35c5d87793437ac634a9aa5056d180dbb7',
-      title: 'Document local development',
-      body: '',
-      authorName: 'Alicja Kowalska',
-      authoredAt: '2026-07-17T09:30:00+02:00',
-      stats: { files: 1, additions: 12, deletions: 0 },
-    },
   },
 };
 
@@ -752,15 +747,6 @@ export const previewApi: GrafterApi = {
     details[worktreeId] = {
       ...switched,
       projectName: project.name,
-      commit: {
-        hash: switched.head,
-        title: `Switch to ${branch}`,
-        body: '',
-        authorName: 'Kasia Nowak',
-        authorEmail: 'kasia@example.com',
-        authoredAt: new Date().toISOString(),
-        stats: { files: 1, additions: 3, deletions: 1 },
-      },
       ...(branch === 'main'
         ? {}
         : {
@@ -842,6 +828,16 @@ export const previewApi: GrafterApi = {
     details[worktreeId] = { ...detailsWithoutComparison, ...comparison };
     return Promise.resolve(structuredClone(comparison));
   },
+  listBranchCommits: ({ offset, limit }) => {
+    const commits = previewBranchCommits.slice(offset, offset + limit);
+    return Promise.resolve(
+      structuredClone({
+        commits,
+        total: previewBranchCommits.length,
+        hasMore: offset + commits.length < previewBranchCommits.length,
+      }),
+    );
+  },
   openDiff: (worktreeId) => {
     const worktreeDetails = details[worktreeId];
     if (!worktreeDetails?.targetBranch) {
@@ -886,13 +882,10 @@ export const previewApi: GrafterApi = {
     );
   },
   openCommitDiff: ({ projectId, commitHash }) => {
-    const commitDetails = Object.values(details).find(
-      (item) => item.projectId === projectId && item.commit?.hash === commitHash,
-    );
-    if (!commitDetails?.commit) {
+    const commit = previewBranchCommits.find((item) => item.hash === commitHash);
+    if (!commit) {
       return Promise.reject(new Error('Commit not found.'));
     }
-    const commit = commitDetails.commit;
     return Promise.resolve(
       structuredClone({
         kind: 'commit' as const,
@@ -905,6 +898,7 @@ export const previewApi: GrafterApi = {
         files: previewDiffFiles,
         commit: {
           ...commit,
+          body: '',
           stats: { files: 7, additions: 438, deletions: 41 },
         },
         parentShas: ['4fc93b86a45b1a47af174e0b97e422a31eb19db0'],

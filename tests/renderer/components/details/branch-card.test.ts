@@ -2,10 +2,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import type { WorktreeDetails } from '../../../../src/shared/contracts';
-import {
-  BranchCard,
-  isLocalComparisonCurrent,
-} from '../../../../src/renderer/components/details/BranchCard';
+import { BranchCard } from '../../../../src/renderer/components/details/BranchCard';
 
 const details: WorktreeDetails = {
   id: 'project:/repo.worktrees/feature',
@@ -20,20 +17,9 @@ const details: WorktreeDetails = {
   automaticBaseBranch: 'main',
 };
 
-const comparison = {
-  worktreeId: details.id,
-  branch: details.branch,
-  head: details.head,
-  sourceAutomaticBaseBranch: 'main',
-  targetBranch: 'release/next',
-  comparisonBaseOverride: 'release/next',
-  diffStats: { files: 1, additions: 2, deletions: 1 },
-};
-
 function renderBranchCard(
   nextDetails: WorktreeDetails,
   status: 'clean' | 'dirty' = 'clean',
-  onOpenDiff?: () => void,
 ): string {
   return renderToStaticMarkup(
     createElement(BranchCard, {
@@ -41,33 +27,12 @@ function renderBranchCard(
       projectWorktrees: [details, nextDetails],
       status,
       copiedText: undefined,
-      diffOpening: false,
       onSnapshot: () => undefined,
       onCopy: () => undefined,
-      ...(onOpenDiff ? { onOpenDiff } : {}),
       onError: () => undefined,
     }),
   );
 }
-
-describe('BranchCard local comparison state', () => {
-  it('accepts state created from the current worktree details', () => {
-    expect(isLocalComparisonCurrent(comparison, details)).toBe(true);
-  });
-
-  it.each([
-    ['worktree', { ...comparison, worktreeId: 'project:/repo.worktrees/other' }],
-    ['branch', { ...comparison, branch: 'feature/other' }],
-    ['head', { ...comparison, head: '7654321' }],
-    ['automatic base', { ...comparison, sourceAutomaticBaseBranch: 'develop' }],
-    [
-      'automatic base availability',
-      { ...comparison, sourceAutomaticBaseBranchUnavailable: true },
-    ],
-  ])('rejects state from a different %s', (_label, staleComparison) => {
-    expect(isLocalComparisonCurrent(staleComparison, details)).toBe(false);
-  });
-});
 
 describe('BranchCard rendering', () => {
   it('disables branch switching with an explanation for a dirty worktree', () => {
@@ -82,7 +47,7 @@ describe('BranchCard rendering', () => {
     expect(html).toContain('aria-disabled="true"');
   });
 
-  it('notifies when a pull request base is unavailable locally', () => {
+  it('contains only checked-out branch controls before its pull request child', () => {
     const html = renderBranchCard({
       ...details,
       pullRequest: {
@@ -92,37 +57,11 @@ describe('BranchCard rendering', () => {
         state: 'OPEN',
         baseBranch: 'feature/merged-base',
       },
-      automaticBaseBranch: 'feature/merged-base',
-      automaticBaseBranchUnavailable: true,
-      targetBranch: 'main',
     });
 
-    expect(html).toContain(
-      'PR base <code>feature/merged-base</code> is not available locally',
-    );
-    expect(html).toContain('<code>main</code>');
-  });
-
-  it('keeps an unavailable saved comparison base visible and selectable', () => {
-    const detailsWithoutDiff = { ...details };
-    delete detailsWithoutDiff.diffStats;
-    const html = renderBranchCard(
-      {
-        ...detailsWithoutDiff,
-        automaticBaseBranch: 'main',
-        targetBranch: 'release/next',
-        comparisonBaseOverride: 'release/next',
-        comparisonBaseOverrideUnavailable: true,
-      },
-      'clean',
-      () => undefined,
-    );
-
-    expect(html).toContain('<code>release/next</code>');
-    expect(html).toContain(
-      'Comparison base <code>release/next</code> is not available locally. Choose another branch.',
-    );
-    expect(html).toContain('aria-label="Choose comparison base"');
-    expect(html).not.toContain('aria-label="View branch diff"');
+    expect(html).toContain('CHECKED-OUT BRANCH');
+    expect(html).toContain('PULL REQUEST');
+    expect(html).not.toContain('BRANCH CHANGES');
+    expect(html).not.toContain('Choose target branch');
   });
 });

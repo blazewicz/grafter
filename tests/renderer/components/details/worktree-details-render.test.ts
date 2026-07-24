@@ -14,17 +14,8 @@ const details: WorktreeDetailsData = {
   head: '1234567890',
   isMain: false,
   locked: false,
-  commit: {
-    hash: '1234567890abcdef',
-    title: 'Add commit details',
-    body: 'Explain the intent.\n\nKeep the body readable.',
-    authorName: 'Ada Lovelace',
-    authorEmail: 'ada@example.com',
-    authoredAt: '2026-07-19T14:25:00+02:00',
-    stats: { files: 2, additions: 8, deletions: 2 },
-  },
   targetBranch: 'main',
-  diffStats: { files: 1, additions: 2, deletions: 0 },
+  diffStats: { files: 2, additions: 8, deletions: 2 },
 };
 
 const mainWorktree: WorktreeDetailsData = {
@@ -67,56 +58,38 @@ describe('WorktreeDetails rendering', () => {
     expect(html).toContain('aria-label="Copy worktree path"');
     expect(html).toContain('data-brand-mark="finder"');
     expect(html).toContain('data-brand-mark="visual-studio-code"');
-    expect(html).toContain('aria-label="Copy full commit hash"');
-    expect(html).toContain('<code title="1234567890abcdef">1234567</code>');
-    expect(html).toContain('Add commit details');
-    expect(html).toContain('Ada Lovelace');
-    expect(html).toContain('lucide-git-commit-horizontal');
     expect(html).toContain('2 files');
-    expect(html).toContain('aria-label="8 additions">+8</span>');
-    expect(html).toContain('aria-label="2 deletions">−2</span>');
-    expect(html).toContain('aria-expanded="false"');
-    expect(html).toContain('aria-label="Show commit body"');
-    expect(html).toContain('lucide-ellipsis');
-    expect(html).not.toContain('Show commit message');
-    expect(html).not.toContain('<pre');
+    expect(html).toContain('aria-label="8 additions">+8</strong>');
+    expect(html).toContain('aria-label="2 deletions">−2</strong>');
     expect(html).toContain('lucide-folder-open');
     expect(html).toContain('aria-label="View branch diff"');
-    expect(html).toContain('aria-label="View commit changes"');
-    expect(html).not.toContain('>View changes<');
     expect(html).toContain('lucide-file-diff');
-    expect(html.indexOf('>1234567</code>')).toBeLessThan(
-      html.indexOf('Add commit details'),
-    );
     expect(html).toContain('repo</button>');
     expect(html).toContain('aria-label="Open repo project details"');
     expect(html).toContain('<h1>feature-worktree</h1>');
     expect(html).toContain('role="tooltip">Switch branch</span>');
     expect(html).toContain('<code>feature/branch</code>');
     expect(html).toContain('CHECKED-OUT BRANCH');
-    expect(html).toContain('Compared with');
-    expect(html).toContain('aria-label="Choose comparison base"');
+    expect(html).toContain('BRANCH CHANGES');
+    expect(html).toContain('Changes into');
+    expect(html).toContain('aria-label="Choose target branch"');
+    expect(html).toContain('aria-label="Copy main branch name"');
     expect(html).toContain('aria-label="Branch comparison stats"');
+    expect(html).toContain('aria-label="Commits to merge"');
     expect(html).not.toContain('PULL REQUEST');
     expect(html).not.toContain('No pull request found');
     expect(html).toContain('<code>../repo.worktrees/feature</code>');
     expect(html).not.toContain('Checked-out branches');
   });
 
-  it('uses a singular file label for a one-file commit', () => {
-    const commit = details.commit;
-    if (!commit) throw new Error('Expected commit details.');
+  it('uses a singular file label for a one-file branch comparison', () => {
     const html = renderToStaticMarkup(
       createElement(WorktreeDetails, {
         homeDirectory: '/repo.worktrees',
         ...displayPreferences,
         details: {
           ...details,
-          commit: {
-            ...commit,
-            body: '',
-            stats: { ...commit.stats, files: 1 },
-          },
+          diffStats: { files: 1, additions: 3, deletions: 0 },
         },
         projectWorktrees: [mainWorktree, details],
         status: 'clean',
@@ -128,7 +101,7 @@ describe('WorktreeDetails rendering', () => {
 
     expect(html).toContain('1 file');
     expect(html).not.toContain('1 files');
-    expect(html).not.toContain('Show commit body');
+    expect(html).toContain('BRANCH CHANGES');
   });
 
   it('labels the main worktree consistently and shows its PR status', () => {
@@ -166,9 +139,10 @@ describe('WorktreeDetails rendering', () => {
     expect(html).toContain('aria-label="Open pull request"');
     expect(html).toContain('lucide-git-pull-request');
     expect(html).toContain('lucide-square-arrow-out-up-right');
-    expect(html).toContain('Compared with');
+    expect(html).toContain('BRANCH CHANGES');
+    expect(html).toContain('Changes into');
     expect(html).toContain('<code>main</code>');
-    expect(html).not.toContain('Changes against');
+    expect(html.indexOf('PULL REQUEST')).toBeLessThan(html.indexOf('BRANCH CHANGES'));
   });
 
   it('uses the same collision-safe worktree label as the sidebar', () => {

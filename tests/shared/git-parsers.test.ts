@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  parseBranchCommits,
   parseCommitDetails,
   parseDiffFiles,
   parseNumStat,
@@ -87,6 +88,31 @@ describe('parseCommitDetails', () => {
     expect(
       parseCommitDetails('abc\nAda\nada@example.com\nnot-a-date\nTitle\nBody\u0000'),
     ).toBeUndefined();
+  });
+});
+
+describe('parseBranchCommits', () => {
+  it('parses newest-first compact commit metadata and skips malformed records', () => {
+    expect(
+      parseBranchCommits(
+        'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\u001fNewest change\u001fAda Lovelace\u001f2026-07-22T15:18:00+02:00\u0000\n' +
+          'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\u001fEarlier change\u001fGrace Hopper\u001f2026-07-21T09:30:00Z\u0000\n' +
+          'incomplete\u001frecord\u0000',
+      ),
+    ).toEqual([
+      {
+        hash: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+        title: 'Newest change',
+        authorName: 'Ada Lovelace',
+        authoredAt: '2026-07-22T15:18:00+02:00',
+      },
+      {
+        hash: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        title: 'Earlier change',
+        authorName: 'Grace Hopper',
+        authoredAt: '2026-07-21T09:30:00Z',
+      },
+    ]);
   });
 });
 

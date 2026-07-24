@@ -1,4 +1,5 @@
 import type {
+  BranchCommit,
   CommitDetails,
   DiffFilePatch,
   DiffFileStatus,
@@ -256,6 +257,24 @@ export function parseCommitDetails(output: string): CommitDetails | undefined {
     authoredAt: authoredAt.trim(),
     stats: parseNumStat((rawStats ?? '').replace(/^\n+/, '')),
   };
+}
+
+export function parseBranchCommits(output: string): BranchCommit[] {
+  return output.split('\0').flatMap((record) => {
+    const [hash, title, authorName, authoredAt] = record
+      .replace(/^\n+/, '')
+      .split('\u001f');
+    if (!hash?.trim() || !authorName?.trim() || !authoredAt?.trim()) return [];
+    if (Number.isNaN(Date.parse(authoredAt))) return [];
+    return [
+      {
+        hash: hash.trim(),
+        title: title?.trim() ?? '',
+        authorName: authorName.trim(),
+        authoredAt: authoredAt.trim(),
+      },
+    ];
+  });
 }
 
 export function parseWorktreeStatus(output: string): WorktreeStatus {
