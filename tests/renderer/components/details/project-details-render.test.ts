@@ -2,7 +2,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import type { ProjectTreeItem, Worktree } from '../../../../src/shared/contracts';
-import { ProjectDetails } from '../../../../src/renderer/components/details/ProjectDetails';
+import { ProjectDetailsView } from '../../../../src/renderer/components/details/ProjectDetailsView';
 
 function worktree(
   displayName: string,
@@ -39,7 +39,7 @@ describe('ProjectDetails', () => {
     };
 
     const html = renderToStaticMarkup(
-      createElement(ProjectDetails, {
+      createElement(ProjectDetailsView, {
         homeDirectory: '/Users/kasia',
         project,
         onSelectWorktree: () => undefined,

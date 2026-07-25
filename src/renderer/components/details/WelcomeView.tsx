@@ -3,7 +3,7 @@ import controls from '../../styles/controls.module.css';
 import { BranchMark } from '../ui/BrandMarks';
 import styles from './details.module.css';
 
-export function Welcome({ onAdd }: { onAdd: () => void }): React.JSX.Element {
+export function WelcomeView({ onAdd }: { onAdd: () => void }): React.JSX.Element {
   return (
     <div className={styles.welcome}>
       <div className={styles.welcomeMark}>

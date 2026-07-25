@@ -21,7 +21,7 @@ const editorOptions: readonly {
   label: string;
 }[] = [{ id: 'vscode', label: 'Visual Studio Code' }];
 
-export function WorktreeDetails({
+export function WorktreeDetailsView({
   homeDirectory,
   settings,
   systemLocale,
