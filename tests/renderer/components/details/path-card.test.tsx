@@ -146,7 +146,7 @@ describe('PathCard', () => {
     { name: 'Visual Studio Code', editor: 'vscode' },
     // Reserved for future options.
   ] satisfies { name: string; editor: EditorTool }[])(
-    'renders editor picker and opens the workspace in the selected editor and sets the editor as current',
+    'renders editor picker with $name as an option and opens it when selected and sets as the current editor',
     async ({ name, editor }) => {
       const user = userEvent.setup();
       const openWorktreeInEditor = vi
