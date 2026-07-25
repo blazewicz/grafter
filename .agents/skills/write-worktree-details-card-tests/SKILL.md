@@ -3,18 +3,18 @@ name: write-worktree-details-card-tests
 description: Write or improve Grafter renderer tests for React cards and card-like controls in the worktree details view. Use for components under src/renderer/components/details, tests under tests/renderer/components/details, changes to a details card's rendering or interactions, or reviews of test coverage for worktree details UI behavior.
 ---
 
-# Write Worktree Details Card Tests
+# Write Renderer Component Tests
 
-Use `tests/renderer/components/details/path-card.test.tsx` as the primary example. Preserve its intent—typed fixtures, accessible queries, user-level interactions, exact boundary assertions, and readable parameterization—without copying details that do not fit the component.
+Use a nearby Testing Library test as the primary example. Preserve its intent—shared test data, accessible queries, user-level interactions, exact boundary assertions, and readable parameterization—without copying details that do not fit the component.
 
 ## Inspect Before Writing
 
 Read:
 
-1. The card component and any feature-local hook or helper it uses.
+1. The component and any feature-local hook or helper it uses.
 2. Its shared contract types and calls through `grafter-api`.
-3. The primary example.
-4. The parent details view when card ordering, conditional presence, or integration is relevant.
+3. Nearby tests for current conventions and reusable setup.
+4. The parent view when ordering, conditional presence, or integration is relevant.
 
 Read neighboring tests only to discover existing behavior and coverage. Treat tests based on `renderToStaticMarkup` or serialized HTML as legacy tests to migrate, not conventions to copy.
 
@@ -24,39 +24,67 @@ List the observable states and actions before selecting cases. Cover meaningful 
 
 Use `@testing-library/react` for every renderer component test, including static rendering, conditional presence, composition, and ordering. Add `// @vitest-environment happy-dom` to the test file. Use `userEvent` for user interactions.
 
-Do not use `renderToStaticMarkup`, serialized markup, or string containment assertions for renderer components. When updating a legacy card test, migrate the affected cases to Testing Library instead of extending the old harness.
+Do not use `renderToStaticMarkup`, serialized markup, or string containment assertions for renderer components. When updating a legacy component test, migrate the affected cases to Testing Library instead of extending the old harness.
 
 Test exported pure helpers directly without rendering when their behavior is independent of React.
 
-Name renderer component test files `<card-name>.test.tsx`. Keep tests beside the matching feature path under `tests/renderer/components/details/`.
+Name renderer component test files `<component-name>.test.tsx`. Keep tests under the matching renderer feature path.
 
-## Build Typed Test Data
+## Reuse Factories and Scenarios
 
-Create a small, valid, explicitly typed baseline fixture from shared contracts. Include only data needed to make the card realistic.
+Inspect `tests/factories/` and `tests/scenarios/` before defining test data. Search by domain type, relationship, and behavior. Do not recreate an existing setup locally.
 
-When repository relationships matter, model them: for example, provide a main worktree and the worktree under test instead of an impossible isolated object.
+Use factories for individual domain objects:
 
-Use immutable overrides:
+- Keep factories in `tests/factories/`.
+- Use Fishery for typed construction and `@faker-js/faker` for realistic defaults.
+- Return a complete, valid, neutral object by default.
+- Keep optional states absent unless they are part of the factory's core valid state.
+- Compose existing lower-level factories instead of repeating nested object literals.
+- Use generated IDs, names, paths, branches, hashes, titles, and other incidental values.
+
+Use scenarios for relationships and meaningful test topology:
+
+- Keep scenarios in `tests/scenarios/`, grouped by feature or behavior.
+- Build related objects through factories and keep their IDs, ownership, membership, and derived state consistent.
+- Return named objects that tests can use in rendering, mocks, actions, and assertions.
+- Let scenarios own reusable states such as ordering, availability, pagination, and path topology.
+- Author expected results independently. Never calculate an expected result with the production helper being tested.
+
+Apply this reuse order:
+
+1. Use an existing factory or scenario as-is.
+2. Pass the smallest behavior-relevant override.
+3. Amend the existing factory or scenario when the new state is broadly reusable.
+4. Add a new factory or scenario only for a distinct domain responsibility or reusable behavior.
+
+Do not create parallel factories or scenarios for the same concept. Avoid per-test factories, thin aliases, and large catch-all scenarios. Extend the file that already owns the concept and keep exports compact.
+
+Tests should reference generated values rather than restating them. Feed the same generated value into mocks, user actions, and exact argument assertions. Keep literals only when they select the behavior under test or express the public output contract.
+
+Do not pass an old complete fixture into a factory as overrides. If most fields need overriding, improve the factory or introduce a semantic scenario.
+
+Use immutable overrides for a single case:
 
 ```tsx
-renderCard({ ...worktree, path: nextPath });
+renderComponent({ ...item, state: nextState });
 ```
 
-Do not use `any`, broad casts, or incomplete objects hidden behind assertions. Use `as const` for literal cases and `satisfies` when a parameter table should be checked against a shared union or contract.
+Do not use `any`, broad casts, non-null assertions, or incomplete objects hidden behind assertions. Use `as const` and `satisfies` where they preserve shared-contract checking. Add focused scenario tests when relationships or independently authored expectations are non-trivial.
 
 ## Centralize Rendering
 
 Create one small render helper that supplies stable defaults and exposes only inputs relevant to the tests:
 
 ```tsx
-function renderCard(
-  nextWorktree: Worktree = worktree,
-  status?: WorktreeStatus,
+function renderComponent(
+  nextItem: Item = scenario.item,
+  status?: Status,
   onAction: (value: string) => void = () => undefined,
 ): void {
   render(
     <Card
-      worktree={nextWorktree}
+      item={nextItem}
       status={status}
       onAction={onAction}
       onError={() => undefined}
@@ -93,7 +121,7 @@ For callbacks and API calls, assert both cardinality and exact arguments:
 
 ```tsx
 expect(action).toHaveBeenCalledOnce();
-expect(action).toHaveBeenCalledWith(worktree.id, selectedValue);
+expect(action).toHaveBeenCalledWith(item.id, selectedValue);
 ```
 
 For stateful controls, assert the state transition as well as the side effect. A picker test should verify its trigger, expanded state, menu semantics, selected action, exact API call, and resulting current selection when applicable.
@@ -113,7 +141,7 @@ it.each([
   { value: firstInput, expected: firstLabel },
   { value: secondInput, expected: secondLabel },
 ])('shows $value as $expected', ({ value, expected }) => {
-  renderCard({ ...worktree, value });
+  renderComponent({ ...item, value });
   expect(screen.getByText(expected)).toBeVisible();
 });
 ```
@@ -124,7 +152,7 @@ Do not parameterize unrelated scenarios merely to reduce line count. A table sho
 
 ## Cover the Right Boundaries
 
-For a typical interactive card, consider:
+For a typical interactive component, consider:
 
 - representative display transformations, including unchanged fallback;
 - each meaningful status or availability state;
@@ -134,14 +162,14 @@ For a typical interactive card, consider:
 - accessibility names and state attributes;
 - cleanup-sensitive effects such as document listeners or timers, when behavior makes them observable.
 
-Test at the card boundary first. Add a parent-view test only for composition, ordering, or conditional inclusion that the card cannot prove itself.
+Test at the component boundary first. Add a parent-view test only for composition, ordering, or conditional inclusion that the component cannot prove itself.
 
 ## Verify
 
 Run the focused test while iterating:
 
 ```sh
-npm test -- tests/renderer/components/details/<card-name>.test.tsx
+npm test -- tests/renderer/components/details/<component-name>.test.tsx
 ```
 
 Then run:
