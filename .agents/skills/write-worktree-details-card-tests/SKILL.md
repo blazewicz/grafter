@@ -13,18 +13,22 @@ Read:
 
 1. The card component and any feature-local hook or helper it uses.
 2. Its shared contract types and calls through `grafter-api`.
-3. The primary example and the closest neighboring tests.
+3. The primary example.
 4. The parent details view when card ordering, conditional presence, or integration is relevant.
+
+Read neighboring tests only to discover existing behavior and coverage. Treat tests based on `renderToStaticMarkup` or serialized HTML as legacy tests to migrate, not conventions to copy.
 
 List the observable states and actions before selecting cases. Cover meaningful branches, not lines of implementation.
 
-## Choose the Narrowest Harness
+## Use Testing Library for Renderer Components
 
-- Use Testing Library and `userEvent` for clicks, menus, forms, focus, state changes, effects, and calls to the preload API. Add `// @vitest-environment happy-dom` to a test file that needs a DOM.
-- Use `renderToStaticMarkup` only for non-interactive rendering and composition contracts. Do not use string markup assertions when a role, accessible name, state transition, or user action is the behavior.
-- Test exported pure helpers directly when their state matrix can be expressed without rendering.
+Use `@testing-library/react` for every renderer component test, including static rendering, conditional presence, composition, and ordering. Add `// @vitest-environment happy-dom` to the test file. Use `userEvent` for user interactions.
 
-Name interactive JSX files `<card-name>.test.tsx`. Keep tests beside the matching feature path under `tests/renderer/components/details/`.
+Do not use `renderToStaticMarkup`, serialized markup, or string containment assertions for renderer components. When updating a legacy card test, migrate the affected cases to Testing Library instead of extending the old harness.
+
+Test exported pure helpers directly without rendering when their behavior is independent of React.
+
+Name renderer component test files `<card-name>.test.tsx`. Keep tests beside the matching feature path under `tests/renderer/components/details/`.
 
 ## Build Typed Test Data
 
@@ -63,7 +67,7 @@ function renderCard(
 
 Keep the helper declarative. Do not hide user interactions or assertions inside it. Pass spies through callback props and spy on the shared `api` object for preload-bound actions.
 
-For DOM tests, clean isolation explicitly:
+Clean isolation explicitly:
 
 ```tsx
 afterEach(() => {
@@ -96,7 +100,7 @@ For stateful controls, assert the state transition as well as the side effect. A
 
 Assert disabled, unavailable, loading, failure, and empty states when the component exposes them. Include negative assertions when absence is part of the contract.
 
-Avoid implementation-detail assertions against hook state, private helpers, CSS module names, or DOM structure. Assert icon classes or raw HTML only when using the static harness and the icon or ordering is itself a deliberate visible contract. Do not add snapshots for behavior that can be stated directly.
+Avoid implementation-detail assertions against hook state, private helpers, CSS module names, icon-library classes, raw HTML, or incidental DOM structure. Assert icons through an accessible name or other user-observable contract when the icon conveys meaning. Do not add snapshots for behavior that can be stated directly.
 
 ## Parameterize Behavior Matrices
 
