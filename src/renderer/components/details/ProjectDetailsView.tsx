@@ -3,7 +3,7 @@ import type { ProjectTreeItem } from '../../../shared/contracts';
 import { ProjectWorktreeList } from './ProjectWorktreeList';
 import styles from './details.module.css';
 
-export function ProjectDetails({
+export function ProjectDetailsView({
   homeDirectory,
   project,
   onSelectWorktree,
