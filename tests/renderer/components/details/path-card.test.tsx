@@ -1,8 +1,12 @@
+// @vitest-environment happy-dom
+
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import type { Worktree, WorktreeStatus } from '../../../../src/shared/contracts';
 import { PathCard } from '../../../../src/renderer/components/details/PathCard';
+
+import { render, screen } from '@testing-library/react';
 
 const worktree: Worktree = {
   id: 'project:/repo.worktrees/feature',
@@ -33,10 +37,20 @@ function renderPathCard(
 }
 
 describe('PathCard rendering', () => {
-  it('renders worktree path', () => {
-    const html = renderPathCard(worktree);
+  it('shows the worktree path', () => {
+    render(
+      <PathCard
+        homeDirectory={'/repo.worktrees'}
+        projectWorktrees={[worktree]}
+        worktree={worktree}
+        status="clean"
+        copiedText={undefined}
+        onCopy={() => undefined}
+        onError={() => undefined}
+      />,
+    );
 
-    expect(html).toContain('<code>~/feature</code>');
+    expect(screen.getByRole('code')).toHaveTextContent('~/feature');
   });
 
   it('renders worktree path copy button', () => {

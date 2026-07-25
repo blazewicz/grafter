@@ -99,6 +99,9 @@ and navigation clearer, but do not reproduce the source tree mechanically. Keep 
 helpers near the layer they serve, and place tests that genuinely span multiple boundaries
 in a dedicated integration area.
 
+Use `@testing-library/react` to test the renderer components. Use `@testing-library/user-event`
+for simulating user interactions. Use `@testing-library/jest-dom` for expressive DOM assertions.
+
 For renderer changes, also exercise the affected flow in a live preview or Electron and
 check for runtime errors. For Electron or packaging changes, run a platform package build.
 
