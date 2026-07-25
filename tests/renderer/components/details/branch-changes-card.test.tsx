@@ -13,39 +13,33 @@ import type {
   WorktreeComparison,
   WorktreeDetails,
 } from '../../../../src/shared/contracts';
+import { pullRequestFactory, worktreeComparisonFactory } from '../../../factories';
+import { buildWorktreeProjectScenario } from '../../../scenarios/details/worktree-project';
+import { deferred } from '../../../support/deferred';
 
-const mainWorktree: Worktree = {
-  id: 'project:main',
-  projectId: 'project',
-  displayName: 'main',
-  path: '/repo',
-  branch: 'main',
-  head: '7654321',
-  isMain: true,
-  locked: false,
-};
-
-const details: WorktreeDetails = {
-  id: 'project:feature',
-  projectId: 'project',
-  projectName: 'project',
-  displayName: 'feature',
-  path: '/repo.worktrees/feature',
-  branch: 'feature/change',
-  head: '1234567',
-  isMain: false,
-  locked: false,
-  automaticBaseBranch: 'main',
-};
-
+const changesScenario = buildWorktreeProjectScenario({
+  project: { id: 'project', name: 'project', path: '/repo' },
+  mainWorktree: { head: '7654321' },
+  details: {
+    id: 'project:feature',
+    displayName: 'feature',
+    path: '/repo.worktrees/feature',
+    branch: 'feature/change',
+    head: '1234567',
+    automaticBaseBranch: 'main',
+  },
+});
+const { mainWorktree, details } = changesScenario;
 const comparison = {
   worktreeId: details.id,
   branch: details.branch,
   head: details.head,
   sourceAutomaticBaseBranch: 'main',
-  targetBranch: 'release/next',
-  comparisonBaseOverride: 'release/next',
-  diffStats: { files: 1, additions: 2, deletions: 1 },
+  ...worktreeComparisonFactory.build({
+    targetBranch: 'release/next',
+    comparisonBaseOverride: 'release/next',
+    diffStats: { files: 1, additions: 2, deletions: 1 },
+  }),
 };
 
 function renderBranchChangesCard(
@@ -85,19 +79,6 @@ function renderBranchChangesCard(
       onError={onError}
     />,
   );
-}
-
-function deferred<T>(): {
-  promise: Promise<T>;
-  resolve: (value: T) => void;
-} {
-  let resolve = (value: T): void => {
-    void value;
-  };
-  const promise = new Promise<T>((nextResolve) => {
-    resolve = nextResolve;
-  });
-  return { promise, resolve };
 }
 
 describe('Branch changes local comparison state', () => {
@@ -215,13 +196,13 @@ describe('BranchChangesCard', () => {
       automaticSource: 'Repository default',
     },
     {
-      pullRequest: {
+      pullRequest: pullRequestFactory.build({
         number: 18,
         title: 'Stacked pull request',
         url: 'https://github.com/example/repo/pull/18',
-        state: 'OPEN' as const,
+        state: 'OPEN',
         baseBranch: 'main',
-      },
+      }),
       automaticSource: 'Pull request base',
     },
   ])(
@@ -303,12 +284,14 @@ describe('BranchChangesCard', () => {
     expect(targetButton).toBeDisabled();
     expect(screen.getByText('Updating…')).toBeVisible();
 
-    comparisonResult.resolve({
-      automaticBaseBranch: 'main',
-      targetBranch: 'release/next',
-      comparisonBaseOverride: 'release/next',
-      diffStats: { files: 4, additions: 91, deletions: 26 },
-    });
+    comparisonResult.resolve(
+      worktreeComparisonFactory.build({
+        automaticBaseBranch: 'main',
+        targetBranch: 'release/next',
+        comparisonBaseOverride: 'release/next',
+        diffStats: { files: 4, additions: 91, deletions: 26 },
+      }),
+    );
 
     expect(await screen.findByText('release/next', { selector: 'code' })).toBeVisible();
     expect(screen.queryByRole('dialog', { name: 'Choose target branch' })).toBeNull();
@@ -318,11 +301,13 @@ describe('BranchChangesCard', () => {
 
   it('restores the automatic comparison target', async () => {
     const user = userEvent.setup();
-    const setComparisonBase = vi.spyOn(api, 'setComparisonBase').mockResolvedValue({
-      automaticBaseBranch: 'main',
-      targetBranch: 'main',
-      diffStats: { files: 2, additions: 8, deletions: 3 },
-    });
+    const setComparisonBase = vi.spyOn(api, 'setComparisonBase').mockResolvedValue(
+      worktreeComparisonFactory.build({
+        automaticBaseBranch: 'main',
+        targetBranch: 'main',
+        diffStats: { files: 2, additions: 8, deletions: 3 },
+      }),
+    );
     vi.spyOn(api, 'listBranches').mockResolvedValue([]);
     vi.spyOn(api, 'listBranchCommits').mockReturnValue(new Promise(() => undefined));
     renderBranchChangesCard({
@@ -418,13 +403,13 @@ describe('BranchChangesCard', () => {
     renderBranchChangesCard({
       nextDetails: {
         ...details,
-        pullRequest: {
+        pullRequest: pullRequestFactory.build({
           number: 18,
           title: 'Stacked pull request',
           url: 'https://github.com/example/repo/pull/18',
           state: 'OPEN',
           baseBranch: 'feature/merged-base',
-        },
+        }),
         automaticBaseBranch: 'feature/merged-base',
         automaticBaseBranchUnavailable: true,
         targetBranch: 'main',

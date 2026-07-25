@@ -11,53 +11,47 @@ import type {
   WorktreeDetails,
   WorktreeStatus,
 } from '../../../../src/shared/contracts';
+import {
+  appSnapshotFactory,
+  projectTreeItemFactory,
+  pullRequestFactory,
+  worktreeFactory,
+} from '../../../factories';
+import { buildWorktreeProjectScenario } from '../../../scenarios/details/worktree-project';
+import { deferred } from '../../../support/deferred';
 
-const mainWorktree: Worktree = {
-  id: 'project:main',
-  projectId: 'project',
-  displayName: 'main',
-  path: '/repo',
-  branch: 'main',
-  head: '7654321',
-  isMain: true,
-  locked: false,
-};
-
-const details: WorktreeDetails = {
-  id: 'project:feature',
-  projectId: 'project',
-  projectName: 'project',
-  displayName: 'feature',
-  path: '/repo.worktrees/feature',
-  branch: 'feature/change',
-  head: '1234567',
-  isMain: false,
-  locked: false,
-  automaticBaseBranch: 'main',
-};
-
-const switchedWorktree: Worktree = {
+const branchScenario = buildWorktreeProjectScenario({
+  project: { id: 'project', name: 'project', path: '/repo' },
+  mainWorktree: { head: '7654321' },
+  details: {
+    id: 'project:feature',
+    displayName: 'feature',
+    path: '/repo.worktrees/feature',
+    branch: 'feature/change',
+    head: '1234567',
+    automaticBaseBranch: 'main',
+  },
+  snapshot: {
+    homeDirectory: '/home/kasia',
+    systemLocale: 'en-GB',
+    settings: {
+      defaultWorktreePath: '../<repo_name>.worktrees',
+      dateFormat: 'system',
+      timeFormat: 'system',
+    },
+  },
+});
+const { mainWorktree, details } = branchScenario;
+const switchedWorktree = worktreeFactory.build({
   ...details,
   branch: 'feature/next',
-};
-
-const switchedSnapshot: AppSnapshot = {
-  homeDirectory: '/home/kasia',
-  systemLocale: 'en-GB',
-  settings: {
-    defaultWorktreePath: '../<repo_name>.worktrees',
-    dateFormat: 'system',
-    timeFormat: 'system',
-  },
-  projects: [
-    {
-      id: 'project',
-      name: 'project',
-      path: mainWorktree.path,
-      worktrees: [mainWorktree, switchedWorktree],
-    },
-  ],
-};
+});
+const switchedProject = projectTreeItemFactory.build(branchScenario.project, {
+  associations: { worktrees: [mainWorktree, switchedWorktree] },
+});
+const switchedSnapshot = appSnapshotFactory.build(branchScenario.snapshot, {
+  associations: { projects: [switchedProject] },
+});
 
 function renderBranchCard(
   options: {
@@ -90,19 +84,6 @@ function renderBranchCard(
       onError={onError}
     />,
   );
-}
-
-function deferred<T>(): {
-  promise: Promise<T>;
-  resolve: (value: T) => void;
-} {
-  let resolve = (value: T): void => {
-    void value;
-  };
-  const promise = new Promise<T>((nextResolve) => {
-    resolve = nextResolve;
-  });
-  return { promise, resolve };
 }
 
 describe('BranchCard', () => {
@@ -328,13 +309,13 @@ describe('BranchCard', () => {
     renderBranchCard({
       nextDetails: {
         ...details,
-        pullRequest: {
+        pullRequest: pullRequestFactory.build({
           number: 18,
           title: 'Stacked pull request',
           url: 'https://github.com/example/repo/pull/18',
           state: 'OPEN',
           baseBranch: 'feature/merged-base',
-        },
+        }),
       },
     });
 

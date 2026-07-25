@@ -4,24 +4,22 @@ import { cleanup, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ProjectDetailsView } from '../../../../src/renderer/components/details/ProjectDetailsView';
 import type { ProjectTreeItem } from '../../../../src/shared/contracts';
+import { mainWorktreeFactory, projectTreeItemFactory } from '../../../factories';
 
-const project: ProjectTreeItem = {
-  id: 'project',
-  name: 'repo',
+const mainWorktree = mainWorktreeFactory.build({
+  id: 'project:main',
+  projectId: 'project',
   path: '/Users/kasia/projects/repo',
-  worktrees: [
-    {
-      id: 'project:main',
-      projectId: 'project',
-      displayName: 'main',
-      path: '/Users/kasia/projects/repo',
-      branch: 'main',
-      head: '1234567',
-      isMain: true,
-      locked: false,
-    },
-  ],
-};
+  head: '1234567',
+});
+const project = projectTreeItemFactory.build(
+  {
+    id: 'project',
+    name: 'repo',
+    path: '/Users/kasia/projects/repo',
+  },
+  { associations: { worktrees: [mainWorktree] } },
+);
 
 function renderProjectDetailsView(nextProject: ProjectTreeItem = project): void {
   render(

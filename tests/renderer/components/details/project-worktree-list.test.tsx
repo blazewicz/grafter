@@ -5,39 +5,32 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ProjectWorktreeList } from '../../../../src/renderer/components/details/ProjectWorktreeList';
 import type { Worktree } from '../../../../src/shared/contracts';
+import { mainWorktreeFactory, worktreeFactory } from '../../../factories';
 
-const mainWorktree: Worktree = {
+const mainWorktree = mainWorktreeFactory.build({
   id: 'project:main',
   projectId: 'project',
-  displayName: 'main',
   path: '/Users/kasia/projects/repo',
-  branch: 'main',
   head: '1234567',
-  isMain: true,
-  locked: false,
-};
+});
 
-const alphaWorktree: Worktree = {
+const alphaWorktree = worktreeFactory.build({
   id: 'project:alpha',
   projectId: 'project',
   displayName: 'alpha',
   path: '/Users/kasia/worktrees/alpha',
   branch: 'feature/alpha',
   head: '2345678',
-  isMain: false,
-  locked: false,
-};
+});
 
-const collisionWorktree: Worktree = {
+const collisionWorktree = worktreeFactory.build({
   id: 'project:collision',
   projectId: 'project',
   displayName: 'b77c/repo',
   path: '/Users/kasia/worktrees/b77c/repo',
   branch: 'feature/worktree-first',
   head: '3456789',
-  isMain: false,
-  locked: false,
-};
+});
 
 function renderProjectWorktreeList(
   worktrees: Worktree[] = [collisionWorktree, alphaWorktree, mainWorktree],

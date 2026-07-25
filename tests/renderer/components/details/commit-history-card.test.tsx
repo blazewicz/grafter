@@ -9,7 +9,9 @@ import {
 } from '../../../../src/renderer/components/details/CommitHistoryCard';
 import { formatDate, formatTime } from '../../../../src/renderer/date-time';
 import { api } from '../../../../src/renderer/grafter-api';
-import type { BranchCommit, BranchCommitPage } from '../../../../src/shared/contracts';
+import type { BranchCommitPage } from '../../../../src/shared/contracts';
+import { branchCommitFactory, branchCommitPageFactory } from '../../../factories';
+import { deferred } from '../../../support/deferred';
 
 const worktreeId = 'project:feature';
 const targetBranch = 'main';
@@ -18,20 +20,25 @@ const dateSettings = {
   timeFormat: '24-hour',
 } as const;
 
-const newest: BranchCommit = {
+const newest = branchCommitFactory.build({
   hash: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
   title: 'Newest change',
   authorName: 'Ada Lovelace',
   authorEmail: 'ada@example.com',
   authoredAt: '2026-07-22T15:18:00+02:00',
-};
+});
 
-const earlier: BranchCommit = {
-  hash: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-  title: 'Earlier change',
-  authorName: 'Grace Hopper',
-  authoredAt: '2026-07-21T09:30:00Z',
-};
+const earlier = branchCommitFactory.build(
+  {
+    hash: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    title: 'Earlier change',
+    authorName: 'Grace Hopper',
+    authoredAt: '2026-07-21T09:30:00Z',
+  },
+  {
+    transient: { withAuthorEmail: false },
+  },
+);
 
 function renderCommitHistoryCard(
   options: {
@@ -65,19 +72,6 @@ function renderCommitHistoryCard(
   );
 }
 
-function deferred<T>(): {
-  promise: Promise<T>;
-  resolve: (value: T) => void;
-} {
-  let resolve = (value: T): void => {
-    void value;
-  };
-  const promise = new Promise<T>((nextResolve) => {
-    resolve = nextResolve;
-  });
-  return { promise, resolve };
-}
-
 describe('CommitHistoryCard', () => {
   afterEach(() => {
     cleanup();
@@ -103,11 +97,9 @@ describe('CommitHistoryCard', () => {
   });
 
   it('shows an empty state when there are no commits to merge', async () => {
-    vi.spyOn(api, 'listBranchCommits').mockResolvedValue({
-      commits: [],
-      total: 0,
-      hasMore: false,
-    });
+    vi.spyOn(api, 'listBranchCommits').mockResolvedValue(
+      branchCommitPageFactory.build({ commits: [], total: 0, hasMore: false }),
+    );
     renderCommitHistoryCard();
 
     expect(await screen.findByText('No commits to merge.')).toBeVisible();
@@ -139,11 +131,13 @@ describe('CommitHistoryCard', () => {
   });
 
   it('shows commits newest first with compact metadata', async () => {
-    vi.spyOn(api, 'listBranchCommits').mockResolvedValue({
-      commits: [newest, earlier],
-      total: 2,
-      hasMore: true,
-    });
+    vi.spyOn(api, 'listBranchCommits').mockResolvedValue(
+      branchCommitPageFactory.build({
+        commits: [newest, earlier],
+        total: 2,
+        hasMore: true,
+      }),
+    );
     renderCommitHistoryCard({
       copiedText: earlier.hash,
       onViewChanges: () => undefined,
@@ -189,11 +183,13 @@ describe('CommitHistoryCard', () => {
   });
 
   it('uses a singular count for one commit', async () => {
-    vi.spyOn(api, 'listBranchCommits').mockResolvedValue({
-      commits: [newest],
-      total: 1,
-      hasMore: false,
-    });
+    vi.spyOn(api, 'listBranchCommits').mockResolvedValue(
+      branchCommitPageFactory.build({
+        commits: [newest],
+        total: 1,
+        hasMore: false,
+      }),
+    );
     renderCommitHistoryCard();
 
     expect(await screen.findByText('1 commit')).toBeVisible();
@@ -201,11 +197,13 @@ describe('CommitHistoryCard', () => {
   });
 
   it('falls back to an untitled label for a commit without a title', async () => {
-    vi.spyOn(api, 'listBranchCommits').mockResolvedValue({
-      commits: [{ ...newest, title: '' }],
-      total: 1,
-      hasMore: false,
-    });
+    vi.spyOn(api, 'listBranchCommits').mockResolvedValue(
+      branchCommitPageFactory.build({
+        commits: [branchCommitFactory.build({ ...newest, title: '' })],
+        total: 1,
+        hasMore: false,
+      }),
+    );
     renderCommitHistoryCard();
 
     expect(await screen.findByText('Untitled commit')).toBeVisible();
@@ -213,11 +211,13 @@ describe('CommitHistoryCard', () => {
 
   it('copies a commit hash', async () => {
     const user = userEvent.setup();
-    vi.spyOn(api, 'listBranchCommits').mockResolvedValue({
-      commits: [newest],
-      total: 1,
-      hasMore: false,
-    });
+    vi.spyOn(api, 'listBranchCommits').mockResolvedValue(
+      branchCommitPageFactory.build({
+        commits: [newest],
+        total: 1,
+        hasMore: false,
+      }),
+    );
     const onCopy = vi.fn();
     renderCommitHistoryCard({ onCopy });
 
@@ -233,11 +233,13 @@ describe('CommitHistoryCard', () => {
 
   it('opens the changes for a commit', async () => {
     const user = userEvent.setup();
-    vi.spyOn(api, 'listBranchCommits').mockResolvedValue({
-      commits: [newest],
-      total: 1,
-      hasMore: false,
-    });
+    vi.spyOn(api, 'listBranchCommits').mockResolvedValue(
+      branchCommitPageFactory.build({
+        commits: [newest],
+        total: 1,
+        hasMore: false,
+      }),
+    );
     const onViewChanges = vi.fn();
     renderCommitHistoryCard({ onViewChanges });
 
@@ -253,11 +255,13 @@ describe('CommitHistoryCard', () => {
   });
 
   it('does not show commit diff actions without a view-changes callback', async () => {
-    vi.spyOn(api, 'listBranchCommits').mockResolvedValue({
-      commits: [newest],
-      total: 1,
-      hasMore: false,
-    });
+    vi.spyOn(api, 'listBranchCommits').mockResolvedValue(
+      branchCommitPageFactory.build({
+        commits: [newest],
+        total: 1,
+        hasMore: false,
+      }),
+    );
     renderCommitHistoryCard();
 
     expect(await screen.findByText(newest.title)).toBeVisible();
@@ -265,11 +269,13 @@ describe('CommitHistoryCard', () => {
   });
 
   it('disables commit diff actions while a diff is opening', async () => {
-    vi.spyOn(api, 'listBranchCommits').mockResolvedValue({
-      commits: [newest, earlier],
-      total: 2,
-      hasMore: false,
-    });
+    vi.spyOn(api, 'listBranchCommits').mockResolvedValue(
+      branchCommitPageFactory.build({
+        commits: [newest, earlier],
+        total: 2,
+        hasMore: false,
+      }),
+    );
     renderCommitHistoryCard({
       opening: true,
       onViewChanges: () => undefined,
@@ -289,11 +295,13 @@ describe('CommitHistoryCard', () => {
     const nextPage = deferred<BranchCommitPage>();
     const listBranchCommits = vi
       .spyOn(api, 'listBranchCommits')
-      .mockResolvedValueOnce({
-        commits: [newest],
-        total: 2,
-        hasMore: true,
-      })
+      .mockResolvedValueOnce(
+        branchCommitPageFactory.build({
+          commits: [newest],
+          total: 2,
+          hasMore: true,
+        }),
+      )
       .mockReturnValueOnce(nextPage.promise);
     renderCommitHistoryCard();
 
@@ -313,11 +321,13 @@ describe('CommitHistoryCard', () => {
     });
     expect(screen.getByRole('button', { name: 'Loading…' })).toBeDisabled();
 
-    nextPage.resolve({
-      commits: [earlier],
-      total: 2,
-      hasMore: false,
-    });
+    nextPage.resolve(
+      branchCommitPageFactory.build({
+        commits: [earlier],
+        total: 2,
+        hasMore: false,
+      }),
+    );
 
     expect(await screen.findByText(earlier.title)).toBeVisible();
     expect(
@@ -333,11 +343,13 @@ describe('CommitHistoryCard', () => {
     const user = userEvent.setup();
     const listBranchCommits = vi
       .spyOn(api, 'listBranchCommits')
-      .mockResolvedValueOnce({
-        commits: [newest],
-        total: 2,
-        hasMore: true,
-      })
+      .mockResolvedValueOnce(
+        branchCommitPageFactory.build({
+          commits: [newest],
+          total: 2,
+          hasMore: true,
+        }),
+      )
       .mockRejectedValueOnce(new Error('could not load more commits'));
     const onError = vi.fn();
     renderCommitHistoryCard({ onError });

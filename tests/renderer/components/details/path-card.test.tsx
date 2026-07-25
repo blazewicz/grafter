@@ -10,28 +10,25 @@ import type {
   WorktreeStatus,
   EditorTool,
 } from '../../../../src/shared/contracts';
+import { buildWorktreeProjectScenario } from '../../../scenarios/details/worktree-project';
 
-const mainWorktree: Worktree = {
-  id: 'project:main',
-  projectId: 'project',
-  displayName: 'feature',
-  path: '/home/kasia/git/repo',
-  branch: 'main',
-  head: '1234567',
-  isMain: true,
-  locked: false,
-};
-
-const worktree: Worktree = {
-  id: 'project:feature',
-  projectId: 'project',
-  displayName: 'feature',
-  path: '/home/kasia/git/repo.worktrees/feature',
-  branch: 'feature/change',
-  head: '1234567',
-  isMain: false,
-  locked: false,
-};
+const pathScenario = buildWorktreeProjectScenario({
+  project: {
+    id: 'project',
+    name: 'repo',
+    path: '/home/kasia/git/repo',
+  },
+  mainWorktree: { head: '1234567' },
+  details: {
+    id: 'project:feature',
+    displayName: 'feature',
+    path: '/home/kasia/git/repo.worktrees/feature',
+    branch: 'feature/change',
+    head: '1234567',
+  },
+  snapshot: { homeDirectory: '/home/kasia/' },
+});
+const { mainWorktree, details: worktree } = pathScenario;
 
 function renderPathCard(
   nextWorktree: Worktree = worktree,

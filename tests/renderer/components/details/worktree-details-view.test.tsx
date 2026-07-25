@@ -5,40 +5,33 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { WorktreeDetailsView } from '../../../../src/renderer/components/details/WorktreeDetailsView';
 import { api } from '../../../../src/renderer/grafter-api';
-import type {
-  Settings,
-  Worktree,
-  WorktreeDetails,
-} from '../../../../src/shared/contracts';
+import type { Settings } from '../../../../src/shared/contracts';
+import { settingsFactory } from '../../../factories';
+import { buildWorktreeProjectScenario } from '../../../scenarios/details/worktree-project';
+import { deferred } from '../../../support/deferred';
 
-const mainWorktree: Worktree = {
-  id: 'project:main',
-  projectId: 'project',
-  displayName: 'main',
-  path: '/home/kasia/git/repo',
-  branch: 'main',
-  head: '7654321',
-  isMain: true,
-  locked: false,
-};
-
-const details: WorktreeDetails = {
-  id: 'project:feature',
-  projectId: 'project',
-  projectName: 'repo',
-  displayName: 'feature',
-  path: '/home/kasia/git/repo.worktrees/feature',
-  branch: 'feature/change',
-  head: '1234567',
-  isMain: false,
-  locked: false,
-  automaticBaseBranch: 'main',
-};
-
-const settings: Pick<Settings, 'dateFormat' | 'timeFormat'> = {
+const detailsScenario = buildWorktreeProjectScenario({
+  project: {
+    id: 'project',
+    name: 'repo',
+    path: '/home/kasia/git/repo',
+  },
+  mainWorktree: { head: '7654321' },
+  details: {
+    id: 'project:feature',
+    displayName: 'feature',
+    path: '/home/kasia/git/repo.worktrees/feature',
+    branch: 'feature/change',
+    head: '1234567',
+    automaticBaseBranch: 'main',
+  },
+  snapshot: { homeDirectory: '/home/kasia/' },
+});
+const { mainWorktree, details } = detailsScenario;
+const settings: Pick<Settings, 'dateFormat' | 'timeFormat'> = settingsFactory.build({
   dateFormat: 'year-month-day',
   timeFormat: '24-hour',
-};
+});
 
 function renderWorktreeDetailsView(
   onError: (message: string) => void = () => undefined,
@@ -57,19 +50,6 @@ function renderWorktreeDetailsView(
       onError={onError}
     />,
   );
-}
-
-function deferred<T>(): {
-  promise: Promise<T>;
-  resolve: (value: T) => void;
-} {
-  let resolve = (value: T): void => {
-    void value;
-  };
-  const promise = new Promise<T>((nextResolve) => {
-    resolve = nextResolve;
-  });
-  return { promise, resolve };
 }
 
 describe('WorktreeDetailsView', () => {
