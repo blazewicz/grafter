@@ -1,4 +1,0 @@
-interface:
-  display_name: 'Worktree Details Card Tests'
-  short_description: 'Write robust tests for worktree detail cards'
-  default_prompt: 'Use $write-worktree-details-card-tests to add or improve renderer tests for this worktree details card.'

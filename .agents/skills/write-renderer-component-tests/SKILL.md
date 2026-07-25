@@ -1,6 +1,6 @@
 ---
-name: write-worktree-details-card-tests
-description: Write or improve Grafter renderer tests for React cards and card-like controls in the worktree details view. Use for components under src/renderer/components/details, tests under tests/renderer/components/details, changes to a details card's rendering or interactions, or reviews of test coverage for worktree details UI behavior.
+name: write-renderer-component-tests
+description: Write or improve Grafter renderer component tests with Testing Library, shared Fishery and faker factories, and reusable scenarios. Use for React components under src/renderer, tests under tests/renderer, renderer rendering or interaction changes, migrations from legacy renderer tests, or reviews of renderer test coverage.
 ---
 
 # Write Renderer Component Tests
@@ -83,7 +83,7 @@ function renderComponent(
   onAction: (value: string) => void = () => undefined,
 ): void {
   render(
-    <Card
+    <Component
       item={nextItem}
       status={status}
       onAction={onAction}
@@ -169,7 +169,7 @@ Test at the component boundary first. Add a parent-view test only for compositio
 Run the focused test while iterating:
 
 ```sh
-npm test -- tests/renderer/components/details/<component-name>.test.tsx
+npm test -- tests/renderer/<path>/<component-name>.test.tsx
 ```
 
 Then run:
