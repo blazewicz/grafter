@@ -23,7 +23,6 @@ export function MainView({
   status,
   onSnapshot,
   onAdd,
-  onSelectProject,
   onSelectWorktree,
   diffOpening,
   onOpenDiff,
@@ -40,7 +39,6 @@ export function MainView({
   status: WorktreeStatus | undefined;
   onSnapshot: (snapshot: AppSnapshot) => void;
   onAdd: () => void;
-  onSelectProject: (projectId: string) => void;
   onSelectWorktree: (worktreeId: string) => void;
   diffOpening: boolean;
   onOpenDiff: (worktreeId: string) => void;
@@ -58,7 +56,6 @@ export function MainView({
           projectWorktrees={projectWorktrees}
           status={status}
           onSnapshot={onSnapshot}
-          onSelectProject={onSelectProject}
           diffOpening={diffOpening}
           onOpenDiff={() => onOpenDiff(details.id)}
           onOpenCommitDiff={(commitHash) =>

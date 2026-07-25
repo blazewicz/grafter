@@ -287,7 +287,6 @@ export function App(): React.JSX.Element {
           status={worktreeStatus}
           onSnapshot={applySnapshot}
           onAdd={chooseProject}
-          onSelectProject={navigate}
           onSelectWorktree={navigate}
           diffOpening={diffOpening}
           onOpenDiff={openDiff}
@@ -303,7 +302,6 @@ export function App(): React.JSX.Element {
         latestActivity={latestActivity}
         settings={snapshot.settings}
         systemLocale={snapshot.systemLocale}
-        contextLabel={selectedWorktree?.displayName ?? selectedProject?.name}
         onToggle={() => setLogsOpen((value) => !value)}
         onError={setError}
       />

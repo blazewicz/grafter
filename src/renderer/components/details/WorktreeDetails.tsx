@@ -1,4 +1,4 @@
-import { Check, ChevronDown, Circle, FolderOpen } from 'lucide-react';
+import { Check, ChevronDown, Circle } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type {
   AppSnapshot,
@@ -29,7 +29,6 @@ export function WorktreeDetails({
   projectWorktrees,
   status,
   onSnapshot,
-  onSelectProject,
   diffOpening = false,
   onOpenDiff,
   onOpenCommitDiff,
@@ -42,7 +41,6 @@ export function WorktreeDetails({
   projectWorktrees: Worktree[];
   status: WorktreeStatus | undefined;
   onSnapshot: (snapshot: AppSnapshot) => void;
-  onSelectProject: (projectId: string) => void;
   diffOpening?: boolean;
   onOpenDiff?: () => void;
   onOpenCommitDiff?: (commitHash: string) => void;
@@ -114,32 +112,6 @@ export function WorktreeDetails({
 
   return (
     <div className={styles.detailsWrap}>
-      <button
-        className={`${styles.detailsEyebrow} ${styles.detailsProjectLink}`}
-        aria-label={`Open ${details.projectName} project details`}
-        title="Open project details"
-        onClick={() => onSelectProject(details.projectId)}
-      >
-        <FolderOpen size={14} /> {details.projectName}
-      </button>
-      <div className={styles.detailsTitleRow}>
-        <div>
-          <h1>{details.displayName}</h1>
-        </div>
-        <span
-          className={`${styles.cleanBadge} ${statusClass}`}
-          aria-live="polite"
-          title={
-            status === 'clean'
-              ? 'No local changes'
-              : status === 'dirty'
-                ? 'Uncommitted local changes are present'
-                : 'Checking for local changes'
-          }
-        >
-          <Circle size={7} fill="currentColor" /> {status ?? 'checking'}
-        </span>
-      </div>
       <section className={styles.pathCard}>
         <div className={styles.pathCopy}>
           <span className={styles.sectionLabel}>WORKTREE PATH</span>
@@ -152,6 +124,19 @@ export function WorktreeDetails({
               onCopy={() => copyText(details.path)}
               className={styles.pathCopyButton}
             />
+            <span
+              className={`${styles.cleanBadge} ${statusClass}`}
+              aria-live="polite"
+              title={
+                status === 'clean'
+                  ? 'No local changes'
+                  : status === 'dirty'
+                    ? 'Uncommitted local changes are present'
+                    : 'Checking for local changes'
+              }
+            >
+              <Circle size={7} fill="currentColor" /> {status ?? 'checking'}
+            </span>
           </div>
         </div>
         <div className={styles.pathActions}>

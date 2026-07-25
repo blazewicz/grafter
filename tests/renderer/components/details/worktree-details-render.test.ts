@@ -45,7 +45,6 @@ describe('WorktreeDetails rendering', () => {
         projectWorktrees: [mainWorktree, details],
         status: 'clean',
         onSnapshot: () => undefined,
-        onSelectProject: () => undefined,
         onOpenDiff: () => undefined,
         onOpenCommitDiff: () => undefined,
         onError: () => undefined,
@@ -61,12 +60,8 @@ describe('WorktreeDetails rendering', () => {
     expect(html).toContain('2 files');
     expect(html).toContain('aria-label="8 additions">+8</strong>');
     expect(html).toContain('aria-label="2 deletions">−2</strong>');
-    expect(html).toContain('lucide-folder-open');
     expect(html).toContain('aria-label="View branch diff"');
     expect(html).toContain('lucide-file-diff');
-    expect(html).toContain('repo</button>');
-    expect(html).toContain('aria-label="Open repo project details"');
-    expect(html).toContain('<h1>feature-worktree</h1>');
     expect(html).toContain('role="tooltip">Switch branch</span>');
     expect(html).toContain('<code>feature/branch</code>');
     expect(html).toContain('CHECKED-OUT BRANCH');
@@ -94,7 +89,6 @@ describe('WorktreeDetails rendering', () => {
         projectWorktrees: [mainWorktree, details],
         status: 'clean',
         onSnapshot: () => undefined,
-        onSelectProject: () => undefined,
         onError: () => undefined,
       }),
     );
@@ -125,13 +119,10 @@ describe('WorktreeDetails rendering', () => {
         projectWorktrees: [mainWorktree, details],
         status: 'clean',
         onSnapshot: () => undefined,
-        onSelectProject: () => undefined,
         onError: () => undefined,
       }),
     );
 
-    expect(html).toContain('repo</button>');
-    expect(html).toContain('<h1>main</h1>');
     expect(html).toContain('aria-label="Pull request #18"');
     expect(html).toContain('PULL REQUEST');
     expect(html).toContain('>#18</span>');
@@ -143,54 +134,5 @@ describe('WorktreeDetails rendering', () => {
     expect(html).toContain('Changes into');
     expect(html).toContain('<code>main</code>');
     expect(html.indexOf('PULL REQUEST')).toBeLessThan(html.indexOf('BRANCH CHANGES'));
-  });
-
-  it('uses the same collision-safe worktree label as the sidebar', () => {
-    const collidingDetails = {
-      ...details,
-      displayName: 'repo.worktrees/feature',
-    };
-    const collision = {
-      ...details,
-      id: 'project:/other/feature',
-      displayName: 'other/feature',
-      path: '/other/feature',
-    };
-    const html = renderToStaticMarkup(
-      createElement(WorktreeDetails, {
-        homeDirectory: '/repo.worktrees',
-        ...displayPreferences,
-        details: collidingDetails,
-        projectWorktrees: [mainWorktree, collidingDetails, collision],
-        status: 'clean',
-        onSnapshot: () => undefined,
-        onSelectProject: () => undefined,
-        onError: () => undefined,
-      }),
-    );
-
-    expect(html).toContain('<h1>repo.worktrees/feature</h1>');
-  });
-
-  it('expands the heading when the linked worktree matches the main clone name', () => {
-    const collidingDetails = {
-      ...details,
-      displayName: 'b77c/repo',
-      path: '/worktrees/b77c/repo',
-    };
-    const html = renderToStaticMarkup(
-      createElement(WorktreeDetails, {
-        homeDirectory: '/repo.worktrees',
-        ...displayPreferences,
-        details: collidingDetails,
-        projectWorktrees: [mainWorktree, collidingDetails],
-        status: 'clean',
-        onSnapshot: () => undefined,
-        onSelectProject: () => undefined,
-        onError: () => undefined,
-      }),
-    );
-
-    expect(html).toContain('<h1>b77c/repo</h1>');
   });
 });

@@ -34,7 +34,6 @@ export function AuditPanel({
   latestActivity,
   settings,
   systemLocale,
-  contextLabel,
   onToggle,
   onError,
 }: {
@@ -43,7 +42,6 @@ export function AuditPanel({
   latestActivity: CommandRecord | undefined;
   settings: Settings;
   systemLocale: string;
-  contextLabel: string | undefined;
   onToggle: () => void;
   onError: (message: string) => void;
 }): React.JSX.Element {
@@ -65,7 +63,7 @@ export function AuditPanel({
   const selected = manuallySelected ?? filtered[0];
   const running = summarizeRunningCommands(commands);
   const displayedActivity = useCommandActivityDisplay(latestActivity);
-  const baseTitle = contextLabel ? `Command log · ${contextLabel}` : 'Command log';
+  const baseTitle = 'Command log';
   const title =
     !open && displayedActivity.command
       ? `${baseTitle} · ${displayedActivity.command.purpose}`
