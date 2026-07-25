@@ -13,33 +13,27 @@ import type {
   WorktreeComparison,
   WorktreeDetails,
 } from '../../../../src/shared/contracts';
-import { pullRequestFactory, worktreeComparisonFactory } from '../../../factories';
-import { buildWorktreeProjectScenario } from '../../../scenarios/details/worktree-project';
+import { diffStatsFactory, settingsFactory } from '../../../factories';
+import { buildBranchComparisonScenario } from '../../../scenarios/details/branch-comparison';
 import { deferred } from '../../../support/deferred';
 
-const changesScenario = buildWorktreeProjectScenario({
-  project: { id: 'project', name: 'project', path: '/repo' },
-  mainWorktree: { head: '7654321' },
-  details: {
-    id: 'project:feature',
-    displayName: 'feature',
-    path: '/repo.worktrees/feature',
-    branch: 'feature/change',
-    head: '1234567',
-    automaticBaseBranch: 'main',
-  },
-});
-const { mainWorktree, details } = changesScenario;
+const changesScenario = buildBranchComparisonScenario();
+const {
+  mainWorktree,
+  details,
+  availableWorktree,
+  automaticComparison,
+  overrideComparison,
+  automaticDetails,
+  overrideDetails,
+} = changesScenario;
+const settings = settingsFactory.build();
 const comparison = {
   worktreeId: details.id,
   branch: details.branch,
   head: details.head,
-  sourceAutomaticBaseBranch: 'main',
-  ...worktreeComparisonFactory.build({
-    targetBranch: 'release/next',
-    comparisonBaseOverride: 'release/next',
-    diffStats: { files: 1, additions: 2, deletions: 1 },
-  }),
+  sourceAutomaticBaseBranch: mainWorktree.branch,
+  ...overrideComparison,
 };
 
 function renderBranchChangesCard(
@@ -69,8 +63,8 @@ function renderBranchChangesCard(
     <BranchChangesCard
       details={nextDetails}
       projectWorktrees={projectWorktrees}
-      settings={{ dateFormat: 'year-month-day', timeFormat: '24-hour' }}
-      systemLocale="en-GB"
+      settings={settings}
+      systemLocale={changesScenario.snapshot.systemLocale}
       copiedText={copiedText}
       diffOpening={diffOpening}
       onCopy={onCopy}
@@ -87,10 +81,13 @@ describe('Branch changes local comparison state', () => {
   });
 
   it.each([
-    ['worktree', { ...comparison, worktreeId: 'project:other' }],
-    ['branch', { ...comparison, branch: 'feature/other' }],
-    ['head', { ...comparison, head: '7654321' }],
-    ['automatic base', { ...comparison, sourceAutomaticBaseBranch: 'develop' }],
+    ['worktree', { ...comparison, worktreeId: availableWorktree.id }],
+    ['branch', { ...comparison, branch: availableWorktree.branch }],
+    ['head', { ...comparison, head: availableWorktree.head }],
+    [
+      'automatic base',
+      { ...comparison, sourceAutomaticBaseBranch: availableWorktree.branch },
+    ],
     [
       'automatic base availability',
       { ...comparison, sourceAutomaticBaseBranchUnavailable: true },
@@ -109,48 +106,57 @@ describe('BranchChangesCard', () => {
   it('shows the target branch and copies its name', async () => {
     const user = userEvent.setup();
     const onCopy = vi.fn();
-    const nextDetails: WorktreeDetails = {
-      ...details,
-      targetBranch: 'main',
-    };
-    renderBranchChangesCard({ nextDetails, onCopy });
+    renderBranchChangesCard({ nextDetails: automaticDetails, onCopy });
 
     expect(screen.getByLabelText('Branch changes')).toBeVisible();
     expect(screen.getByText('Changes into')).toBeVisible();
-    expect(screen.getByText('main', { selector: 'code' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Copy main branch name' })).toBeVisible();
+    expect(
+      screen.getByText(automaticComparison.targetBranch, { selector: 'code' }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole('button', {
+        name: `Copy ${automaticComparison.targetBranch} branch name`,
+      }),
+    ).toBeVisible();
 
-    await user.click(screen.getByRole('button', { name: 'Copy main branch name' }));
+    await user.click(
+      screen.getByRole('button', {
+        name: `Copy ${automaticComparison.targetBranch} branch name`,
+      }),
+    );
 
     expect(onCopy).toHaveBeenCalledOnce();
-    expect(onCopy).toHaveBeenCalledWith('main');
+    expect(onCopy).toHaveBeenCalledWith(automaticComparison.targetBranch);
   });
 
   it('shows when the target branch name has been copied', () => {
     renderBranchChangesCard({
-      nextDetails: { ...details, targetBranch: 'main' },
-      copiedText: 'main',
+      nextDetails: automaticDetails,
+      copiedText: automaticComparison.targetBranch,
     });
 
     expect(screen.getByRole('button', { name: 'Branch name copied' })).toBeVisible();
   });
 
   it.each([
-    { files: 1, expected: '1 file' },
-    { files: 2, expected: '2 files' },
-  ])('shows $expected in the comparison stats', ({ files, expected }) => {
+    { diffStats: diffStatsFactory.build({ files: 1 }), expected: '1 file' },
+    { diffStats: diffStatsFactory.build({ files: 2 }), expected: '2 files' },
+  ])('shows $expected in the comparison stats', ({ diffStats, expected }) => {
     renderBranchChangesCard({
       nextDetails: {
-        ...details,
-        targetBranch: 'main',
-        diffStats: { files, additions: 8, deletions: 3 },
+        ...automaticDetails,
+        diffStats,
       },
     });
 
     const stats = screen.getByLabelText('Branch comparison stats');
     expect(within(stats).getByText(expected)).toBeVisible();
-    expect(within(stats).getByLabelText('8 additions')).toHaveTextContent('+8');
-    expect(within(stats).getByLabelText('3 deletions')).toHaveTextContent('−3');
+    expect(
+      within(stats).getByLabelText(`${diffStats.additions} additions`),
+    ).toHaveTextContent(`+${diffStats.additions}`);
+    expect(
+      within(stats).getByLabelText(`${diffStats.deletions} deletions`),
+    ).toHaveTextContent(`−${diffStats.deletions}`);
   });
 
   it('opens the branch diff', async () => {
@@ -158,11 +164,7 @@ describe('BranchChangesCard', () => {
     const onOpenDiff = vi.fn();
     vi.spyOn(api, 'listBranchCommits').mockReturnValue(new Promise(() => undefined));
     renderBranchChangesCard({
-      nextDetails: {
-        ...details,
-        targetBranch: 'main',
-        diffStats: { files: 2, additions: 8, deletions: 3 },
-      },
+      nextDetails: automaticDetails,
       onOpenDiff,
     });
 
@@ -178,11 +180,7 @@ describe('BranchChangesCard', () => {
   it('disables the branch diff action while a diff is opening', () => {
     vi.spyOn(api, 'listBranchCommits').mockReturnValue(new Promise(() => undefined));
     renderBranchChangesCard({
-      nextDetails: {
-        ...details,
-        targetBranch: 'main',
-        diffStats: { files: 2, additions: 8, deletions: 3 },
-      },
+      nextDetails: automaticDetails,
       diffOpening: true,
       onOpenDiff: () => undefined,
     });
@@ -196,13 +194,7 @@ describe('BranchChangesCard', () => {
       automaticSource: 'Repository default',
     },
     {
-      pullRequest: pullRequestFactory.build({
-        number: 18,
-        title: 'Stacked pull request',
-        url: 'https://github.com/example/repo/pull/18',
-        state: 'OPEN',
-        baseBranch: 'main',
-      }),
+      pullRequest: changesScenario.pullRequest,
       automaticSource: 'Pull request base',
     },
   ])(
@@ -221,7 +213,7 @@ describe('BranchChangesCard', () => {
 
       expect(
         screen.getByRole('button', {
-          name: `Automatic main · ${automaticSource}`,
+          name: `Automatic ${mainWorktree.branch} · ${automaticSource}`,
         }),
       ).toBeVisible();
     },
@@ -247,10 +239,12 @@ describe('BranchChangesCard', () => {
     expect(listBranches).toHaveBeenCalledOnce();
     expect(listBranches).toHaveBeenCalledWith(details.projectId);
 
-    branches.resolve(['main', details.branch, 'release/next']);
+    branches.resolve(changesScenario.branches);
 
-    expect(await screen.findByRole('button', { name: 'main' })).toBeEnabled();
-    expect(screen.getByRole('button', { name: 'release/next' })).toBeEnabled();
+    expect(
+      await screen.findByRole('button', { name: mainWorktree.branch }),
+    ).toBeEnabled();
+    expect(screen.getByRole('button', { name: availableWorktree.branch })).toBeEnabled();
     expect(
       screen.getByRole('button', {
         name: `${details.branch}: Already selected for comparison`,
@@ -261,11 +255,7 @@ describe('BranchChangesCard', () => {
   it('selects a target branch and displays the resulting comparison', async () => {
     const user = userEvent.setup();
     const comparisonResult = deferred<WorktreeComparison>();
-    vi.spyOn(api, 'listBranches').mockResolvedValue([
-      'main',
-      details.branch,
-      'release/next',
-    ]);
+    vi.spyOn(api, 'listBranches').mockResolvedValue(changesScenario.branches);
     const setComparisonBase = vi
       .spyOn(api, 'setComparisonBase')
       .mockReturnValue(comparisonResult.promise);
@@ -274,55 +264,43 @@ describe('BranchChangesCard', () => {
 
     const targetButton = screen.getByRole('button', { name: 'Choose target branch' });
     await user.click(targetButton);
-    await user.click(await screen.findByRole('button', { name: 'release/next' }));
+    await user.click(
+      await screen.findByRole('button', { name: availableWorktree.branch }),
+    );
 
     expect(setComparisonBase).toHaveBeenCalledOnce();
     expect(setComparisonBase).toHaveBeenCalledWith({
       worktreeId: details.id,
-      targetBranch: 'release/next',
+      targetBranch: availableWorktree.branch,
     });
     expect(targetButton).toBeDisabled();
     expect(screen.getByText('Updating…')).toBeVisible();
 
-    comparisonResult.resolve(
-      worktreeComparisonFactory.build({
-        automaticBaseBranch: 'main',
-        targetBranch: 'release/next',
-        comparisonBaseOverride: 'release/next',
-        diffStats: { files: 4, additions: 91, deletions: 26 },
-      }),
-    );
+    comparisonResult.resolve(overrideComparison);
 
-    expect(await screen.findByText('release/next', { selector: 'code' })).toBeVisible();
+    expect(
+      await screen.findByText(availableWorktree.branch, { selector: 'code' }),
+    ).toBeVisible();
     expect(screen.queryByRole('dialog', { name: 'Choose target branch' })).toBeNull();
     expect(targetButton).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.getByLabelText('Branch comparison stats')).toHaveTextContent('4 files');
+    expect(screen.getByLabelText('Branch comparison stats')).toHaveTextContent(
+      `${overrideComparison.diffStats.files} files`,
+    );
   });
 
   it('restores the automatic comparison target', async () => {
     const user = userEvent.setup();
-    const setComparisonBase = vi.spyOn(api, 'setComparisonBase').mockResolvedValue(
-      worktreeComparisonFactory.build({
-        automaticBaseBranch: 'main',
-        targetBranch: 'main',
-        diffStats: { files: 2, additions: 8, deletions: 3 },
-      }),
-    );
+    const setComparisonBase = vi
+      .spyOn(api, 'setComparisonBase')
+      .mockResolvedValue(automaticComparison);
     vi.spyOn(api, 'listBranches').mockResolvedValue([]);
     vi.spyOn(api, 'listBranchCommits').mockReturnValue(new Promise(() => undefined));
-    renderBranchChangesCard({
-      nextDetails: {
-        ...details,
-        targetBranch: 'release/next',
-        comparisonBaseOverride: 'release/next',
-        diffStats: { files: 4, additions: 91, deletions: 26 },
-      },
-    });
+    renderBranchChangesCard({ nextDetails: overrideDetails });
 
     await user.click(screen.getByRole('button', { name: 'Choose target branch' }));
     await user.click(
       screen.getByRole('button', {
-        name: 'Automatic main · Repository default',
+        name: `Automatic ${mainWorktree.branch} · Repository default`,
       }),
     );
 
@@ -330,7 +308,9 @@ describe('BranchChangesCard', () => {
     expect(setComparisonBase).toHaveBeenCalledWith({
       worktreeId: details.id,
     });
-    expect(await screen.findByText('main', { selector: 'code' })).toBeVisible();
+    expect(
+      await screen.findByText(mainWorktree.branch, { selector: 'code' }),
+    ).toBeVisible();
     expect(screen.queryByRole('dialog', { name: 'Choose target branch' })).toBeNull();
   });
 
@@ -357,7 +337,7 @@ describe('BranchChangesCard', () => {
 
   it('reports a comparison update failure and leaves the picker open', async () => {
     const user = userEvent.setup();
-    vi.spyOn(api, 'listBranches').mockResolvedValue(['release/next']);
+    vi.spyOn(api, 'listBranches').mockResolvedValue([availableWorktree.branch]);
     const setComparisonBase = vi
       .spyOn(api, 'setComparisonBase')
       .mockRejectedValue(new Error('could not update comparison'));
@@ -365,7 +345,9 @@ describe('BranchChangesCard', () => {
     renderBranchChangesCard({ onError });
 
     await user.click(screen.getByRole('button', { name: 'Choose target branch' }));
-    await user.click(await screen.findByRole('button', { name: 'release/next' }));
+    await user.click(
+      await screen.findByRole('button', { name: availableWorktree.branch }),
+    );
 
     await waitFor(() => {
       expect(onError).toHaveBeenCalledOnce();
@@ -374,7 +356,7 @@ describe('BranchChangesCard', () => {
     expect(setComparisonBase).toHaveBeenCalledOnce();
     expect(setComparisonBase).toHaveBeenCalledWith({
       worktreeId: details.id,
-      targetBranch: 'release/next',
+      targetBranch: availableWorktree.branch,
     });
     expect(screen.getByRole('dialog', { name: 'Choose target branch' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Choose target branch' })).toHaveAttribute(
@@ -401,47 +383,31 @@ describe('BranchChangesCard', () => {
   it('notifies when a pull request base is unavailable locally', () => {
     vi.spyOn(api, 'listBranchCommits').mockReturnValue(new Promise(() => undefined));
     renderBranchChangesCard({
-      nextDetails: {
-        ...details,
-        pullRequest: pullRequestFactory.build({
-          number: 18,
-          title: 'Stacked pull request',
-          url: 'https://github.com/example/repo/pull/18',
-          state: 'OPEN',
-          baseBranch: 'feature/merged-base',
-        }),
-        automaticBaseBranch: 'feature/merged-base',
-        automaticBaseBranchUnavailable: true,
-        targetBranch: 'main',
-        diffStats: { files: 1, additions: 2, deletions: 1 },
-      },
+      nextDetails: changesScenario.unavailablePullRequestDetails,
     });
 
     expect(screen.getByRole('status')).toHaveTextContent(
-      'PR base feature/merged-base is not available locally',
+      `PR base ${changesScenario.unavailablePullRequestDetails.pullRequest?.baseBranch} is not available locally`,
     );
-    expect(screen.getByText('main', { selector: 'code' })).toBeVisible();
+    expect(
+      screen.getByText(automaticComparison.targetBranch, { selector: 'code' }),
+    ).toBeVisible();
   });
 
   it('keeps an unavailable saved comparison base visible and selectable', () => {
     renderBranchChangesCard({
-      nextDetails: {
-        ...details,
-        targetBranch: 'release/next',
-        comparisonBaseOverride: 'release/next',
-        comparisonBaseOverrideUnavailable: true,
-      },
+      nextDetails: changesScenario.unavailableOverrideDetails,
       onOpenDiff: () => undefined,
     });
 
     expect(
       within(screen.getByRole('button', { name: 'Choose target branch' })).getByText(
-        'release/next',
+        overrideComparison.targetBranch,
         { selector: 'code' },
       ),
     ).toBeVisible();
     expect(screen.getByRole('status')).toHaveTextContent(
-      'Comparison base release/next is not available locally. Choose another branch.',
+      `Comparison base ${overrideComparison.targetBranch} is not available locally. Choose another branch.`,
     );
     expect(screen.getByRole('button', { name: 'Choose target branch' })).toBeVisible();
     expect(screen.queryByRole('button', { name: 'View branch diff' })).toBeNull();
@@ -452,13 +418,7 @@ describe('BranchChangesCard', () => {
     const listBranchCommits = vi
       .spyOn(api, 'listBranchCommits')
       .mockReturnValue(new Promise(() => undefined));
-    renderBranchChangesCard({
-      nextDetails: {
-        ...details,
-        targetBranch: 'main',
-        diffStats: { files: 2, additions: 8, deletions: 3 },
-      },
-    });
+    renderBranchChangesCard({ nextDetails: automaticDetails });
 
     expect(screen.getByLabelText('Branch changes')).toBeVisible();
     expect(screen.getByLabelText('Commits to merge')).toBeVisible();
@@ -467,7 +427,7 @@ describe('BranchChangesCard', () => {
     });
     expect(listBranchCommits).toHaveBeenCalledWith({
       worktreeId: details.id,
-      targetBranch: 'main',
+      targetBranch: automaticComparison.targetBranch,
       offset: 0,
       limit: 5,
     });
@@ -478,14 +438,14 @@ describe('BranchChangesCard', () => {
       missing: 'target branch',
       nextDetails: {
         ...details,
-        diffStats: { files: 2, additions: 8, deletions: 3 },
+        diffStats: automaticComparison.diffStats,
       },
     },
     {
       missing: 'comparison stats',
       nextDetails: {
         ...details,
-        targetBranch: 'main',
+        targetBranch: automaticComparison.targetBranch,
       },
     },
   ])('does not render its commit history child without $missing', ({ nextDetails }) => {

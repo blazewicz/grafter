@@ -11,47 +11,12 @@ import type {
   WorktreeDetails,
   WorktreeStatus,
 } from '../../../../src/shared/contracts';
-import {
-  appSnapshotFactory,
-  projectTreeItemFactory,
-  pullRequestFactory,
-  worktreeFactory,
-} from '../../../factories';
-import { buildWorktreeProjectScenario } from '../../../scenarios/details/worktree-project';
+import { pullRequestFactory } from '../../../factories';
+import { buildBranchSwitchScenario } from '../../../scenarios/details/branch-switch';
 import { deferred } from '../../../support/deferred';
 
-const branchScenario = buildWorktreeProjectScenario({
-  project: { id: 'project', name: 'project', path: '/repo' },
-  mainWorktree: { head: '7654321' },
-  details: {
-    id: 'project:feature',
-    displayName: 'feature',
-    path: '/repo.worktrees/feature',
-    branch: 'feature/change',
-    head: '1234567',
-    automaticBaseBranch: 'main',
-  },
-  snapshot: {
-    homeDirectory: '/home/kasia',
-    systemLocale: 'en-GB',
-    settings: {
-      defaultWorktreePath: '../<repo_name>.worktrees',
-      dateFormat: 'system',
-      timeFormat: 'system',
-    },
-  },
-});
-const { mainWorktree, details } = branchScenario;
-const switchedWorktree = worktreeFactory.build({
-  ...details,
-  branch: 'feature/next',
-});
-const switchedProject = projectTreeItemFactory.build(branchScenario.project, {
-  associations: { worktrees: [mainWorktree, switchedWorktree] },
-});
-const switchedSnapshot = appSnapshotFactory.build(branchScenario.snapshot, {
-  associations: { projects: [switchedProject] },
-});
+const branchScenario = buildBranchSwitchScenario();
+const { mainWorktree, details, availableWorktree, switchedSnapshot } = branchScenario;
 
 function renderBranchCard(
   options: {
@@ -164,12 +129,14 @@ describe('BranchCard', () => {
     expect(listBranches).toHaveBeenCalledOnce();
     expect(listBranches).toHaveBeenCalledWith(details.projectId);
 
-    branches.resolve(['main', details.branch, 'feature/next']);
+    branches.resolve(branchScenario.branches);
 
-    expect(await screen.findByRole('button', { name: 'feature/next' })).toBeEnabled();
+    expect(
+      await screen.findByRole('button', { name: availableWorktree.branch }),
+    ).toBeEnabled();
     expect(
       screen.getByRole('button', {
-        name: 'main: Already checked out in main',
+        name: `${mainWorktree.branch}: Already checked out in ${mainWorktree.displayName}`,
       }),
     ).toBeDisabled();
     expect(
@@ -184,7 +151,7 @@ describe('BranchCard', () => {
     const switchResult = deferred<AppSnapshot>();
     const listBranches = vi
       .spyOn(api, 'listBranches')
-      .mockResolvedValue(['main', details.branch, switchedWorktree.branch]);
+      .mockResolvedValue(branchScenario.branches);
     const switchBranch = vi
       .spyOn(api, 'switchBranch')
       .mockReturnValue(switchResult.promise);
@@ -193,7 +160,7 @@ describe('BranchCard', () => {
 
     await user.click(screen.getByRole('button', { name: 'Switch checked-out branch' }));
     await user.click(
-      await screen.findByRole('button', { name: switchedWorktree.branch }),
+      await screen.findByRole('button', { name: availableWorktree.branch }),
     );
 
     expect(listBranches).toHaveBeenCalledOnce();
@@ -201,7 +168,7 @@ describe('BranchCard', () => {
     expect(switchBranch).toHaveBeenCalledOnce();
     expect(switchBranch).toHaveBeenCalledWith({
       worktreeId: details.id,
-      branch: switchedWorktree.branch,
+      branch: availableWorktree.branch,
     });
     expect(
       screen.getByRole('button', {
@@ -246,7 +213,7 @@ describe('BranchCard', () => {
 
   it('reports a branch-switching failure and leaves the picker open', async () => {
     const user = userEvent.setup();
-    vi.spyOn(api, 'listBranches').mockResolvedValue([switchedWorktree.branch]);
+    vi.spyOn(api, 'listBranches').mockResolvedValue([availableWorktree.branch]);
     const switchBranch = vi
       .spyOn(api, 'switchBranch')
       .mockRejectedValue(new Error('could not switch'));
@@ -256,7 +223,7 @@ describe('BranchCard', () => {
 
     await user.click(screen.getByRole('button', { name: 'Switch checked-out branch' }));
     await user.click(
-      await screen.findByRole('button', { name: switchedWorktree.branch }),
+      await screen.findByRole('button', { name: availableWorktree.branch }),
     );
 
     await waitFor(() => {
@@ -266,7 +233,7 @@ describe('BranchCard', () => {
     expect(switchBranch).toHaveBeenCalledOnce();
     expect(switchBranch).toHaveBeenCalledWith({
       worktreeId: details.id,
-      branch: switchedWorktree.branch,
+      branch: availableWorktree.branch,
     });
     expect(onSnapshot).not.toHaveBeenCalled();
     expect(
@@ -306,24 +273,19 @@ describe('BranchCard', () => {
   });
 
   it('renders its pull request child without branch-comparison controls', () => {
+    const pullRequest = pullRequestFactory.build();
     renderBranchCard({
       nextDetails: {
         ...details,
-        pullRequest: pullRequestFactory.build({
-          number: 18,
-          title: 'Stacked pull request',
-          url: 'https://github.com/example/repo/pull/18',
-          state: 'OPEN',
-          baseBranch: 'feature/merged-base',
-        }),
+        pullRequest,
       },
     });
 
     expect(screen.getByLabelText('Checked-out branch')).toBeVisible();
-    expect(screen.getByLabelText('Pull request #18')).toBeVisible();
+    expect(screen.getByLabelText(`Pull request #${pullRequest.number}`)).toBeVisible();
     expect(
       screen.getByRole('button', {
-        name: 'Open pull request #18: Stacked pull request',
+        name: `Open pull request #${pullRequest.number}: ${pullRequest.title}`,
       }),
     ).toBeVisible();
     expect(screen.queryByLabelText('Branch changes')).toBeNull();

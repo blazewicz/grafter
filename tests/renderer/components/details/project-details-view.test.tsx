@@ -4,27 +4,15 @@ import { cleanup, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ProjectDetailsView } from '../../../../src/renderer/components/details/ProjectDetailsView';
 import type { ProjectTreeItem } from '../../../../src/shared/contracts';
-import { mainWorktreeFactory, projectTreeItemFactory } from '../../../factories';
+import { buildPathDisplayScenario } from '../../../scenarios/details/path-display';
 
-const mainWorktree = mainWorktreeFactory.build({
-  id: 'project:main',
-  projectId: 'project',
-  path: '/Users/kasia/projects/repo',
-  head: '1234567',
-});
-const project = projectTreeItemFactory.build(
-  {
-    id: 'project',
-    name: 'repo',
-    path: '/Users/kasia/projects/repo',
-  },
-  { associations: { worktrees: [mainWorktree] } },
-);
+const pathScenario = buildPathDisplayScenario('sibling-of-main');
+const { project } = pathScenario;
 
 function renderProjectDetailsView(nextProject: ProjectTreeItem = project): void {
   render(
     <ProjectDetailsView
-      homeDirectory="/Users/kasia"
+      homeDirectory={pathScenario.homeDirectory}
       project={nextProject}
       onSelectWorktree={() => undefined}
     />,
@@ -40,10 +28,19 @@ describe('ProjectDetailsView', () => {
     renderProjectDetailsView();
 
     const worktrees = screen.getByRole('region', { name: 'Worktrees' });
-    expect(screen.getByText('1 worktree')).toBeVisible();
+    expect(screen.getByText(`${project.worktrees.length} worktrees`)).toBeVisible();
     expect(
-      within(worktrees).getByRole('button', { name: '~/projects/repo' }),
+      within(worktrees).getByRole('button', {
+        name: pathScenario.expectedMainListPath,
+      }),
     ).toBeVisible();
-    expect(within(worktrees).getByText('main')).toBeVisible();
+    expect(
+      within(worktrees).getByRole('button', {
+        name: pathScenario.expectedWorktreeListPath,
+      }),
+    ).toBeVisible();
+    for (const worktree of project.worktrees) {
+      expect(within(worktrees).getByText(worktree.branch)).toBeVisible();
+    }
   });
 });

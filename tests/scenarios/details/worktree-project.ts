@@ -5,7 +5,6 @@ import type {
   ProjectTreeItem,
   PullRequest,
   Worktree,
-  WorktreeComparison,
   WorktreeDetails,
 } from '../../../src/shared/contracts';
 import {
@@ -13,7 +12,6 @@ import {
   mainWorktreeFactory,
   projectTreeItemFactory,
   pullRequestFactory,
-  worktreeComparisonFactory,
   worktreeDetailsFactory,
   worktreeFactory,
 } from '../../factories';
@@ -69,18 +67,6 @@ export function buildWorktreeProjectScenario(
   return { mainWorktree, details, project, snapshot };
 }
 
-interface ComparedWorktreeScenarioOptions extends WorktreeProjectScenarioOptions {
-  comparison?: DeepPartial<WorktreeComparison>;
-}
-
-export function buildComparedWorktreeScenario(
-  options: ComparedWorktreeScenarioOptions = {},
-): WorktreeProjectScenario {
-  const scenario = buildWorktreeProjectScenario(options);
-  const comparison = worktreeComparisonFactory.build(options.comparison);
-  return replaceScenarioDetails(scenario, { ...scenario.details, ...comparison });
-}
-
 interface PullRequestWorktreeScenarioOptions extends WorktreeProjectScenarioOptions {
   pullRequest?: DeepPartial<PullRequest>;
 }
@@ -93,7 +79,7 @@ export function buildPullRequestWorktreeScenario(
   return replaceScenarioDetails(scenario, { ...scenario.details, pullRequest });
 }
 
-function replaceScenarioDetails(
+export function replaceScenarioDetails(
   scenario: WorktreeProjectScenario,
   details: WorktreeDetails,
 ): WorktreeProjectScenario {

@@ -5,12 +5,15 @@ import {
   worktreeDetailsFactory,
   worktreeFactory,
 } from '.';
-import { buildCommitHistoryScenario } from '../scenarios/details/commit-history';
+import { buildBranchComparisonScenario } from '../scenarios/details/branch-comparison';
+import { buildBranchSwitchScenario } from '../scenarios/details/branch-switch';
+import { buildCommitHistoryCardScenario } from '../scenarios/details/commit-history';
+import { buildPathDisplayScenarios } from '../scenarios/details/path-display';
 import {
-  buildComparedWorktreeScenario,
   buildPullRequestWorktreeScenario,
   buildWorktreeProjectScenario,
 } from '../scenarios/details/worktree-project';
+import { buildWorktreeOrderingScenario } from '../scenarios/details/worktree-ordering';
 
 describe('domain factories', () => {
   it('builds realistic neutral worktree defaults', () => {
@@ -48,39 +51,46 @@ describe('details scenarios', () => {
   });
 
   it('publishes comparison and pull request variants through their aggregates', () => {
-    const compared = buildComparedWorktreeScenario({
-      comparison: {
-        targetBranch: 'release/next',
-        comparisonBaseOverride: 'release/next',
-        comparisonBaseOverrideUnavailable: true,
-      },
-    });
-    const withPullRequest = buildPullRequestWorktreeScenario({
-      pullRequest: { number: 42, baseBranch: 'main' },
-    });
+    const compared = buildBranchComparisonScenario();
+    const withPullRequest = buildPullRequestWorktreeScenario();
 
-    expect(compared.details.targetBranch).toBe('release/next');
-    expect(compared.details.comparisonBaseOverrideUnavailable).toBe(true);
+    expect(compared.overrideDetails.targetBranch).toBe(compared.availableWorktree.branch);
+    expect(compared.unavailableOverrideDetails.comparisonBaseOverrideUnavailable).toBe(
+      true,
+    );
     expect(
       compared.project.worktrees.find((worktree) => worktree.id === compared.details.id),
     ).toEqual(compared.details);
-    expect(withPullRequest.details.pullRequest?.number).toBe(42);
+    expect(withPullRequest.details.pullRequest).toBeDefined();
     expect(withPullRequest.snapshot.projects[0]?.worktrees).toContainEqual(
       withPullRequest.details,
     );
   });
 
-  it('builds internally consistent commit pages', () => {
-    const scenario = buildCommitHistoryScenario({
-      count: 3,
-      page: { total: 6, hasMore: true },
-    });
+  it('builds internally consistent interaction scenarios', () => {
+    const branchSwitch = buildBranchSwitchScenario();
+    const commitHistory = buildCommitHistoryCardScenario();
+    const pathScenarios = buildPathDisplayScenarios();
+    const ordering = buildWorktreeOrderingScenario();
 
-    expect(scenario.commits).toHaveLength(3);
-    expect(scenario.page).toEqual({
-      commits: scenario.commits,
-      total: 6,
-      hasMore: true,
-    });
+    expect(branchSwitch.availableWorktree.branch).not.toBe(branchSwitch.details.branch);
+    expect(branchSwitch.switchedSnapshot.projects[0]?.worktrees).toContainEqual(
+      expect.objectContaining({
+        id: branchSwitch.details.id,
+        branch: branchSwitch.availableWorktree.branch,
+      }),
+    );
+    expect(commitHistory.completePage.commits).toEqual([
+      commitHistory.newest,
+      commitHistory.earlier,
+    ]);
+    expect(commitHistory.firstPage.hasMore).toBe(true);
+    expect(pathScenarios.map((scenario) => scenario.label)).toEqual([
+      'sibling-of-main',
+      'inside-home',
+      'outside-home',
+    ]);
+    expect(ordering.expectedWorktrees[0]).toBe(ordering.mainWorktree);
+    expect(ordering.unsortedWorktrees).not.toEqual(ordering.expectedWorktrees);
   });
 });

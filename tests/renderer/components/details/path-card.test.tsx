@@ -5,41 +5,27 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PathCard } from '../../../../src/renderer/components/details/PathCard';
 import { api } from '../../../../src/renderer/grafter-api';
-import type {
-  Worktree,
-  WorktreeStatus,
-  EditorTool,
-} from '../../../../src/shared/contracts';
-import { buildWorktreeProjectScenario } from '../../../scenarios/details/worktree-project';
+import type { WorktreeStatus, EditorTool } from '../../../../src/shared/contracts';
+import {
+  buildPathDisplayScenario,
+  buildPathDisplayScenarios,
+  type PathDisplayScenario,
+} from '../../../scenarios/details/path-display';
 
-const pathScenario = buildWorktreeProjectScenario({
-  project: {
-    id: 'project',
-    name: 'repo',
-    path: '/home/kasia/git/repo',
-  },
-  mainWorktree: { head: '1234567' },
-  details: {
-    id: 'project:feature',
-    displayName: 'feature',
-    path: '/home/kasia/git/repo.worktrees/feature',
-    branch: 'feature/change',
-    head: '1234567',
-  },
-  snapshot: { homeDirectory: '/home/kasia/' },
-});
-const { mainWorktree, details: worktree } = pathScenario;
+const pathScenario = buildPathDisplayScenario('sibling-of-main');
+const pathScenarios = buildPathDisplayScenarios();
+const worktree = pathScenario.details;
 
 function renderPathCard(
-  nextWorktree: Worktree = worktree,
+  scenario: PathDisplayScenario = pathScenario,
   status?: WorktreeStatus,
   onCopy: (text: string) => void = () => undefined,
 ): void {
   render(
     <PathCard
-      homeDirectory="/home/kasia/"
-      projectWorktrees={[mainWorktree, nextWorktree]}
-      worktree={nextWorktree}
+      homeDirectory={scenario.homeDirectory}
+      projectWorktrees={scenario.project.worktrees}
+      worktree={scenario.details}
       status={status}
       copiedText={undefined}
       onCopy={onCopy}
@@ -54,29 +40,21 @@ describe('PathCard', () => {
     vi.restoreAllMocks();
   });
 
-  it.each([
-    {
-      path: '/home/kasia/git/repo.worktrees/feature',
-      expectedDisplayedPath: '../repo.worktrees/feature',
-    },
-    {
-      path: '/home/kasia/worktrees/123456/repo',
-      expectedDisplayedPath: '~/worktrees/123456/repo',
-    },
-    {
-      path: '/home/marek/repo.worktrees/feature',
-      expectedDisplayedPath: '/home/marek/repo.worktrees/feature',
-    },
-  ])('shows $path as $expectedDisplayedPath', ({ path, expectedDisplayedPath }) => {
-    renderPathCard({ ...worktree, path });
+  it.each(pathScenarios)(
+    'shows the $label topology as $expectedPathCardPath',
+    (scenario) => {
+      renderPathCard(scenario);
 
-    expect(screen.getByText(expectedDisplayedPath, { selector: 'code' })).toBeVisible();
-  });
+      expect(
+        screen.getByText(scenario.expectedPathCardPath, { selector: 'code' }),
+      ).toBeVisible();
+    },
+  );
 
   it('renders copy button that copies the worktree path', async () => {
     const user = userEvent.setup();
     const copyText = vi.fn();
-    renderPathCard(worktree, undefined, copyText);
+    renderPathCard(pathScenario, undefined, copyText);
 
     expect(screen.getByRole('button', { name: 'Copy worktree path' })).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Copy worktree path' }));
@@ -102,7 +80,7 @@ describe('PathCard', () => {
       title: 'Checking for local changes',
     },
   ])('renders the $label workspace status pill', ({ status, label, title }) => {
-    renderPathCard(worktree, status);
+    renderPathCard(pathScenario, status);
 
     expect(screen.getByTitle(title)).toHaveTextContent(label);
   });

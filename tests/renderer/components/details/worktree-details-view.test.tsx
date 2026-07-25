@@ -5,42 +5,22 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { WorktreeDetailsView } from '../../../../src/renderer/components/details/WorktreeDetailsView';
 import { api } from '../../../../src/renderer/grafter-api';
-import type { Settings } from '../../../../src/shared/contracts';
 import { settingsFactory } from '../../../factories';
 import { buildWorktreeProjectScenario } from '../../../scenarios/details/worktree-project';
 import { deferred } from '../../../support/deferred';
 
-const detailsScenario = buildWorktreeProjectScenario({
-  project: {
-    id: 'project',
-    name: 'repo',
-    path: '/home/kasia/git/repo',
-  },
-  mainWorktree: { head: '7654321' },
-  details: {
-    id: 'project:feature',
-    displayName: 'feature',
-    path: '/home/kasia/git/repo.worktrees/feature',
-    branch: 'feature/change',
-    head: '1234567',
-    automaticBaseBranch: 'main',
-  },
-  snapshot: { homeDirectory: '/home/kasia/' },
-});
+const detailsScenario = buildWorktreeProjectScenario();
 const { mainWorktree, details } = detailsScenario;
-const settings: Pick<Settings, 'dateFormat' | 'timeFormat'> = settingsFactory.build({
-  dateFormat: 'year-month-day',
-  timeFormat: '24-hour',
-});
+const settings = settingsFactory.build();
 
 function renderWorktreeDetailsView(
   onError: (message: string) => void = () => undefined,
 ): void {
   render(
     <WorktreeDetailsView
-      homeDirectory="/home/kasia/"
+      homeDirectory={detailsScenario.snapshot.homeDirectory}
       settings={settings}
-      systemLocale="en-GB"
+      systemLocale={detailsScenario.snapshot.systemLocale}
       details={details}
       projectWorktrees={[mainWorktree, details]}
       status="clean"

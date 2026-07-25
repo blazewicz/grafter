@@ -8,13 +8,7 @@ import { api } from '../../../../src/renderer/grafter-api';
 import type { PullRequest, PullRequestState } from '../../../../src/shared/contracts';
 import { pullRequestFactory } from '../../../factories';
 
-const pullRequest = pullRequestFactory.build({
-  number: 18,
-  title: 'State-aware pull request',
-  url: 'https://github.com/example/repo/pull/18',
-  state: 'OPEN',
-  baseBranch: 'main',
-});
+const pullRequest = pullRequestFactory.build();
 
 function renderPullRequestCard(
   nextPullRequest: PullRequest = pullRequest,
