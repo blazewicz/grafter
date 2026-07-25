@@ -37,7 +37,6 @@ describe('AuditPanel', () => {
           timeFormat: 'system',
         },
         systemLocale: 'en-GB',
-        contextLabel: 'worktree',
         onToggle: () => undefined,
         onError: () => undefined,
       }),

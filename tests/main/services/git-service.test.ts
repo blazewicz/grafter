@@ -564,8 +564,8 @@ describe('GitService branch commit history', () => {
       if (spec.args[0] === 'log') {
         return {
           stdout:
-            'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\u001fNewest change\u001fAda Lovelace\u001f2026-07-22T15:18:00+02:00\u0000\n' +
-            'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\u001fEarlier change\u001fGrace Hopper\u001f2026-07-21T09:30:00Z\u0000\n',
+            'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\u001fNewest change\u001fAda Lovelace\u001fada@example.com\u001f2026-07-22T15:18:00+02:00\u0000\n' +
+            'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\u001fEarlier change\u001fGrace Hopper\u001fgrace@example.com\u001f2026-07-21T09:30:00Z\u0000\n',
         };
       }
       throw new Error(`Unexpected command: ${spec.args.join(' ')}`);
@@ -579,12 +579,14 @@ describe('GitService branch commit history', () => {
           hash: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
           title: 'Newest change',
           authorName: 'Ada Lovelace',
+          authorEmail: 'ada@example.com',
           authoredAt: '2026-07-22T15:18:00+02:00',
         },
         {
           hash: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
           title: 'Earlier change',
           authorName: 'Grace Hopper',
+          authorEmail: 'grace@example.com',
           authoredAt: '2026-07-21T09:30:00Z',
         },
       ],
@@ -599,7 +601,7 @@ describe('GitService branch commit history', () => {
         '--topo-order',
         '--skip=0',
         '--max-count=2',
-        '--format=%H%x1f%s%x1f%an%x1f%aI%x00',
+        '--format=%H%x1f%s%x1f%an%x1f%ae%x1f%aI%x00',
         'refs/heads/main..HEAD',
       ],
     ]);

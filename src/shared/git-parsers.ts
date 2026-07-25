@@ -261,7 +261,7 @@ export function parseCommitDetails(output: string): CommitDetails | undefined {
 
 export function parseBranchCommits(output: string): BranchCommit[] {
   return output.split('\0').flatMap((record) => {
-    const [hash, title, authorName, authoredAt] = record
+    const [hash, title, authorName, authorEmail, authoredAt] = record
       .replace(/^\n+/, '')
       .split('\u001f');
     if (!hash?.trim() || !authorName?.trim() || !authoredAt?.trim()) return [];
@@ -271,6 +271,7 @@ export function parseBranchCommits(output: string): BranchCommit[] {
         hash: hash.trim(),
         title: title?.trim() ?? '',
         authorName: authorName.trim(),
+        ...(authorEmail?.trim() ? { authorEmail: authorEmail.trim() } : {}),
         authoredAt: authoredAt.trim(),
       },
     ];

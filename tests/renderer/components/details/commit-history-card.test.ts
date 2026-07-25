@@ -18,6 +18,7 @@ const newest: BranchCommit = {
   hash: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
   title: 'Newest change',
   authorName: 'Ada Lovelace',
+  authorEmail: 'ada@example.com',
   authoredAt: '2026-07-22T15:18:00+02:00',
 };
 
@@ -80,6 +81,7 @@ describe('CommitHistoryCardContent rendering', () => {
     expect(html.indexOf('Newest change')).toBeLessThan(html.indexOf('Earlier change'));
     expect(html).toContain(`<code title="${newest.hash}">bbbbbbb</code>`);
     expect(html).toContain('Ada Lovelace');
+    expect(html).toContain('title="Ada Lovelace &lt;ada@example.com&gt;"');
     expect(html).toContain(
       `${formatDate(newest.authoredAt, dateSettings.dateFormat, 'en-GB')} at ${formatTime(
         newest.authoredAt,
