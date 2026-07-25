@@ -317,6 +317,13 @@ describe('BranchCard', () => {
     expect(switchButton).toHaveAttribute('aria-expanded', 'false');
   });
 
+  it('does not render a pull request card when no pull request is found', () => {
+    renderBranchCard();
+
+    expect(screen.getByLabelText('Checked-out branch')).toBeVisible();
+    expect(screen.queryByLabelText(/^Pull request #/)).toBeNull();
+  });
+
   it('renders its pull request child without branch-comparison controls', () => {
     renderBranchCard({
       nextDetails: {
