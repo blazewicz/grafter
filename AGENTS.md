@@ -101,6 +101,7 @@ in a dedicated integration area.
 
 Use `@testing-library/react` to test the renderer components. Use `@testing-library/user-event`
 for simulating user interactions. Use `@testing-library/jest-dom` for expressive DOM assertions.
+See `tests/renderer/components/details/path-card.test.tsx` as an example of a great test file.
 
 For renderer changes, also exercise the affected flow in a live preview or Electron and
 check for runtime errors. For Electron or packaging changes, run a platform package build.
