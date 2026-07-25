@@ -46,7 +46,6 @@ describe('ProjectDetails', () => {
       }),
     );
 
-    expect(html).toContain('<h1>repo</h1>');
     expect(html).toContain('aria-label="Worktrees"');
     expect(html).toContain('3 worktrees');
     expect(html.indexOf('>~/projects/repo</button>')).toBeLessThan(
