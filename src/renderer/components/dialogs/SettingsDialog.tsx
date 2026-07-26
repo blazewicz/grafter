@@ -106,29 +106,39 @@ export function SettingsDialog({
             <code>.grafter.json</code>.
           </p>
           {snapshot.projects.length ? (
-            snapshot.projects.map((project) => (
-              <label key={project.id}>
-                <span>{project.name}</span>
-                <div className={styles.inlineSave}>
-                  <input
-                    placeholder="e.g. npm install"
-                    value={scripts[project.id] ?? ''}
-                    onChange={(event) =>
-                      setScripts((current) => ({
-                        ...current,
-                        [project.id]: event.target.value,
-                      }))
-                    }
-                  />
-                  <button
-                    className={`${controls.button} ${controls.ghost}`}
-                    onClick={() => onProjectSetup(project.id, scripts[project.id] ?? '')}
-                  >
-                    Save
-                  </button>
+            snapshot.projects.map((project) => {
+              const inputId = `project-setup-${project.id}`;
+
+              return (
+                <div key={project.id}>
+                  <label htmlFor={inputId}>
+                    <span>{project.name}</span>
+                  </label>
+                  <div className={styles.inlineSave}>
+                    <input
+                      id={inputId}
+                      placeholder="e.g. npm install"
+                      value={scripts[project.id] ?? ''}
+                      onChange={(event) =>
+                        setScripts((current) => ({
+                          ...current,
+                          [project.id]: event.target.value,
+                        }))
+                      }
+                    />
+                    <button
+                      className={`${controls.button} ${controls.ghost}`}
+                      aria-label={`Save setup override for ${project.name}`}
+                      onClick={() =>
+                        onProjectSetup(project.id, scripts[project.id] ?? '')
+                      }
+                    >
+                      Save
+                    </button>
+                  </div>
                 </div>
-              </label>
-            ))
+              );
+            })
           ) : (
             <div className={styles.settingsEmpty}>
               Add a project to configure its setup command.
