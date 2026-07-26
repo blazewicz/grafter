@@ -3,10 +3,48 @@ import { useState } from 'react';
 import type {
   AppSnapshot,
   DateFormatPreference,
+  Project,
   TimeFormatPreference,
 } from '../../../shared/contracts';
 import controls from '../../styles/controls.module.css';
 import styles from './dialogs.module.css';
+
+function ProjectSetupOverride({
+  project,
+  script,
+  onChange,
+  onSave,
+}: {
+  project: Project;
+  script: string;
+  onChange: (projectId: string, script: string) => void;
+  onSave: (projectId: string, script: string) => void;
+}): React.JSX.Element {
+  const inputId = `project-setup-${project.id}`;
+
+  return (
+    <div>
+      <label htmlFor={inputId}>
+        <span>{project.name}</span>
+      </label>
+      <div className={styles.inlineSave}>
+        <input
+          id={inputId}
+          placeholder="e.g. npm install"
+          value={script}
+          onChange={(event) => onChange(project.id, event.target.value)}
+        />
+        <button
+          className={`${controls.button} ${controls.ghost}`}
+          aria-label={`Save setup override for ${project.name}`}
+          onClick={() => onSave(project.id, script)}
+        >
+          Save
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export function SettingsDialog({
   snapshot,
@@ -27,6 +65,13 @@ export function SettingsDialog({
       snapshot.projects.map((project) => [project.id, project.setupScript ?? '']),
     ),
   );
+
+  function handleProjectScriptChange(projectId: string, script: string): void {
+    setScripts((current) => ({
+      ...current,
+      [projectId]: script,
+    }));
+  }
 
   return (
     <div className={styles.modalBackdrop}>
@@ -106,39 +151,15 @@ export function SettingsDialog({
             <code>.grafter.json</code>.
           </p>
           {snapshot.projects.length ? (
-            snapshot.projects.map((project) => {
-              const inputId = `project-setup-${project.id}`;
-
-              return (
-                <div key={project.id}>
-                  <label htmlFor={inputId}>
-                    <span>{project.name}</span>
-                  </label>
-                  <div className={styles.inlineSave}>
-                    <input
-                      id={inputId}
-                      placeholder="e.g. npm install"
-                      value={scripts[project.id] ?? ''}
-                      onChange={(event) =>
-                        setScripts((current) => ({
-                          ...current,
-                          [project.id]: event.target.value,
-                        }))
-                      }
-                    />
-                    <button
-                      className={`${controls.button} ${controls.ghost}`}
-                      aria-label={`Save setup override for ${project.name}`}
-                      onClick={() =>
-                        onProjectSetup(project.id, scripts[project.id] ?? '')
-                      }
-                    >
-                      Save
-                    </button>
-                  </div>
-                </div>
-              );
-            })
+            snapshot.projects.map((project) => (
+              <ProjectSetupOverride
+                key={project.id}
+                project={project}
+                script={scripts[project.id] ?? ''}
+                onChange={handleProjectScriptChange}
+                onSave={onProjectSetup}
+              />
+            ))
           ) : (
             <div className={styles.settingsEmpty}>
               Add a project to configure its setup command.
