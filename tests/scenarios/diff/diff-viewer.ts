@@ -33,6 +33,7 @@ export interface DiffViewerScenario {
   files: {
     modified: DiffFileSummary;
     added: DiffFileSummary;
+    copied: DiffFileSummary;
     renamed: DiffFileSummary;
     deleted: DiffFileSummary;
     binary: DiffFileSummary;
@@ -117,6 +118,14 @@ export function buildDiffViewerScenario(): DiffViewerScenario {
       additions: 12,
       deletions: 0,
     }),
+    copied: diffFileSummaryFactory.build({
+      id: 'copied-contracts',
+      path: 'src/shared/copied-contracts.ts',
+      previousPath: 'src/shared/original-contracts.ts',
+      status: 'copied',
+      additions: 0,
+      deletions: 0,
+    }),
     renamed: diffFileSummaryFactory.build({
       id: 'renamed-contracts',
       path: 'src/shared/diff-contracts.ts',
@@ -150,6 +159,7 @@ export function buildDiffViewerScenario(): DiffViewerScenario {
   const sessionFiles = [
     files.modified,
     files.added,
+    files.copied,
     files.renamed,
     files.deleted,
     files.binary,

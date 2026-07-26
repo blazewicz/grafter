@@ -940,6 +940,7 @@ function TreeNodes({
             data-active={node.file.id === activeFileId}
             data-context-menu-anchor={node.file.id === contextFileId}
             data-status={node.file.status}
+            aria-current={node.file.id === activeFileId ? 'true' : undefined}
             title={node.file.path}
             onClick={() => onSelect(node.file.id)}
             onContextMenu={(event) => onContextMenu(event, node.file)}
