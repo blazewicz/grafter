@@ -1,7 +1,11 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { vi } from 'vitest';
 import { DiffViewer } from '../../../../src/renderer/components/diff/DiffViewer';
-import type { DiffFileSummary, DiffSession } from '../../../../src/shared/contracts';
+import type {
+  DiffFileSummary,
+  DiffLine,
+  DiffSession,
+} from '../../../../src/shared/contracts';
 import { settingsFactory } from '../../../factories';
 import { buildDiffViewerScenario } from '../../../scenarios/diff/diff-viewer';
 
@@ -187,4 +191,32 @@ export function getFileSection(file: DiffFileSummary): HTMLElement {
   const section = collapseButton.closest<HTMLElement>('[data-diff-file-id]');
   if (!section) throw new Error(`Expected a diff section for ${file.path}.`);
   return section;
+}
+
+export function getDiffLineRow(file: DiffFileSummary, line: DiffLine): HTMLElement {
+  const code = within(getFileSection(file)).getByText(line.text, { selector: 'code' });
+  const row = code.closest<HTMLElement>('[data-diff-line-id]');
+  if (!row) throw new Error(`Expected a rendered diff row for ${line.text}.`);
+  return row;
+}
+
+export function selectDiffLineText(
+  startRow: HTMLElement,
+  endRow: HTMLElement = startRow,
+): string {
+  const startNode = startRow.querySelector('code')?.firstChild;
+  const endNode = endRow.querySelector('code')?.firstChild;
+  const selection = window.getSelection();
+  if (!startNode || !endNode || !selection) {
+    throw new Error('Expected selectable text nodes in both diff rows.');
+  }
+
+  const range = document.createRange();
+  range.setStart(startNode, 0);
+  range.setEnd(endNode, endNode.textContent?.length ?? 0);
+  selection.removeAllRanges();
+  selection.addRange(range);
+  const selectedText = selection.toString();
+  if (!selectedText) throw new Error('Expected the diff line range to select text.');
+  return selectedText;
 }
