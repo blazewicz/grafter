@@ -271,6 +271,29 @@ describe('DiffViewer commands', () => {
     ).toBeVisible();
   });
 
+  it('closes the editor picker with Escape without closing the viewer', async () => {
+    const user = userEvent.setup();
+    const file = scenario.files.modified;
+    const onClose = vi.fn();
+    renderDiffViewer(scenario.branchSession, {
+      onSessionChange: () => undefined,
+      onClose,
+      onError: () => undefined,
+    });
+    const pickerButton = screen.getByRole('button', {
+      name: `Choose IDE for ${file.path}`,
+    });
+
+    await user.click(pickerButton);
+    expect(screen.getByRole('menu')).toBeVisible();
+
+    await user.keyboard('{Escape}');
+
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(pickerButton).toHaveAttribute('aria-expanded', 'false');
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
   it('explains disabled editor controls for a detached source branch', () => {
     renderDiffViewer(scenario.detachedBranchSession);
 
