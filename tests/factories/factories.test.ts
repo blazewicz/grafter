@@ -31,7 +31,11 @@ describe('domain factories', () => {
       { status: 'failed' },
       { transient: { preset: 'awaiting-approval' } },
     );
-    const approval = approvalRequestFactory.build();
+    const approvalCwd = '/Users/developer/Code/approval-target';
+    const approval = approvalRequestFactory.build(
+      {},
+      { transient: { commandOverrides: { cwd: approvalCwd } } },
+    );
 
     expect(command).toMatchObject({
       isReadOnly: true,
@@ -49,6 +53,7 @@ describe('domain factories', () => {
       requiresApproval: true,
     });
     expect(approval.command).toMatchObject({
+      cwd: approvalCwd,
       isReadOnly: false,
       status: 'awaiting-approval',
       requiresApproval: true,

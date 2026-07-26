@@ -5,18 +5,15 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApprovalDialog } from '../../../../src/renderer/components/dialogs/ApprovalDialog';
 import type { ApprovalRequest } from '../../../../src/shared/contracts';
-import { approvalRequestFactory, commandRecordFactory } from '../../../factories';
+import { approvalRequestFactory } from '../../../factories';
 
 const homeDirectory = '/Users/developer';
 const workingDirectory = `${homeDirectory}/Code/grafter`;
 const request = approvalRequestFactory.build(
   {},
   {
-    associations: {
-      command: commandRecordFactory.build(
-        { cwd: workingDirectory },
-        { transient: { preset: 'awaiting-approval' } },
-      ),
+    transient: {
+      commandOverrides: { cwd: workingDirectory },
     },
   },
 );
