@@ -21,14 +21,32 @@ import {
 import { buildWorktreeOrderingScenario } from '../scenarios/details/worktree-ordering';
 
 describe('domain factories', () => {
-  it('builds neutral commands and approval requests at their distinct states', () => {
+  it('builds semantic command presets and allows explicit overrides', () => {
     const command = commandRecordFactory.build();
+    const awaitingApproval = commandRecordFactory.build(
+      {},
+      { transient: { preset: 'awaiting-approval' } },
+    );
+    const overriddenApproval = commandRecordFactory.build(
+      { status: 'failed' },
+      { transient: { preset: 'awaiting-approval' } },
+    );
     const approval = approvalRequestFactory.build();
 
     expect(command).toMatchObject({
       isReadOnly: true,
       status: 'succeeded',
       requiresApproval: false,
+    });
+    expect(awaitingApproval).toMatchObject({
+      isReadOnly: false,
+      status: 'awaiting-approval',
+      requiresApproval: true,
+    });
+    expect(overriddenApproval).toMatchObject({
+      isReadOnly: false,
+      status: 'failed',
+      requiresApproval: true,
     });
     expect(approval.command).toMatchObject({
       isReadOnly: false,

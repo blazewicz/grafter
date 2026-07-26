@@ -13,12 +13,10 @@ const request = approvalRequestFactory.build(
   {},
   {
     associations: {
-      command: commandRecordFactory.build({
-        cwd: workingDirectory,
-        isReadOnly: false,
-        status: 'awaiting-approval',
-        requiresApproval: true,
-      }),
+      command: commandRecordFactory.build(
+        { cwd: workingDirectory },
+        { transient: { preset: 'awaiting-approval' } },
+      ),
     },
   },
 );
