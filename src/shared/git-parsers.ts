@@ -1,5 +1,5 @@
 import type {
-  BranchCommit,
+  Commit,
   CommitDetails,
   DiffFilePatch,
   DiffFileStatus,
@@ -259,7 +259,7 @@ export function parseCommitDetails(output: string): CommitDetails | undefined {
   };
 }
 
-export function parseBranchCommits(output: string): BranchCommit[] {
+export function parseCommits(output: string): Commit[] {
   return output.split('\0').flatMap((record) => {
     const [hash, title, authorName, authorEmail, authoredAt] = record
       .replace(/^\n+/, '')

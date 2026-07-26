@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
   approvalRequestFactory,
+  branchDiffSessionFactory,
   commandRecordFactory,
+  commitDetailsFactory,
+  commitDiffSessionFactory,
+  commitFactory,
+  commitPageFactory,
+  diffFilePatchFactory,
+  diffFileSummaryFactory,
   mainWorktreeFactory,
   projectConfigFactory,
   projectFactory,
@@ -10,6 +17,7 @@ import {
   worktreeDetailsFactory,
   worktreeFactory,
 } from '.';
+import { buildDiffViewerScenario } from '../scenarios/diff/diff-viewer';
 import { buildBranchComparisonScenario } from '../scenarios/details/branch-comparison';
 import { buildBranchSwitchScenario } from '../scenarios/details/branch-switch';
 import { buildCommitHistoryCardScenario } from '../scenarios/details/commit-history';
@@ -98,6 +106,117 @@ describe('domain factories', () => {
     expect(details.diffStats).toBeUndefined();
   });
 
+  it('builds commit details by extending the shared commit data', () => {
+    const commitFields = {
+      hash: '1234567890abcdef1234567890abcdef12345678',
+      title: 'Share commit metadata',
+      authorName: 'Ada Lovelace',
+      authoredAt: '2026-07-21T12:30:00.000Z',
+    };
+    const commit = commitFactory.build(commitFields, {
+      transient: { withAuthorEmail: false },
+    });
+    const details = commitDetailsFactory.build(
+      {
+        ...commitFields,
+        body: 'Keep the detailed representation additive.',
+        stats: { files: 2, additions: 8, deletions: 3 },
+      },
+      { transient: { withAuthorEmail: false } },
+    );
+    const page = commitPageFactory.build({ commits: [commit] });
+
+    expect(details).toEqual({
+      ...commit,
+      body: 'Keep the detailed representation additive.',
+      stats: { files: 2, additions: 8, deletions: 3 },
+    });
+    expect(page).toEqual({ commits: [commit], total: 1, hasMore: false });
+  });
+
+  it('builds diff files and valid patches through focused composition', () => {
+    const file = diffFileSummaryFactory.build({ status: 'renamed' });
+    const patch = diffFilePatchFactory.build(
+      {},
+      {
+        transient: {
+          file,
+          lineKinds: ['context', 'deletion', 'addition', 'annotation'],
+          oldStart: 12,
+          newStart: 20,
+        },
+      },
+    );
+
+    expect(file.previousPath).toBeDefined();
+    expect(patch.fileId).toBe(file.id);
+    expect(patch.binary).toBe(false);
+    expect(patch.hunks).toEqual([
+      expect.objectContaining({
+        header: '@@ -12,2 +20,2 @@',
+        oldStart: 12,
+        oldLines: 2,
+        newStart: 20,
+        newLines: 2,
+        lines: [
+          expect.objectContaining({ kind: 'context', oldLine: 12, newLine: 20 }),
+          expect.objectContaining({ kind: 'deletion', oldLine: 13 }),
+          expect.objectContaining({ kind: 'addition', newLine: 21 }),
+          { kind: 'annotation', text: 'No newline at end of file' },
+        ],
+      }),
+    ]);
+  });
+
+  it('keeps branch and commit session aggregates consistent', () => {
+    const modifiedFile = diffFileSummaryFactory.build({ additions: 5, deletions: 2 });
+    const addedFile = diffFileSummaryFactory.build({
+      status: 'added',
+      additions: 8,
+      deletions: 0,
+    });
+    const files = [modifiedFile, addedFile];
+    const branchSession = branchDiffSessionFactory.build({ files });
+    const commitSession = commitDiffSessionFactory.build({
+      files,
+      commit: { authorEmail: 'author@example.com' },
+    });
+    const rootCommitSession = commitDiffSessionFactory.build({
+      files: [addedFile],
+      parentShas: [],
+    });
+
+    expect(branchSession.stats).toEqual({ files: 2, additions: 13, deletions: 2 });
+    expect(branchSession.sourceWorktreeId).toBeUndefined();
+    expect(branchSession.githubRepository).toBeUndefined();
+    expect(commitSession.stats).toEqual(branchSession.stats);
+    expect(commitSession.commit).toMatchObject({
+      hash: commitSession.headSha,
+      authorEmail: 'author@example.com',
+      stats: commitSession.stats,
+    });
+    expect(commitSession.baseSha).toBe(commitSession.parentShas[0]);
+    expect(rootCommitSession.parentShas).toEqual([]);
+    expect(rootCommitSession.baseSha).toBe('4b825dc642cb6eb9a060e54bf8d69288fbee4904');
+  });
+
+  it('rejects inconsistent diff relationships', () => {
+    const file = diffFileSummaryFactory.build();
+
+    expect(() =>
+      diffFilePatchFactory.build(
+        { fileId: `${file.id}-elsewhere` },
+        { transient: { file } },
+      ),
+    ).toThrow('The diff patch must belong to its associated file.');
+    expect(() =>
+      branchDiffSessionFactory.build({
+        files: [file],
+        stats: { files: 2, additions: 0, deletions: 0 },
+      }),
+    ).toThrow('Diff session stats must match its file summaries.');
+  });
+
   it('rejects inconsistent project and worktree relationships', () => {
     const projectConfig = projectConfigFactory.build();
 
@@ -164,11 +283,60 @@ describe('domain factories', () => {
   it('rebuilds the same defaults after factory state is reset', () => {
     const firstWorktree = worktreeFactory.build();
     const firstPullRequest = pullRequestFactory.build();
+    const firstDiffFile = diffFileSummaryFactory.build();
+    const firstDiffPatch = diffFilePatchFactory.build();
+    const firstBranchSession = branchDiffSessionFactory.build();
+    const firstCommit = commitFactory.build();
+    const firstCommitPage = commitPageFactory.build();
+    const firstCommitDetails = commitDetailsFactory.build();
+    const firstCommitSession = commitDiffSessionFactory.build();
 
     resetTestDataFactories();
 
     expect(worktreeFactory.build()).toEqual(firstWorktree);
     expect(pullRequestFactory.build()).toEqual(firstPullRequest);
+    expect(diffFileSummaryFactory.build()).toEqual(firstDiffFile);
+    expect(diffFilePatchFactory.build()).toEqual(firstDiffPatch);
+    expect(branchDiffSessionFactory.build()).toEqual(firstBranchSession);
+    expect(commitFactory.build()).toEqual(firstCommit);
+    expect(commitPageFactory.build()).toEqual(firstCommitPage);
+    expect(commitDetailsFactory.build()).toEqual(firstCommitDetails);
+    expect(commitDiffSessionFactory.build()).toEqual(firstCommitSession);
+  });
+});
+
+describe('diff scenarios', () => {
+  it('publishes cohesive viewer relationships and independent expected values', () => {
+    const scenario = buildDiffViewerScenario();
+
+    expect(scenario.branchSession.sourceWorktreeId).toBe(scenario.sourceWorktree.id);
+    expect(scenario.detachedBranchSession).not.toHaveProperty('sourceWorktreeId');
+    expect(scenario.branchSession.stats).toEqual({
+      files: 6,
+      additions: 17,
+      deletions: 11,
+    });
+    expect(scenario.commitSession.commit.stats).toEqual(scenario.commitSession.stats);
+    expect(scenario.commitSession.parentShas).toHaveLength(2);
+    expect(scenario.rootCommitSession.parentShas).toEqual([]);
+    expect(scenario.files.renamed.previousPath).toBe(scenario.expected.deletionLine.path);
+    expect(scenario.files.deleted.previousPath).toBe(scenario.expected.deletedFile.path);
+    expect(scenario.patches.textual.fileId).toBe(scenario.files.renamed.id);
+    expect(scenario.patches.metadataOnly).toMatchObject({
+      fileId: scenario.files.metadataOnly.id,
+      hunks: [],
+    });
+    expect(scenario.patches.binary).toMatchObject({
+      fileId: scenario.files.binary.id,
+      binary: true,
+      hunks: [],
+    });
+    expect(scenario.lines.deletion.oldLine).toBe(41);
+    expect(scenario.lines.addition.newLine).toBe(51);
+    expect(scenario.expected.deletionLine.reference).toBe('src/shared/diff-types.ts:41');
+    expect(scenario.expected.newSideSelection.githubUrl).toBe(
+      'https://github.com/grafter-tests/git-workflow-app/blob/2222222222222222222222222222222222222222/src/shared/diff-contracts.ts#L50-L51',
+    );
   });
 });
 
