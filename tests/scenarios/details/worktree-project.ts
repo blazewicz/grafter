@@ -54,7 +54,7 @@ export function buildWorktreeProjectScenario(
       projectName: project.name,
       isMain: false,
     },
-    { transient: { worktree: featureWorktree } },
+    { transient: { project, worktree: featureWorktree } },
   );
   const projectTreeItem = projectTreeItemFactory.build(project, {
     associations: { worktrees: [mainWorktree, details] },

@@ -10,8 +10,25 @@ interface ProjectTreeItemTransientParams {
 export const projectTreeItemFactory = Factory.define<
   ProjectTreeItem,
   ProjectTreeItemTransientParams
->(({ associations, transientParams }) => {
+>(({ afterBuild, associations, transientParams }) => {
   const project = transientParams.project ?? projectFactory.build();
+
+  afterBuild((projectTreeItem) => {
+    if (
+      projectTreeItem.worktrees.some(
+        (worktree) => worktree.projectId !== projectTreeItem.id,
+      )
+    ) {
+      throw new Error('Every worktree must belong to the project.');
+    }
+
+    const mainWorktree = projectTreeItem.worktrees.find((worktree) => worktree.isMain);
+    if (!mainWorktree) return;
+
+    if (mainWorktree.path !== projectTreeItem.path) {
+      throw new Error('The main worktree path must match the project path.');
+    }
+  });
 
   return {
     ...project,

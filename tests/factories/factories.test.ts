@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  mainWorktreeFactory,
+  projectFactory,
+  projectTreeItemFactory,
   pullRequestFactory,
   resetTestDataFactories,
   worktreeDetailsFactory,
@@ -26,6 +29,69 @@ describe('domain factories', () => {
     expect(worktree.pullRequest).toBeUndefined();
     expect(details.targetBranch).toBeUndefined();
     expect(details.diffStats).toBeUndefined();
+  });
+
+  it('rejects inconsistent project and worktree relationships', () => {
+    const project = projectFactory.build();
+
+    expect(() =>
+      projectTreeItemFactory.build(project, {
+        associations: {
+          worktrees: [
+            mainWorktreeFactory.build({
+              projectId: project.id,
+              path: `${project.path}-elsewhere`,
+            }),
+          ],
+        },
+      }),
+    ).toThrow('The main worktree path must match the project path.');
+
+    expect(() =>
+      projectTreeItemFactory.build(project, {
+        associations: {
+          worktrees: [
+            worktreeFactory.build({
+              projectId: `${project.id}-elsewhere`,
+            }),
+          ],
+        },
+      }),
+    ).toThrow('Every worktree must belong to the project.');
+  });
+
+  it('derives a main worktree project name from its path', () => {
+    const worktree = mainWorktreeFactory.build({
+      path: '/Users/developer/Code/grafter',
+    });
+
+    const details = worktreeDetailsFactory.build({}, { transient: { worktree } });
+
+    expect(details.projectName).toBe('grafter');
+  });
+
+  it('uses the associated project name for linked worktree details', () => {
+    const project = projectFactory.build();
+    const worktree = worktreeFactory.build({ projectId: project.id });
+
+    const details = worktreeDetailsFactory.build(
+      {},
+      { transient: { project, worktree } },
+    );
+
+    expect(details.projectName).toBe(project.name);
+  });
+
+  it('rejects details that conflict with their associated project', () => {
+    const project = projectFactory.build();
+    const worktree = worktreeFactory.build({ projectId: project.id });
+
+    expect(() =>
+      worktreeDetailsFactory.build(
+        { projectName: `${project.name}-elsewhere` },
+        { transient: { project, worktree } },
+      ),
+    ).toThrow('The worktree details project name must match the project name.');
   });
 
   it('rebuilds the same defaults after factory state is reset', () => {
