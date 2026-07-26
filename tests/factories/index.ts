@@ -3,6 +3,7 @@ export { branchCommitFactory } from './branch-commit';
 export { branchCommitPageFactory } from './branch-commit-page';
 export { diffStatsFactory } from './diff-stats';
 export { pullRequestFactory } from './pull-request';
+export { projectFactory } from './project';
 export { projectTreeItemFactory } from './project-tree-item';
 export { settingsFactory } from './settings';
 export { mainWorktreeFactory, worktreeFactory } from './worktree';
@@ -15,6 +16,7 @@ import { branchCommitPageFactory } from './branch-commit-page';
 import { diffStatsFactory } from './diff-stats';
 import { resetTestFaker } from './faker';
 import { pullRequestFactory } from './pull-request';
+import { projectFactory } from './project';
 import { projectTreeItemFactory } from './project-tree-item';
 import { settingsFactory } from './settings';
 import { mainWorktreeFactory, worktreeFactory } from './worktree';
@@ -27,6 +29,7 @@ const factories = [
   branchCommitPageFactory,
   diffStatsFactory,
   pullRequestFactory,
+  projectFactory,
   projectTreeItemFactory,
   settingsFactory,
   worktreeFactory,

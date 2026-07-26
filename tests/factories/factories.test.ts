@@ -22,7 +22,7 @@ describe('domain factories', () => {
 
     expect(worktree.id).toContain(worktree.projectId);
     expect(worktree.path).toContain(worktree.projectId);
-    expect(worktree.head).toMatch(/^[a-f0-9]{7}$/);
+    expect(worktree.head).toMatch(/^[a-f0-9]{40}$/);
     expect(worktree.pullRequest).toBeUndefined();
     expect(details.targetBranch).toBeUndefined();
     expect(details.diffStats).toBeUndefined();

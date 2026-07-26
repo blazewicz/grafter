@@ -14,6 +14,7 @@ import {
   pullRequestFactory,
   worktreeDetailsFactory,
   worktreeFactory,
+  projectFactory,
 } from '../../factories';
 
 interface WorktreeProjectScenarioOptions {
@@ -33,38 +34,36 @@ export interface WorktreeProjectScenario {
 export function buildWorktreeProjectScenario(
   options: WorktreeProjectScenarioOptions = {},
 ): WorktreeProjectScenario {
-  const projectBase = projectTreeItemFactory.build(options.project, {
-    associations: { worktrees: [] },
-  });
+  const project = projectFactory.build(options.project);
   const mainWorktree = mainWorktreeFactory.build({
-    id: `${projectBase.id}:main`,
-    projectId: projectBase.id,
-    path: projectBase.path,
+    id: `${project.id}:main`,
+    projectId: project.id,
+    path: project.path,
     ...options.mainWorktree,
   });
   const featureWorktree = worktreeFactory.build({
-    id: `${projectBase.id}:feature`,
-    projectId: projectBase.id,
+    id: `${project.id}:feature`,
+    projectId: project.id,
     isMain: false,
   });
   const details = worktreeDetailsFactory.build(
     {
       ...featureWorktree,
       ...options.details,
-      projectId: projectBase.id,
-      projectName: projectBase.name,
+      projectId: project.id,
+      projectName: project.name,
       isMain: false,
     },
     { transient: { worktree: featureWorktree } },
   );
-  const project = projectTreeItemFactory.build(projectBase, {
+  const projectTreeItem = projectTreeItemFactory.build(project, {
     associations: { worktrees: [mainWorktree, details] },
   });
   const snapshot = appSnapshotFactory.build(options.snapshot, {
-    associations: { projects: [project] },
+    associations: { projects: [projectTreeItem] },
   });
 
-  return { mainWorktree, details, project, snapshot };
+  return { mainWorktree, details, project: projectTreeItem, snapshot };
 }
 
 interface PullRequestWorktreeScenarioOptions extends WorktreeProjectScenarioOptions {

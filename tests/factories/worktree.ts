@@ -18,7 +18,7 @@ export const worktreeFactory = Factory.define<Worktree>(({ params, sequence }) =
         ? `/Users/developer/Code/${projectId}`
         : `/Users/developer/Code/${projectId}.worktrees/${displayName}`),
     branch,
-    head: testFaker.git.commitSha({ length: 7 }),
+    head: testFaker.git.commitSha(),
     isMain,
     locked: false,
   };
