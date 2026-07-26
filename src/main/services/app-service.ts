@@ -17,7 +17,7 @@ import type {
   DiffSession,
   ListBranchCommitsRequest,
   Project,
-  ProjectTreeItem,
+  ProjectConfig,
   PullRequest,
   Settings,
   SetComparisonBaseRequest,
@@ -60,7 +60,7 @@ export class AppService {
   readonly git: GitService;
   readonly github: GitHubService;
   readonly approvals: ApprovalManager;
-  #trees: ProjectTreeItem[] = [];
+  #trees: Project[] = [];
   readonly #onSnapshotUpdate: (snapshot: AppSnapshot) => void;
   readonly #now: () => number;
   readonly #onBackgroundError: (message: string, error: unknown) => void;
@@ -453,7 +453,10 @@ export class AppService {
     void task.catch((error: unknown) => this.#onBackgroundError(message, error));
   }
 
-  async #refreshProject(project: Project, tolerateFailure: boolean): Promise<Worktree[]> {
+  async #refreshProject(
+    project: ProjectConfig,
+    tolerateFailure: boolean,
+  ): Promise<Worktree[]> {
     const refreshVersion = (this.#projectRefreshVersions.get(project.id) ?? 0) + 1;
     this.#projectRefreshVersions.set(project.id, refreshVersion);
     const previousWorktrees = new Map(
@@ -498,7 +501,7 @@ export class AppService {
     return worktrees;
   }
 
-  #project(projectId: string): Project {
+  #project(projectId: string): ProjectConfig {
     const project = this.store.state.projects.find((item) => item.id === projectId);
     if (!project) throw new Error('Project not found.');
     return project;

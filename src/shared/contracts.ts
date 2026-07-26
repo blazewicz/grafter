@@ -41,7 +41,7 @@ export interface Settings {
   timeFormat: TimeFormatPreference;
 }
 
-export interface Project {
+export interface ProjectConfig {
   id: string;
   name: string;
   path: string;
@@ -225,14 +225,14 @@ export interface WorktreeDetails extends Worktree, WorktreeComparison {
   projectName: string;
 }
 
-export interface ProjectTreeItem extends Project {
+export interface Project extends ProjectConfig {
   worktrees: Worktree[];
 }
 
 export interface AppSnapshot {
   homeDirectory: string;
   systemLocale: string;
-  projects: ProjectTreeItem[];
+  projects: Project[];
   settings: Settings;
 }
 

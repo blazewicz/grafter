@@ -1,7 +1,7 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import type { ProjectTreeItem, Worktree } from '../../../../src/shared/contracts';
+import type { Project, Worktree } from '../../../../src/shared/contracts';
 import { ProjectNode } from '../../../../src/renderer/components/sidebar/ProjectNode';
 
 function worktree(
@@ -35,7 +35,7 @@ describe('ProjectNode worktree labels', () => {
       '/repo.worktrees/stacked',
     );
     const main = worktree('feature/from-main', 'main', '/repo', true);
-    const project: ProjectTreeItem = {
+    const project: Project = {
       id: 'project',
       name: 'repo',
       path: '/repo',
@@ -91,7 +91,7 @@ describe('ProjectNode worktree labels', () => {
 
   it('omits the redundant branch label when the main worktree is on main', () => {
     const main = worktree('main', 'main', '/repo', true);
-    const project: ProjectTreeItem = {
+    const project: Project = {
       id: 'project',
       name: 'repo',
       path: '/repo',

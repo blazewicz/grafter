@@ -1,9 +1,5 @@
 import type { AppSnapshot, Worktree } from '../../../src/shared/contracts';
-import {
-  appSnapshotFactory,
-  projectTreeItemFactory,
-  worktreeFactory,
-} from '../../factories';
+import { appSnapshotFactory, projectFactory, worktreeFactory } from '../../factories';
 import { fakeSlug } from '../../factories/faker';
 import {
   buildWorktreeProjectScenario,
@@ -32,7 +28,7 @@ export function buildBranchSwitchScenario(): BranchSwitchScenario {
     isMain: false,
     locked: scenario.details.locked,
   });
-  const switchedProject = projectTreeItemFactory.build(scenario.project, {
+  const switchedProject = projectFactory.build(scenario.project, {
     associations: { worktrees: [scenario.mainWorktree, switchedWorktree] },
   });
   const switchedSnapshot = appSnapshotFactory.build(scenario.snapshot, {

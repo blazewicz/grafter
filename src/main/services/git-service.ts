@@ -14,7 +14,7 @@ import type {
   DiffFileSummary,
   DiffSession,
   DiffStats,
-  Project,
+  ProjectConfig,
   Worktree,
   WorktreeComparison,
   WorktreeDetails,
@@ -52,7 +52,7 @@ export class GitService {
 
   constructor(private readonly runner: CommandRunner) {}
 
-  async inspectMainClone(selectedPath: string): Promise<Omit<Project, 'id'>> {
+  async inspectMainClone(selectedPath: string): Promise<Omit<ProjectConfig, 'id'>> {
     const context: CommandContext = { kind: 'application' };
     const chosen = await realpath(selectedPath);
     const topLevel = (
@@ -82,7 +82,7 @@ export class GitService {
     return { name: path.basename(topLevel), path: topLevel };
   }
 
-  async listWorktrees(project: Project): Promise<Worktree[]> {
+  async listWorktrees(project: ProjectConfig): Promise<Worktree[]> {
     const context = projectCommandContext(project);
     const output = (
       await this.#git(
@@ -96,7 +96,7 @@ export class GitService {
     return parseWorktreePorcelain(output, project.id);
   }
 
-  async listBranches(project: Project): Promise<string[]> {
+  async listBranches(project: ProjectConfig): Promise<string[]> {
     const context = projectCommandContext(project);
     const result = await this.#git(
       project.path,
@@ -113,7 +113,7 @@ export class GitService {
   }
 
   async addWorktree(
-    project: Project,
+    project: ProjectConfig,
     worktreePath: string,
     branch: string,
   ): Promise<void> {
@@ -137,7 +137,7 @@ export class GitService {
     );
   }
 
-  removeSpec(project: Project, worktree: Worktree): CommandSpec {
+  removeSpec(project: ProjectConfig, worktree: Worktree): CommandSpec {
     return {
       context: projectCommandContext(project),
       tool: 'git',
@@ -155,7 +155,7 @@ export class GitService {
   }
 
   async details(
-    project: Project,
+    project: ProjectConfig,
     worktree: Worktree,
     comparisonBaseOverride?: string,
   ): Promise<WorktreeDetails> {
@@ -168,7 +168,7 @@ export class GitService {
   }
 
   async comparison(
-    project: Project,
+    project: ProjectConfig,
     worktree: Worktree,
     comparisonBaseOverride?: string,
   ): Promise<WorktreeComparison> {
@@ -295,7 +295,7 @@ export class GitService {
   }
 
   async openDiff(
-    project: Project,
+    project: ProjectConfig,
     worktree: Worktree,
     comparisonBaseOverride?: string,
   ): Promise<DiffSession> {
@@ -312,7 +312,7 @@ export class GitService {
   }
 
   async openBranchDiff(
-    project: Project,
+    project: ProjectConfig,
     sourceBranch: string,
     targetBranch: string,
     sourceWorktree?: Worktree,
@@ -323,7 +323,7 @@ export class GitService {
     return this.#openBranchDiff(project, sourceBranch, targetBranch, sourceWorktree);
   }
 
-  async openCommitDiff(project: Project, commitHash: string): Promise<DiffSession> {
+  async openCommitDiff(project: ProjectConfig, commitHash: string): Promise<DiffSession> {
     const context = projectCommandContext(project);
     const headSha = (
       await this.#git(
@@ -410,7 +410,7 @@ export class GitService {
   }
 
   async #openBranchDiff(
-    project: Project,
+    project: ProjectConfig,
     sourceBranch: string,
     targetBranch: string,
     sourceWorktree?: Worktree,
@@ -587,7 +587,7 @@ export class GitService {
     this.#diffSessions.delete(sessionId);
   }
 
-  async setupScript(project: Project): Promise<string | undefined> {
+  async setupScript(project: ProjectConfig): Promise<string | undefined> {
     if (project.setupScript?.trim()) return project.setupScript.trim();
     try {
       const config = JSON.parse(
@@ -625,12 +625,12 @@ export class GitService {
     };
   }
 
-  createProject(details: Omit<Project, 'id'>): Project {
+  createProject(details: Omit<ProjectConfig, 'id'>): ProjectConfig {
     return { id: randomUUID(), ...details };
   }
 
   async #remoteHeadBranch(
-    project: Project,
+    project: ProjectConfig,
     context: CommandContext,
   ): Promise<string | undefined> {
     const remote = await this.#gitAllowFailure(
@@ -661,7 +661,7 @@ export class GitService {
   }
 
   #comparisonTargetBranch(
-    project: Project,
+    project: ProjectConfig,
     worktree: Worktree,
     context: CommandContext,
   ): Promise<string | undefined> {

@@ -1,7 +1,7 @@
 import { LoaderCircle } from 'lucide-react';
 import type {
   AppSnapshot,
-  ProjectTreeItem,
+  Project,
   Settings,
   Worktree,
   WorktreeDetails,
@@ -32,7 +32,7 @@ export function MainView({
   homeDirectory: string;
   settings: Pick<Settings, 'dateFormat' | 'timeFormat'>;
   systemLocale: string;
-  selectedProject: ProjectTreeItem | undefined;
+  selectedProject: Project | undefined;
   selectedWorktree: Worktree | undefined;
   details: WorktreeDetails | undefined;
   projectWorktrees: Worktree[];

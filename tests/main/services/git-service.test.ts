@@ -6,7 +6,7 @@ import {
   projectCommandContext,
   worktreeCommandContext,
 } from '../../../src/shared/command-context';
-import type { Project, Worktree } from '../../../src/shared/contracts';
+import type { ProjectConfig, Worktree } from '../../../src/shared/contracts';
 import { CommandRunner } from '../../../src/main/commands';
 import { GitService } from '../../../src/main/services/git-service';
 import { StubCommandRunner } from '../support/stub-command-runner';
@@ -57,7 +57,7 @@ describe('GitService worktree status', () => {
 });
 
 describe('GitService branch operations', () => {
-  const project: Project = {
+  const project: ProjectConfig = {
     id: 'project',
     name: 'project',
     path: '/repo',
@@ -164,7 +164,7 @@ describe('GitService worktree details', () => {
     });
     expect(initialized.record.exitCode).toBe(0);
 
-    const project: Project = {
+    const project: ProjectConfig = {
       id: 'project',
       name: 'project',
       path: directory,
@@ -197,7 +197,7 @@ describe('GitService worktree details', () => {
   });
 
   it('compares against a known remote HEAD only when it differs from the branch', async () => {
-    const project: Project = {
+    const project: ProjectConfig = {
       id: 'project',
       name: 'project',
       path: '/repo',
@@ -246,7 +246,7 @@ describe('GitService worktree details', () => {
   });
 
   it('prefers a loaded pull request target without resolving remote HEAD', async () => {
-    const project: Project = {
+    const project: ProjectConfig = {
       id: 'project',
       name: 'project',
       path: '/repo',
@@ -291,7 +291,11 @@ describe('GitService worktree details', () => {
   });
 
   it('falls back to the default branch when a pull request base is unavailable locally', async () => {
-    const project: Project = { id: 'project', name: 'project', path: '/repo' };
+    const project: ProjectConfig = {
+      id: 'project',
+      name: 'project',
+      path: '/repo',
+    };
     const worktree: Worktree = {
       id: 'project:/repo.worktrees/stacked',
       projectId: project.id,
@@ -347,7 +351,11 @@ describe('GitService worktree details', () => {
   });
 
   it('keeps the pull request base warning when no fallback branch is available', async () => {
-    const project: Project = { id: 'project', name: 'project', path: '/repo' };
+    const project: ProjectConfig = {
+      id: 'project',
+      name: 'project',
+      path: '/repo',
+    };
     const worktree: Worktree = {
       id: 'project:/repo.worktrees/stacked',
       projectId: project.id,
@@ -379,7 +387,11 @@ describe('GitService worktree details', () => {
   });
 
   it('reports an unavailable saved comparison override without changing it', async () => {
-    const project: Project = { id: 'project', name: 'project', path: '/repo' };
+    const project: ProjectConfig = {
+      id: 'project',
+      name: 'project',
+      path: '/repo',
+    };
     const worktree: Worktree = {
       id: 'project:/repo.worktrees/feature',
       projectId: project.id,
@@ -416,7 +428,11 @@ describe('GitService worktree details', () => {
   });
 
   it('does not report an existing branch as unavailable when comparison fails', async () => {
-    const project: Project = { id: 'project', name: 'project', path: '/repo' };
+    const project: ProjectConfig = {
+      id: 'project',
+      name: 'project',
+      path: '/repo',
+    };
     const worktree: Worktree = {
       id: 'project:/repo.worktrees/feature',
       projectId: project.id,
@@ -452,7 +468,11 @@ describe('GitService worktree details', () => {
   });
 
   it('uses an explicit comparison base while retaining the automatic PR base', async () => {
-    const project: Project = { id: 'project', name: 'project', path: '/repo' };
+    const project: ProjectConfig = {
+      id: 'project',
+      name: 'project',
+      path: '/repo',
+    };
     const worktree: Worktree = {
       id: 'project:/repo.worktrees/feature',
       projectId: project.id,
@@ -489,7 +509,7 @@ describe('GitService worktree details', () => {
   });
 
   it('loads comparison details without a redundant standalone commit read', async () => {
-    const project: Project = {
+    const project: ProjectConfig = {
       id: 'project',
       name: 'project',
       path: '/repo',
@@ -519,7 +539,7 @@ describe('GitService worktree details', () => {
   it('retains removal in the project log after the target worktree disappears', () => {
     const runner = new CommandRunner(() => undefined);
     const service = new GitService(runner);
-    const project: Project = {
+    const project: ProjectConfig = {
       id: 'project',
       name: 'project',
       path: '/repo',
@@ -627,7 +647,7 @@ describe('GitService branch commit history', () => {
 });
 
 describe('GitService committed diff sessions', () => {
-  const project: Project = {
+  const project: ProjectConfig = {
     id: 'project',
     name: 'repo',
     path: '/repo',

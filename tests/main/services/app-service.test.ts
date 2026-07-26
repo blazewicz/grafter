@@ -2,12 +2,12 @@ import { mkdtemp } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
-import type { DiffSession, Project } from '../../../src/shared/contracts';
+import type { DiffSession, ProjectConfig } from '../../../src/shared/contracts';
 import { AppService } from '../../../src/main/services/app-service';
 import { StateStore } from '../../../src/main/store';
 import { StubCommandRunner } from '../support/stub-command-runner';
 
-const project: Project = {
+const project: ProjectConfig = {
   id: 'project',
   name: 'repo',
   path: '/repo',
@@ -381,7 +381,7 @@ describe('AppService project refresh', () => {
     const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-app-service-'));
     const store = new StateStore(directory);
     await store.load();
-    const projects = Array.from({ length: 7 }, (_, index): Project => ({
+    const projects = Array.from({ length: 7 }, (_, index): ProjectConfig => ({
       id: `project-${index}`,
       name: `repo-${index}`,
       path: `/repo-${index}`,
@@ -428,7 +428,7 @@ describe('AppService project refresh', () => {
     const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-app-service-'));
     const store = new StateStore(directory);
     await store.load();
-    const projects = Array.from({ length: 3 }, (_, index): Project => ({
+    const projects = Array.from({ length: 3 }, (_, index): ProjectConfig => ({
       id: `ordered-${index}`,
       name: `ordered-${index}`,
       path: `/ordered-${index}`,
@@ -474,12 +474,12 @@ describe('AppService project refresh', () => {
     const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-app-service-'));
     const store = new StateStore(directory);
     await store.load();
-    const unavailable: Project = {
+    const unavailable: ProjectConfig = {
       id: 'unavailable',
       name: 'unavailable',
       path: '/unavailable',
     };
-    const available: Project = {
+    const available: ProjectConfig = {
       id: 'available',
       name: 'available',
       path: '/available',
@@ -510,7 +510,7 @@ describe('AppService project refresh', () => {
     const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-app-service-'));
     const store = new StateStore(directory);
     await store.load();
-    const otherProject: Project = {
+    const otherProject: ProjectConfig = {
       id: 'other-project',
       name: 'other-repo',
       path: '/other-repo',
@@ -654,7 +654,7 @@ describe('AppService targeted project updates', () => {
     const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-app-service-'));
     const store = new StateStore(directory);
     await store.load();
-    const existing: Project = {
+    const existing: ProjectConfig = {
       id: 'existing',
       name: 'existing',
       path: '/existing',
@@ -697,7 +697,7 @@ describe('AppService targeted project updates', () => {
     const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-app-service-'));
     const store = new StateStore(directory);
     await store.load();
-    const otherProject: Project = {
+    const otherProject: ProjectConfig = {
       id: 'other-project',
       name: 'other-repo',
       path: '/other-repo',
@@ -768,7 +768,7 @@ describe('AppService targeted project updates', () => {
     const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-app-service-'));
     const store = new StateStore(directory);
     await store.load();
-    const otherProject: Project = {
+    const otherProject: ProjectConfig = {
       id: 'other-project',
       name: 'other-repo',
       path: '/other-repo',
@@ -820,7 +820,7 @@ describe('AppService targeted project updates', () => {
     const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-app-service-'));
     const store = new StateStore(directory);
     await store.load();
-    const setupProject: Project = { ...project, setupScript: 'npm ci' };
+    const setupProject: ProjectConfig = { ...project, setupScript: 'npm ci' };
     await store.update((state) => state.projects.push(setupProject));
     let created = false;
     const runner = new StubCommandRunner((spec) => {
@@ -1033,7 +1033,7 @@ describe('AppService repository operation serialization', () => {
     const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-app-service-'));
     const store = new StateStore(directory);
     await store.load();
-    const otherProject: Project = {
+    const otherProject: ProjectConfig = {
       id: 'other-project',
       name: 'other-repo',
       path: '/other-repo',
@@ -1456,7 +1456,10 @@ describe('AppService commit changes', () => {
   });
 });
 
-function worktreesFor(currentProject: Project, branches: readonly string[]): string {
+function worktreesFor(
+  currentProject: ProjectConfig,
+  branches: readonly string[],
+): string {
   return [
     `worktree ${currentProject.path}
 HEAD 1111111

@@ -1,11 +1,15 @@
 import path from 'node:path';
 import { Factory } from 'fishery';
-import type { Project, Worktree, WorktreeDetails } from '../../src/shared/contracts';
-import { projectFactory } from './project';
+import type {
+  ProjectConfig,
+  Worktree,
+  WorktreeDetails,
+} from '../../src/shared/contracts';
+import { projectConfigFactory } from './project-config';
 import { worktreeFactory } from './worktree';
 
 interface WorktreeDetailsTransientParams {
-  project?: Project;
+  project?: ProjectConfig;
   worktree?: Worktree;
 }
 
@@ -15,7 +19,7 @@ export const worktreeDetailsFactory = Factory.define<
 >(({ afterBuild, params, transientParams }) => {
   const project =
     transientParams.project ??
-    (transientParams.worktree ? undefined : projectFactory.build());
+    (transientParams.worktree ? undefined : projectConfigFactory.build());
   const worktree =
     transientParams.worktree ??
     worktreeFactory.build({

@@ -2,7 +2,7 @@ import type { DeepPartial } from 'fishery';
 import type {
   AppSnapshot,
   Project,
-  ProjectTreeItem,
+  ProjectConfig,
   PullRequest,
   Worktree,
   WorktreeDetails,
@@ -10,15 +10,15 @@ import type {
 import {
   appSnapshotFactory,
   mainWorktreeFactory,
-  projectTreeItemFactory,
+  projectConfigFactory,
+  projectFactory,
   pullRequestFactory,
   worktreeDetailsFactory,
   worktreeFactory,
-  projectFactory,
 } from '../../factories';
 
 interface WorktreeProjectScenarioOptions {
-  project?: DeepPartial<Project>;
+  project?: DeepPartial<ProjectConfig>;
   mainWorktree?: DeepPartial<Worktree>;
   details?: DeepPartial<WorktreeDetails>;
   snapshot?: DeepPartial<Omit<AppSnapshot, 'projects'>>;
@@ -27,43 +27,43 @@ interface WorktreeProjectScenarioOptions {
 export interface WorktreeProjectScenario {
   mainWorktree: Worktree;
   details: WorktreeDetails;
-  project: ProjectTreeItem;
+  project: Project;
   snapshot: AppSnapshot;
 }
 
 export function buildWorktreeProjectScenario(
   options: WorktreeProjectScenarioOptions = {},
 ): WorktreeProjectScenario {
-  const project = projectFactory.build(options.project);
+  const projectConfig = projectConfigFactory.build(options.project);
   const mainWorktree = mainWorktreeFactory.build({
-    id: `${project.id}:main`,
-    projectId: project.id,
-    path: project.path,
+    id: `${projectConfig.id}:main`,
+    projectId: projectConfig.id,
+    path: projectConfig.path,
     ...options.mainWorktree,
   });
   const featureWorktree = worktreeFactory.build({
-    id: `${project.id}:feature`,
-    projectId: project.id,
+    id: `${projectConfig.id}:feature`,
+    projectId: projectConfig.id,
     isMain: false,
   });
   const details = worktreeDetailsFactory.build(
     {
       ...featureWorktree,
       ...options.details,
-      projectId: project.id,
-      projectName: project.name,
+      projectId: projectConfig.id,
+      projectName: projectConfig.name,
       isMain: false,
     },
-    { transient: { project, worktree: featureWorktree } },
+    { transient: { project: projectConfig, worktree: featureWorktree } },
   );
-  const projectTreeItem = projectTreeItemFactory.build(project, {
+  const project = projectFactory.build(projectConfig, {
     associations: { worktrees: [mainWorktree, details] },
   });
   const snapshot = appSnapshotFactory.build(options.snapshot, {
-    associations: { projects: [projectTreeItem] },
+    associations: { projects: [project] },
   });
 
-  return { mainWorktree, details, project: projectTreeItem, snapshot };
+  return { mainWorktree, details, project, snapshot };
 }
 
 interface PullRequestWorktreeScenarioOptions extends WorktreeProjectScenarioOptions {

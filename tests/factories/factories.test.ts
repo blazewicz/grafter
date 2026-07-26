@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   mainWorktreeFactory,
+  projectConfigFactory,
   projectFactory,
-  projectTreeItemFactory,
   pullRequestFactory,
   resetTestDataFactories,
   worktreeDetailsFactory,
@@ -19,6 +19,19 @@ import {
 import { buildWorktreeOrderingScenario } from '../scenarios/details/worktree-ordering';
 
 describe('domain factories', () => {
+  it('builds project configs and hydrated projects at their distinct boundaries', () => {
+    const projectConfig = projectConfigFactory.build();
+    const project = projectFactory.build();
+
+    expect(projectConfig).not.toHaveProperty('worktrees');
+    expect(project.worktrees).toHaveLength(1);
+    expect(project.worktrees[0]).toMatchObject({
+      projectId: project.id,
+      path: project.path,
+      isMain: true,
+    });
+  });
+
   it('builds realistic neutral worktree defaults', () => {
     const worktree = worktreeFactory.build();
     const details = worktreeDetailsFactory.build();
@@ -32,15 +45,15 @@ describe('domain factories', () => {
   });
 
   it('rejects inconsistent project and worktree relationships', () => {
-    const project = projectFactory.build();
+    const projectConfig = projectConfigFactory.build();
 
     expect(() =>
-      projectTreeItemFactory.build(project, {
+      projectFactory.build(projectConfig, {
         associations: {
           worktrees: [
             mainWorktreeFactory.build({
-              projectId: project.id,
-              path: `${project.path}-elsewhere`,
+              projectId: projectConfig.id,
+              path: `${projectConfig.path}-elsewhere`,
             }),
           ],
         },
@@ -48,11 +61,11 @@ describe('domain factories', () => {
     ).toThrow('The main worktree path must match the project path.');
 
     expect(() =>
-      projectTreeItemFactory.build(project, {
+      projectFactory.build(projectConfig, {
         associations: {
           worktrees: [
             worktreeFactory.build({
-              projectId: `${project.id}-elsewhere`,
+              projectId: `${projectConfig.id}-elsewhere`,
             }),
           ],
         },
@@ -71,7 +84,7 @@ describe('domain factories', () => {
   });
 
   it('uses the associated project name for linked worktree details', () => {
-    const project = projectFactory.build();
+    const project = projectConfigFactory.build();
     const worktree = worktreeFactory.build({ projectId: project.id });
 
     const details = worktreeDetailsFactory.build(
@@ -83,7 +96,7 @@ describe('domain factories', () => {
   });
 
   it('rejects details that conflict with their associated project', () => {
-    const project = projectFactory.build();
+    const project = projectConfigFactory.build();
     const worktree = worktreeFactory.build({ projectId: project.id });
 
     expect(() =>

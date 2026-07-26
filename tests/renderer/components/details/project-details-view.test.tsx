@@ -3,13 +3,13 @@
 import { cleanup, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ProjectDetailsView } from '../../../../src/renderer/components/details/ProjectDetailsView';
-import type { ProjectTreeItem } from '../../../../src/shared/contracts';
+import type { Project } from '../../../../src/shared/contracts';
 import { buildPathDisplayScenario } from '../../../scenarios/details/path-display';
 
 const pathScenario = buildPathDisplayScenario('sibling-of-main');
 const { project } = pathScenario;
 
-function renderProjectDetailsView(nextProject: ProjectTreeItem = project): void {
+function renderProjectDetailsView(nextProject: Project = project): void {
   render(
     <ProjectDetailsView
       homeDirectory={pathScenario.homeDirectory}

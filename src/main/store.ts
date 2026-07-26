@@ -1,11 +1,11 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import pLimit from 'p-limit';
-import type { Project, Settings } from '../shared/contracts';
+import type { ProjectConfig, Settings } from '../shared/contracts';
 import { defaultSettings, normalizeSettings } from '../shared/settings';
 
 export interface PersistedState {
-  projects: Project[];
+  projects: ProjectConfig[];
   settings: Settings;
   comparisonBaseOverrides: Record<string, { sourceBranch: string; targetBranch: string }>;
 }

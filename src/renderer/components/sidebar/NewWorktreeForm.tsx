@@ -1,6 +1,6 @@
 import { LoaderCircle, Plus } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import type { GrafterApi, ProjectTreeItem } from '../../../shared/contracts';
+import type { GrafterApi, Project } from '../../../shared/contracts';
 import { api, friendlyError } from '../../grafter-api';
 import controls from '../../styles/controls.module.css';
 import { BranchPicker } from '../branches/BranchPicker';
@@ -12,7 +12,7 @@ export function NewWorktreeForm({
   onCreated,
   onError,
 }: {
-  project: ProjectTreeItem;
+  project: Project;
   onCancel: () => void;
   onCreated: (
     result: Awaited<ReturnType<GrafterApi['createWorktree']>>,

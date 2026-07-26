@@ -1,4 +1,4 @@
-import type { ProjectTreeItem } from '../../../shared/contracts';
+import type { Project } from '../../../shared/contracts';
 import { ProjectWorktreeList } from './ProjectWorktreeList';
 import styles from './details.module.css';
 
@@ -8,7 +8,7 @@ export function ProjectDetailsView({
   onSelectWorktree,
 }: {
   homeDirectory: string;
-  project: ProjectTreeItem;
+  project: Project;
   onSelectWorktree: (worktreeId: string) => void;
 }): React.JSX.Element {
   return (

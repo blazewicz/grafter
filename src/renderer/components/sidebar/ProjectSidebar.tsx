@@ -1,6 +1,6 @@
 import { FolderOpen, Plus, Settings } from 'lucide-react';
 import { useRef, useState } from 'react';
-import type { GrafterApi, ProjectTreeItem, Worktree } from '../../../shared/contracts';
+import type { GrafterApi, Project, Worktree } from '../../../shared/contracts';
 import controls from '../../styles/controls.module.css';
 import { EmptyTree } from './EmptyTree';
 import { ProjectNode } from './ProjectNode';
@@ -29,7 +29,7 @@ export function ProjectSidebar({
   onResize,
 }: {
   homeDirectory: string;
-  projects: ProjectTreeItem[];
+  projects: Project[];
   width: number;
   selectedId: string | undefined;
   expanded: ReadonlySet<string>;

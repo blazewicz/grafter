@@ -9,7 +9,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useMemo } from 'react';
-import type { GrafterApi, ProjectTreeItem, Worktree } from '../../../shared/contracts';
+import type { GrafterApi, Project, Worktree } from '../../../shared/contracts';
 import { displayWorktreePath } from '../../../shared/path-display';
 import { sortWorktrees } from '../../../shared/worktree-list';
 import { NewWorktreeForm } from './NewWorktreeForm';
@@ -32,7 +32,7 @@ export function ProjectNode({
   onError,
 }: {
   homeDirectory: string;
-  project: ProjectTreeItem;
+  project: Project;
   expanded: boolean;
   selectedId: string | undefined;
   adding: boolean;

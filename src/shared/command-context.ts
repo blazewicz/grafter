@@ -1,4 +1,4 @@
-import type { CommandContext, Project, Worktree } from './contracts';
+import type { CommandContext, ProjectConfig, Worktree } from './contracts';
 
 export function commandContextKey(context: CommandContext): string {
   switch (context.kind) {
@@ -11,7 +11,9 @@ export function commandContextKey(context: CommandContext): string {
   }
 }
 
-export function projectCommandContext(project: Pick<Project, 'id'>): CommandContext {
+export function projectCommandContext(
+  project: Pick<ProjectConfig, 'id'>,
+): CommandContext {
   return { kind: 'project', projectId: project.id };
 }
 
