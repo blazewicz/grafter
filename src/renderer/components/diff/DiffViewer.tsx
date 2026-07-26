@@ -1098,7 +1098,16 @@ function DiffFile({
             )}
           </div>
           {showEditorControls && (
-            <div className={styles.editorPicker} ref={editorMenuRef}>
+            <div
+              className={styles.editorPicker}
+              ref={editorMenuRef}
+              onKeyDown={(event) => {
+                if (event.key !== 'Escape' || !editorMenuOpen) return;
+                event.preventDefault();
+                event.stopPropagation();
+                setEditorMenuOpen(false);
+              }}
+            >
               <div className={styles.editorSplitButton}>
                 <button
                   className={styles.editorOpenButton}
