@@ -263,15 +263,23 @@ describe('DiffViewer patch lifecycle', () => {
       name: `Collapse ${file.path} diff`,
     });
 
+    expect(collapseButton).toHaveAttribute('aria-expanded', 'true');
     expect(intersectionObservers.activeObserverCount(fileSection)).toBe(1);
     await user.click(collapseButton);
+    const expandButton = screen.getByRole('button', {
+      name: `Expand ${file.path} diff`,
+    });
+    expect(expandButton).toHaveAttribute('aria-expanded', 'false');
     expect(intersectionObservers.activeObserverCount(fileSection)).toBe(0);
     expect(intersectionObservers.disconnectedObserverCount(fileSection)).toBe(1);
 
     act(() => intersectionObservers.notify(fileSection, true));
     expect(getDiffFile).not.toHaveBeenCalled();
 
-    await user.click(screen.getByRole('button', { name: `Expand ${file.path} diff` }));
+    await user.click(expandButton);
+    expect(
+      screen.getByRole('button', { name: `Collapse ${file.path} diff` }),
+    ).toHaveAttribute('aria-expanded', 'true');
     expect(intersectionObservers.activeObserverCount(fileSection)).toBe(1);
     expect(within(fileSection).getByText('Patch will load when visible')).toBeVisible();
 

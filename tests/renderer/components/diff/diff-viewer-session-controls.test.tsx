@@ -272,7 +272,7 @@ describe('DiffViewer branch comparison controls', () => {
     ).toBeEnabled();
   });
 
-  it('closes branch pickers on outside pointer-down and Escape without comparing', async () => {
+  it('closes a branch picker on outside pointer-down without comparing', async () => {
     const user = userEvent.setup();
     const listBranches = vi
       .spyOn(api, 'listBranches')
@@ -290,13 +290,6 @@ describe('DiffViewer branch comparison controls', () => {
     await user.click(sourceButton);
     expect(screen.getByRole('dialog', { name: 'Choose source branch' })).toBeVisible();
     fireEvent.pointerDown(outsideButton);
-
-    expect(screen.queryByRole('dialog', { name: 'Choose source branch' })).toBeNull();
-    expect(openBranchDiff).not.toHaveBeenCalled();
-    expect(onClose).not.toHaveBeenCalled();
-
-    await user.click(sourceButton);
-    await user.keyboard('{Escape}');
 
     expect(screen.queryByRole('dialog', { name: 'Choose source branch' })).toBeNull();
     expect(openBranchDiff).not.toHaveBeenCalled();
@@ -365,7 +358,7 @@ describe('DiffViewer commit controls', () => {
     expect(copyText).toHaveBeenCalledWith(scenario.commitSession.commit.hash);
   });
 
-  it('toggles details with full identity, hash, body, and multi-parent context', async () => {
+  it('toggles details with the full author identity, hash, and body', async () => {
     const user = userEvent.setup();
     const session = scenario.commitSession;
     renderDiffViewer(session);
@@ -382,9 +375,6 @@ describe('DiffViewer commit controls', () => {
     );
     expect(details).toHaveTextContent(session.commit.hash);
     expect(details).toHaveTextContent(session.commit.body);
-    expect(details).toHaveTextContent(
-      `Compared with first parent ${session.parentShas[0]?.slice(0, 7)} · 2 parents`,
-    );
 
     await user.click(detailsButton);
 
@@ -430,7 +420,7 @@ describe('DiffViewer commit controls', () => {
     expect(screen.getByText('No additional commit message.')).toBeVisible();
   });
 
-  it('closes details on outside pointer-down and Escape without closing the viewer', async () => {
+  it('closes details on outside pointer-down without closing the viewer', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
     renderDiffViewer(scenario.commitSession, {
@@ -443,12 +433,6 @@ describe('DiffViewer commit controls', () => {
 
     await user.click(detailsButton);
     fireEvent.pointerDown(outsideButton);
-
-    expect(screen.queryByLabelText('Commit details')).toBeNull();
-    expect(onClose).not.toHaveBeenCalled();
-
-    await user.click(detailsButton);
-    await user.keyboard('{Escape}');
 
     expect(screen.queryByLabelText('Commit details')).toBeNull();
     expect(onClose).not.toHaveBeenCalled();

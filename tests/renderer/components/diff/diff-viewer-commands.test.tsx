@@ -66,6 +66,7 @@ describe('DiffViewer commands', () => {
   it('closes the innermost branch picker before closing the viewer with Escape', async () => {
     const user = userEvent.setup();
     vi.spyOn(api, 'listBranches').mockResolvedValue(scenario.branches.available);
+    const openBranchDiff = vi.spyOn(api, 'openBranchDiff');
     const onClose = vi.fn();
     renderDiffViewer(scenario.branchSession, {
       onSessionChange: () => undefined,
@@ -81,6 +82,7 @@ describe('DiffViewer commands', () => {
 
     expect(screen.queryByRole('dialog', { name: 'Choose source branch' })).toBeNull();
     expect(sourceButton).toHaveAttribute('aria-expanded', 'false');
+    expect(openBranchDiff).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
   });
 
@@ -102,10 +104,6 @@ describe('DiffViewer commands', () => {
     expect(screen.queryByLabelText('Commit details')).toBeNull();
     expect(detailsButton).toHaveAttribute('aria-expanded', 'false');
     expect(onClose).not.toHaveBeenCalled();
-
-    await user.keyboard('{Escape}');
-
-    expect(onClose).toHaveBeenCalledOnce();
   });
 
   it('closes the viewer with Escape when no nested surface is open', async () => {
@@ -273,7 +271,7 @@ describe('DiffViewer commands', () => {
     ).toBeVisible();
   });
 
-  it('explains disabled editor controls for detached and deleted files', () => {
+  it('explains disabled editor controls for a detached source branch', () => {
     renderDiffViewer(scenario.detachedBranchSession);
 
     const detachedFile = scenario.files.modified;
@@ -282,13 +280,6 @@ describe('DiffViewer commands', () => {
     });
     expect(detachedControls).toHaveLength(2);
     for (const control of detachedControls) expect(control).toBeDisabled();
-
-    const deletedFile = scenario.files.deleted;
-    const deletedControls = screen.getAllByRole('button', {
-      name: `${deletedFile.path}: ${deletedEditorReason}`,
-    });
-    expect(deletedControls).toHaveLength(2);
-    for (const control of deletedControls) expect(control).toBeDisabled();
   });
 
   it('disables deleted-file editor controls even with a source worktree', () => {

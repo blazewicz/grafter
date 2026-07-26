@@ -11,10 +11,6 @@ import {
   scenario,
 } from './diff-viewer-test-harness';
 
-const detachedEditorReason =
-  'Check out the source branch in a worktree to open files in an editor';
-const deletedEditorReason = 'Deleted files cannot be opened in an editor';
-
 let intersectionObservers: IntersectionObserverHarness;
 
 describe('DiffViewer', () => {
@@ -29,7 +25,7 @@ describe('DiffViewer', () => {
     vi.unstubAllGlobals();
   });
 
-  it('presents a branch comparison with exact controls and plural totals', () => {
+  it('presents the compared branches and plural totals', () => {
     renderDiffViewer();
 
     expect(
@@ -37,38 +33,23 @@ describe('DiffViewer', () => {
         name: `Committed changes from ${scenario.branches.source} against ${scenario.branches.target}`,
       }),
     ).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Choose source branch' })).toHaveAttribute(
-      'aria-expanded',
-      'false',
-    );
     expect(
-      screen.getByRole('button', { name: 'Choose destination branch' }),
-    ).toHaveAttribute('aria-expanded', 'false');
-    expect(
-      screen.getByRole('button', {
-        name: 'Swap source and destination branches',
-      }),
+      within(screen.getByRole('button', { name: 'Choose source branch' })).getByText(
+        scenario.branches.source,
+        { selector: 'code' },
+      ),
     ).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Close diff viewer' })).toBeVisible();
+    expect(
+      within(screen.getByRole('button', { name: 'Choose destination branch' })).getByText(
+        scenario.branches.target,
+        { selector: 'code' },
+      ),
+    ).toBeVisible();
 
     const totals = screen.getByLabelText('Diff totals');
     expect(totals).toHaveTextContent('7 files');
     expect(totals).toHaveTextContent('+17');
     expect(totals).toHaveTextContent('−11');
-
-    const file = scenario.files.modified;
-    expect(screen.getByRole('button', { name: `Copy ${file.path} path` })).toBeVisible();
-    expect(
-      screen.getByRole('button', { name: `Collapse ${file.path} diff` }),
-    ).toHaveAttribute('aria-expanded', 'true');
-    expect(
-      screen.getByRole('button', {
-        name: `Open ${file.path} in Visual Studio Code`,
-      }),
-    ).toBeEnabled();
-    expect(
-      screen.getByRole('button', { name: `Choose IDE for ${file.path}` }),
-    ).toHaveAttribute('aria-expanded', 'false');
   });
 
   it('uses singular file wording in the totals', () => {
@@ -139,32 +120,7 @@ describe('DiffViewer', () => {
     },
   );
 
-  it('retains branch controls and explains disabled editor actions for a detached session', () => {
-    renderDiffViewer(scenario.detachedBranchSession);
-
-    expect(screen.getByRole('button', { name: 'Choose source branch' })).toBeVisible();
-    expect(
-      screen.getByRole('button', { name: 'Choose destination branch' }),
-    ).toBeVisible();
-    expect(
-      screen.getByRole('button', {
-        name: 'Swap source and destination branches',
-      }),
-    ).toBeVisible();
-
-    for (const file of scenario.detachedBranchSession.files) {
-      const reason =
-        file.status === 'deleted' ? deletedEditorReason : detachedEditorReason;
-      const editorButtons = screen.getAllByRole('button', {
-        name: `${file.path}: ${reason}`,
-      });
-      expect(editorButtons).toHaveLength(2);
-      for (const button of editorButtons) expect(button).toBeDisabled();
-      expect(editorButtons[1]).toHaveAttribute('aria-expanded', 'false');
-    }
-  });
-
-  it('presents commit identity and omits branch and editor controls', () => {
+  it('presents commit identity and omits branch controls', () => {
     const commitSession = {
       ...scenario.commitSession,
       commit: {
@@ -182,22 +138,12 @@ describe('DiffViewer', () => {
     expect(screen.getByTitle(commitSession.commit.hash)).toHaveTextContent(
       commitSession.commit.hash.slice(0, 7),
     );
-    expect(screen.getByRole('button', { name: 'Copy full commit hash' })).toBeVisible();
     expect(screen.getByText(commitSession.commit.title)).toBeVisible();
     expect(screen.getByText(commitSession.commit.authorName)).toBeVisible();
     expect(screen.getByText('2026-07-21 at 12:30')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Show commit details' })).toHaveAttribute(
-      'aria-expanded',
-      'false',
-    );
     expect(screen.queryByRole('button', { name: 'Choose source branch' })).toBeNull();
     expect(
       screen.queryByRole('button', { name: 'Choose destination branch' }),
-    ).toBeNull();
-    expect(
-      screen.queryByRole('button', {
-        name: /Open .+ in Visual Studio Code|Choose IDE for/,
-      }),
     ).toBeNull();
   });
 
@@ -382,32 +328,5 @@ describe('DiffViewer', () => {
       block: 'start',
     });
     expect(target).toHaveAttribute('aria-current', 'true');
-  });
-
-  it('collapses and expands an individual file patch', async () => {
-    const user = userEvent.setup();
-    const file = scenario.files.modified;
-    renderDiffViewer();
-    const collapseButton = screen.getByRole('button', {
-      name: `Collapse ${file.path} diff`,
-    });
-    const fileSection = collapseButton.closest('section');
-    if (!fileSection) throw new Error(`Expected a file section for ${file.path}.`);
-
-    expect(collapseButton).toHaveAttribute('aria-expanded', 'true');
-    expect(within(fileSection).getByText('Patch will load when visible')).toBeVisible();
-
-    await user.click(collapseButton);
-    const expandButton = screen.getByRole('button', {
-      name: `Expand ${file.path} diff`,
-    });
-    expect(expandButton).toHaveAttribute('aria-expanded', 'false');
-    expect(within(fileSection).queryByText('Patch will load when visible')).toBeNull();
-
-    await user.click(expandButton);
-    expect(
-      screen.getByRole('button', { name: `Collapse ${file.path} diff` }),
-    ).toHaveAttribute('aria-expanded', 'true');
-    expect(within(fileSection).getByText('Patch will load when visible')).toBeVisible();
   });
 });
