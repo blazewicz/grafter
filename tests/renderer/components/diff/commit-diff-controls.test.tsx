@@ -61,6 +61,28 @@ describe('CommitDiffControls', () => {
     expect(screen.getByRole('button', { name: 'Copy full commit hash' })).toBeVisible();
   });
 
+  it('clears pending copy feedback when unmounted', async () => {
+    vi.useFakeTimers();
+    vi.spyOn(api, 'copyText').mockResolvedValue(undefined);
+    const { unmount } = render(
+      <CommitDiffControls
+        session={scenario.commitSession}
+        settings={settings}
+        systemLocale="en-US"
+        onError={() => undefined}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Copy full commit hash' }));
+    await act(async () => Promise.resolve());
+
+    expect(screen.getByRole('button', { name: 'Commit hash copied' })).toBeVisible();
+    expect(vi.getTimerCount()).toBe(1);
+
+    unmount();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   it('reports a friendly hash-copy failure', async () => {
     const user = userEvent.setup();
     const copyText = vi

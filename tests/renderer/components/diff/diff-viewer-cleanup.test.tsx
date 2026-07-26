@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { act, cleanup, fireEvent, screen } from '@testing-library/react';
+import { act, cleanup, screen } from '@testing-library/react';
 import type { RenderResult } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '../../../../src/renderer/grafter-api';
@@ -91,49 +91,5 @@ describe('DiffViewer selection cleanup', () => {
     row.dataset.selected = 'true';
     dispatchSelectionChange();
     expect(row).toHaveAttribute('data-selected', 'true');
-  });
-});
-
-describe('DiffViewer scheduled-work cleanup', () => {
-  beforeEach(() => {
-    resizeObservers = new ControlledResizeObservers();
-    intersectionObservers = installDiffViewerObservers(resizeObservers);
-  });
-
-  afterEach(() => {
-    cleanup();
-    intersectionObservers.reset();
-    resizeObservers.reset();
-    vi.restoreAllMocks();
-    vi.unstubAllGlobals();
-    vi.useRealTimers();
-  });
-
-  it('cancels both pending copy-feedback timers on unmount', async () => {
-    vi.useFakeTimers();
-    vi.spyOn(api, 'copyText').mockResolvedValue(undefined);
-    const file = scenario.files.renamed;
-    const session = {
-      ...scenario.commitSession,
-      files: [file],
-      stats: {
-        files: 1,
-        additions: file.additions ?? 0,
-        deletions: file.deletions ?? 0,
-      },
-    };
-    const { unmount } = renderDiffViewer(session);
-
-    fireEvent.click(screen.getByRole('button', { name: `Copy ${file.path} path` }));
-    fireEvent.click(screen.getByRole('button', { name: 'Copy full commit hash' }));
-    await act(async () => Promise.resolve());
-
-    expect(screen.getByRole('button', { name: 'File path copied' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Commit hash copied' })).toBeVisible();
-    expect(vi.getTimerCount()).toBe(2);
-
-    unmount();
-
-    expect(vi.getTimerCount()).toBe(0);
   });
 });

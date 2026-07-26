@@ -1,10 +1,9 @@
 // @vitest-environment happy-dom
 
-import { act, cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '../../../../src/renderer/grafter-api';
-import { deferred } from '../../../support/deferred';
 import {
   installDiffViewerObservers,
   type IntersectionObserverHarness,
@@ -138,97 +137,6 @@ describe('DiffViewer commands', () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
-  it('copies a file path, resets feedback after 1600ms, and restarts the timer', async () => {
-    const user = userEvent.setup();
-    const firstCopy = deferred<void>();
-    const secondCopy = deferred<void>();
-    const copyText = vi
-      .spyOn(api, 'copyText')
-      .mockReturnValueOnce(firstCopy.promise)
-      .mockReturnValueOnce(secondCopy.promise);
-    const file = scenario.files.modified;
-    renderDiffViewer();
-
-    await user.click(screen.getByRole('button', { name: `Copy ${file.path} path` }));
-
-    expect(copyText).toHaveBeenCalledOnce();
-    expect(copyText).toHaveBeenCalledWith(file.path);
-    vi.useFakeTimers();
-    await act(async () => {
-      firstCopy.resolve(undefined);
-      await firstCopy.promise;
-    });
-    expect(screen.getByRole('button', { name: 'File path copied' })).toBeVisible();
-
-    act(() => {
-      vi.advanceTimersByTime(1599);
-    });
-    expect(screen.getByRole('button', { name: 'File path copied' })).toBeVisible();
-
-    fireEvent.click(screen.getByRole('button', { name: 'File path copied' }));
-    expect(copyText).toHaveBeenCalledTimes(2);
-    expect(copyText).toHaveBeenNthCalledWith(2, file.path);
-    await act(async () => {
-      secondCopy.resolve(undefined);
-      await secondCopy.promise;
-    });
-
-    act(() => {
-      vi.advanceTimersByTime(1);
-    });
-    expect(screen.getByRole('button', { name: 'File path copied' })).toBeVisible();
-
-    act(() => {
-      vi.advanceTimersByTime(1599);
-    });
-    expect(screen.getByRole('button', { name: `Copy ${file.path} path` })).toBeVisible();
-  });
-
-  it('reports a friendly file-copy failure', async () => {
-    const user = userEvent.setup();
-    const file = scenario.files.modified;
-    const copyText = vi
-      .spyOn(api, 'copyText')
-      .mockRejectedValue(
-        new Error("Error invoking remote method 'grafter:copy-text': Error: failed"),
-      );
-    const onError = vi.fn();
-    renderDiffViewer(scenario.branchSession, {
-      onSessionChange: () => undefined,
-      onClose: () => undefined,
-      onError,
-    });
-
-    await user.click(screen.getByRole('button', { name: `Copy ${file.path} path` }));
-
-    await waitFor(() => expect(onError).toHaveBeenCalledOnce());
-    expect(onError).toHaveBeenCalledWith('failed');
-    expect(copyText).toHaveBeenCalledOnce();
-    expect(copyText).toHaveBeenCalledWith(file.path);
-  });
-
-  it('opens a file directly in the selected editor', async () => {
-    const user = userEvent.setup();
-    const file = scenario.files.modified;
-    const openDiffFileInEditor = vi
-      .spyOn(api, 'openDiffFileInEditor')
-      .mockResolvedValue(undefined);
-    renderDiffViewer();
-
-    await user.click(
-      screen.getByRole('button', {
-        name: `Open ${file.path} in Visual Studio Code`,
-      }),
-    );
-
-    expect(openDiffFileInEditor).toHaveBeenCalledOnce();
-    expect(openDiffFileInEditor).toHaveBeenCalledWith({
-      sessionId: scenario.branchSession.id,
-      fileId: file.id,
-      editor: 'vscode',
-    });
-  });
-
   it('closes the editor picker with Escape without closing the viewer', async () => {
     const user = userEvent.setup();
     const file = scenario.files.modified;
@@ -250,48 +158,5 @@ describe('DiffViewer commands', () => {
     expect(screen.queryByRole('menu')).toBeNull();
     expect(pickerButton).toHaveAttribute('aria-expanded', 'false');
     expect(onClose).not.toHaveBeenCalled();
-  });
-
-  it('omits editor controls for commit sessions', () => {
-    renderDiffViewer(scenario.commitSession);
-
-    expect(
-      screen.queryByRole('button', {
-        name: /Open .+ in Visual Studio Code|Choose IDE for/,
-      }),
-    ).toBeNull();
-  });
-
-  it('reports a rejected editor action', async () => {
-    const user = userEvent.setup();
-    const file = scenario.files.modified;
-    const openDiffFileInEditor = vi
-      .spyOn(api, 'openDiffFileInEditor')
-      .mockRejectedValue(
-        new Error(
-          "Error invoking remote method 'grafter:open-diff-file': Error: editor failed",
-        ),
-      );
-    const onError = vi.fn();
-    renderDiffViewer(scenario.branchSession, {
-      onSessionChange: () => undefined,
-      onClose: () => undefined,
-      onError,
-    });
-
-    await user.click(
-      screen.getByRole('button', {
-        name: `Open ${file.path} in Visual Studio Code`,
-      }),
-    );
-
-    await waitFor(() => expect(onError).toHaveBeenCalledOnce());
-    expect(onError).toHaveBeenCalledWith('editor failed');
-    expect(openDiffFileInEditor).toHaveBeenCalledOnce();
-    expect(openDiffFileInEditor).toHaveBeenCalledWith({
-      sessionId: scenario.branchSession.id,
-      fileId: file.id,
-      editor: 'vscode',
-    });
   });
 });
