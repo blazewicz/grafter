@@ -1,71 +1,146 @@
-import { describe, expect, it } from 'vitest';
+// @vitest-environment happy-dom
+
+import { act, cleanup, renderHook } from '@testing-library/react';
+import { afterEach, describe, expect, it } from 'vitest';
 import {
   initialNavigationHistory,
   navigationHistoryReducer,
   reconcileNavigationHistory,
+  useNavigationHistory,
 } from '../../../../src/renderer/components/shell/useNavigationHistory';
+import { projectConfigFactory } from '../../../factories';
+
+const targets = {
+  first: projectConfigFactory.build().id,
+  second: projectConfigFactory.build().id,
+  third: projectConfigFactory.build().id,
+  fourth: projectConfigFactory.build().id,
+};
 
 describe('navigation history', () => {
-  it('navigates backward and forward without duplicating entries', () => {
-    const first = navigationHistoryReducer(initialNavigationHistory, {
-      type: 'navigate',
-      id: 'project',
-    });
-    const second = navigationHistoryReducer(first, {
-      type: 'navigate',
-      id: 'worktree',
+  afterEach(() => {
+    cleanup();
+  });
+
+  it('navigates backward and forward without duplicating destinations', () => {
+    const { result } = renderHook(() => useNavigationHistory());
+
+    expect(result.current.selectedId).toBeUndefined();
+    expect(result.current.canGoBack).toBe(false);
+    expect(result.current.canGoForward).toBe(false);
+
+    act(() => {
+      result.current.navigate(targets.first);
+      result.current.navigate(targets.second);
+      result.current.navigate(targets.second);
     });
 
-    const back = navigationHistoryReducer(second, { type: 'back' });
-    expect(back).toEqual({ entries: ['project', 'worktree'], index: 0 });
-    expect(navigationHistoryReducer(back, { type: 'forward' })).toEqual(second);
-    expect(navigationHistoryReducer(second, { type: 'navigate', id: 'worktree' })).toBe(
-      second,
-    );
+    expect(result.current.selectedId).toBe(targets.second);
+    expect(result.current.canGoBack).toBe(true);
+    expect(result.current.canGoForward).toBe(false);
+
+    act(() => result.current.goBack());
+    expect(result.current.selectedId).toBe(targets.first);
+    expect(result.current.canGoBack).toBe(false);
+    expect(result.current.canGoForward).toBe(true);
+
+    act(() => result.current.goForward());
+    expect(result.current.selectedId).toBe(targets.second);
+    expect(result.current.canGoBack).toBe(true);
+    expect(result.current.canGoForward).toBe(false);
   });
 
   it('clears forward entries after navigating from an earlier entry', () => {
-    const state = {
-      entries: ['project-a', 'worktree-a', 'project-b'],
-      index: 1,
-    };
+    const { result } = renderHook(() => useNavigationHistory());
 
-    expect(
-      navigationHistoryReducer(state, { type: 'navigate', id: 'worktree-b' }),
-    ).toEqual({
-      entries: ['project-a', 'worktree-a', 'worktree-b'],
-      index: 2,
+    act(() => {
+      result.current.navigate(targets.first);
+      result.current.navigate(targets.second);
+      result.current.navigate(targets.third);
+      result.current.goBack();
+      result.current.navigate(targets.fourth);
     });
+
+    expect(result.current.selectedId).toBe(targets.fourth);
+    expect(result.current.canGoForward).toBe(false);
+
+    act(() => result.current.goBack());
+    expect(result.current.selectedId).toBe(targets.second);
   });
 
   it('initializes from a snapshot without treating refreshes as navigation', () => {
-    const initialized = reconcileNavigationHistory(
-      initialNavigationHistory,
-      ['project', 'worktree'],
-      'worktree',
-    );
+    const { result } = renderHook(() => useNavigationHistory());
 
-    expect(initialized).toEqual({ entries: ['worktree'], index: 0 });
-    expect(
-      reconcileNavigationHistory(initialized, ['project', 'worktree'], 'worktree'),
-    ).toBe(initialized);
+    act(() => {
+      result.current.reconcile([targets.first, targets.second], targets.second);
+    });
+
+    expect(result.current.selectedId).toBe(targets.second);
+    expect(result.current.canGoBack).toBe(false);
+    expect(result.current.canGoForward).toBe(false);
+
+    act(() => {
+      result.current.reconcile([targets.first, targets.second], targets.second);
+    });
+
+    expect(result.current.selectedId).toBe(targets.second);
+    expect(result.current.canGoBack).toBe(false);
+    expect(result.current.canGoForward).toBe(false);
   });
 
   it('prunes removed entries and selects the nearest remaining destination', () => {
+    const { result } = renderHook(() => useNavigationHistory());
+
+    act(() => {
+      result.current.navigate(targets.first);
+      result.current.navigate(targets.second);
+      result.current.navigate(targets.third);
+      result.current.navigate(targets.fourth);
+      result.current.goBack();
+      result.current.reconcile(
+        [targets.first, targets.second, targets.fourth],
+        targets.second,
+      );
+    });
+
+    expect(result.current.selectedId).toBe(targets.second);
+    expect(result.current.canGoBack).toBe(true);
+    expect(result.current.canGoForward).toBe(true);
+
+    act(() => result.current.goForward());
+    expect(result.current.selectedId).toBe(targets.fourth);
+  });
+});
+
+describe('navigation history helpers', () => {
+  it('preserves state identity when reconciliation makes no changes', () => {
+    const initialized = reconcileNavigationHistory(
+      initialNavigationHistory,
+      [targets.first, targets.second],
+      targets.second,
+    );
+
+    expect(initialized).toEqual({ entries: [targets.second], index: 0 });
+    expect(
+      reconcileNavigationHistory(
+        initialized,
+        [targets.first, targets.second],
+        targets.second,
+      ),
+    ).toBe(initialized);
+  });
+
+  it('does not change state when navigating to the current destination', () => {
     const state = {
-      entries: ['project-a', 'worktree-a', 'project-b', 'worktree-b'],
-      index: 2,
+      entries: [targets.first],
+      index: 0,
     };
 
     expect(
-      reconcileNavigationHistory(
-        state,
-        ['project-a', 'worktree-a', 'worktree-b'],
-        'worktree-a',
-      ),
-    ).toEqual({
-      entries: ['project-a', 'worktree-a', 'worktree-b'],
-      index: 1,
-    });
+      navigationHistoryReducer(state, {
+        type: 'navigate',
+        id: targets.first,
+      }),
+    ).toBe(state);
   });
 });
