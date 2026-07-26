@@ -1,11 +1,16 @@
 import { Factory } from 'fishery';
 import type { Project } from '../../src/shared/contracts';
 import { mainWorktreeFactory } from './worktree';
-import { projectConfigFactory } from './project-config';
+import {
+  projectConfigFactory,
+  type ProjectConfigTransientParams,
+} from './project-config';
 
-export const projectFactory = Factory.define<Project>(
-  ({ afterBuild, associations, params }) => {
-    const projectConfig = projectConfigFactory.build(params);
+export const projectFactory = Factory.define<Project, ProjectConfigTransientParams>(
+  ({ afterBuild, associations, params, transientParams }) => {
+    const projectConfig = projectConfigFactory.build(params, {
+      transient: transientParams,
+    });
 
     afterBuild((project) => {
       if (project.worktrees.some((worktree) => worktree.projectId !== project.id)) {

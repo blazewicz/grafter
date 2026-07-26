@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  approvalRequestFactory,
+  commandRecordFactory,
   mainWorktreeFactory,
   projectConfigFactory,
   projectFactory,
@@ -19,17 +21,69 @@ import {
 import { buildWorktreeOrderingScenario } from '../scenarios/details/worktree-ordering';
 
 describe('domain factories', () => {
+  it('builds semantic command presets and allows explicit overrides', () => {
+    const command = commandRecordFactory.build();
+    const awaitingApproval = commandRecordFactory.build(
+      {},
+      { transient: { preset: 'awaiting-approval' } },
+    );
+    const overriddenApproval = commandRecordFactory.build(
+      { status: 'failed' },
+      { transient: { preset: 'awaiting-approval' } },
+    );
+    const approvalCwd = '/Users/developer/Code/approval-target';
+    const approval = approvalRequestFactory.build(
+      {},
+      { transient: { commandOverrides: { cwd: approvalCwd } } },
+    );
+
+    expect(command).toMatchObject({
+      isReadOnly: true,
+      status: 'succeeded',
+      requiresApproval: false,
+    });
+    expect(awaitingApproval).toMatchObject({
+      isReadOnly: false,
+      status: 'awaiting-approval',
+      requiresApproval: true,
+    });
+    expect(overriddenApproval).toMatchObject({
+      isReadOnly: false,
+      status: 'failed',
+      requiresApproval: true,
+    });
+    expect(approval.command).toMatchObject({
+      cwd: approvalCwd,
+      isReadOnly: false,
+      status: 'awaiting-approval',
+      requiresApproval: true,
+    });
+  });
+
   it('builds project configs and hydrated projects at their distinct boundaries', () => {
     const projectConfig = projectConfigFactory.build();
     const project = projectFactory.build();
 
     expect(projectConfig).not.toHaveProperty('worktrees');
+    expect(projectConfig).not.toHaveProperty('setupScript');
+    expect(project).not.toHaveProperty('setupScript');
     expect(project.worktrees).toHaveLength(1);
     expect(project.worktrees[0]).toMatchObject({
       projectId: project.id,
       path: project.path,
       isMain: true,
     });
+  });
+
+  it('adds a generated setup script to project configs and projects when requested', () => {
+    const projectConfig = projectConfigFactory.build(
+      {},
+      { transient: { withSetupScript: true } },
+    );
+    const project = projectFactory.build({}, { transient: { withSetupScript: true } });
+
+    expect(projectConfig.setupScript).toMatch(/ install$/);
+    expect(project.setupScript).toMatch(/ install$/);
   });
 
   it('builds realistic neutral worktree defaults', () => {
