@@ -5,7 +5,7 @@ import { isCommandContext } from '../../shared/command-context';
 import type {
   AppSnapshot,
   ApprovalRequest,
-  BranchCommitPage,
+  CommitPage,
   CommandRecord,
   CreateWorktreeRequest,
   DiffFilePatch,
@@ -323,7 +323,7 @@ export class AppService {
     });
   }
 
-  async listBranchCommits(request: unknown): Promise<BranchCommitPage> {
+  async listBranchCommits(request: unknown): Promise<CommitPage> {
     if (!isListBranchCommitsRequest(request)) {
       throw new Error('Invalid branch commit request.');
     }

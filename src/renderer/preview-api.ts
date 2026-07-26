@@ -12,7 +12,7 @@ import { commandContextKey } from '../shared/command-context';
 const now = new Date().toISOString();
 const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString();
 const fourMinutesAgo = new Date(Date.now() - 4 * 60 * 1000).toISOString();
-const previewBranchCommits = [
+const previewCommits = [
   {
     hash: 'b91d6a818eb0d8c9c7a1e228b3716e95ac7434d2',
     title: 'Refine comparison controls',
@@ -835,12 +835,12 @@ export const previewApi: GrafterApi = {
     return Promise.resolve(structuredClone(comparison));
   },
   listBranchCommits: ({ offset, limit }) => {
-    const commits = previewBranchCommits.slice(offset, offset + limit);
+    const commits = previewCommits.slice(offset, offset + limit);
     return Promise.resolve(
       structuredClone({
         commits,
-        total: previewBranchCommits.length,
-        hasMore: offset + commits.length < previewBranchCommits.length,
+        total: previewCommits.length,
+        hasMore: offset + commits.length < previewCommits.length,
       }),
     );
   },
@@ -888,7 +888,7 @@ export const previewApi: GrafterApi = {
     );
   },
   openCommitDiff: ({ projectId, commitHash }) => {
-    const commit = previewBranchCommits.find((item) => item.hash === commitHash);
+    const commit = previewCommits.find((item) => item.hash === commitHash);
     if (!commit) {
       return Promise.reject(new Error('Commit not found.'));
     }

@@ -1,6 +1,6 @@
 import { FileDiff, GitCommitHorizontal, LoaderCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import type { BranchCommit, BranchCommitPage, Settings } from '../../../shared/contracts';
+import type { Commit, CommitPage, Settings } from '../../../shared/contracts';
 import { formatDate, formatTime } from '../../date-time';
 import { api, friendlyError } from '../../grafter-api';
 import { CopyButton } from '../ui/CopyButton';
@@ -9,13 +9,13 @@ import styles from './details.module.css';
 const initialCommitLimit = 5;
 const additionalCommitLimit = 25;
 
-export interface CommitHistoryState extends BranchCommitPage {
+export interface CommitHistoryState extends CommitPage {
   loadingMore: boolean;
 }
 
 export function appendCommitPage(
   current: CommitHistoryState,
-  page: BranchCommitPage,
+  page: CommitPage,
 ): CommitHistoryState {
   return {
     commits: [...current.commits, ...page.commits],
@@ -189,7 +189,7 @@ function CommitRow({
   onCopy,
   onViewChanges,
 }: {
-  commit: BranchCommit;
+  commit: Commit;
   settings: Pick<Settings, 'dateFormat' | 'timeFormat'>;
   systemLocale: string;
   copied: boolean;

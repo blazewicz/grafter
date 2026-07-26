@@ -1,62 +1,59 @@
-import type { BranchCommit, BranchCommitPage } from '../../../src/shared/contracts';
-import { branchCommitFactory, branchCommitPageFactory } from '../../factories';
+import type { Commit, CommitPage } from '../../../src/shared/contracts';
+import { commitFactory, commitPageFactory } from '../../factories';
 
 export interface CommitHistoryCardScenario {
-  newest: BranchCommit;
-  earlier: BranchCommit;
-  untitled: BranchCommit;
-  emptyPage: BranchCommitPage;
-  singlePage: BranchCommitPage;
-  completePage: BranchCommitPage;
-  pageWithMore: BranchCommitPage;
-  untitledPage: BranchCommitPage;
-  firstPage: BranchCommitPage;
-  nextPage: BranchCommitPage;
+  newest: Commit;
+  earlier: Commit;
+  untitled: Commit;
+  emptyPage: CommitPage;
+  singlePage: CommitPage;
+  completePage: CommitPage;
+  pageWithMore: CommitPage;
+  untitledPage: CommitPage;
+  firstPage: CommitPage;
+  nextPage: CommitPage;
 }
 
 export function buildCommitHistoryCardScenario(): CommitHistoryCardScenario {
-  const newest = branchCommitFactory.build();
-  const earlier = branchCommitFactory.build(
-    {},
-    { transient: { withAuthorEmail: false } },
-  );
-  const untitled = branchCommitFactory.build({ title: '' });
+  const newest = commitFactory.build();
+  const earlier = commitFactory.build({}, { transient: { withAuthorEmail: false } });
+  const untitled = commitFactory.build({ title: '' });
 
   return {
     newest,
     earlier,
     untitled,
-    emptyPage: branchCommitPageFactory.build({
+    emptyPage: commitPageFactory.build({
       commits: [],
       total: 0,
       hasMore: false,
     }),
-    singlePage: branchCommitPageFactory.build({
+    singlePage: commitPageFactory.build({
       commits: [newest],
       total: 1,
       hasMore: false,
     }),
-    completePage: branchCommitPageFactory.build({
+    completePage: commitPageFactory.build({
       commits: [newest, earlier],
       total: 2,
       hasMore: false,
     }),
-    pageWithMore: branchCommitPageFactory.build({
+    pageWithMore: commitPageFactory.build({
       commits: [newest, earlier],
       total: 3,
       hasMore: true,
     }),
-    untitledPage: branchCommitPageFactory.build({
+    untitledPage: commitPageFactory.build({
       commits: [untitled],
       total: 1,
       hasMore: false,
     }),
-    firstPage: branchCommitPageFactory.build({
+    firstPage: commitPageFactory.build({
       commits: [newest],
       total: 2,
       hasMore: true,
     }),
-    nextPage: branchCommitPageFactory.build({
+    nextPage: commitPageFactory.build({
       commits: [earlier],
       total: 2,
       hasMore: false,

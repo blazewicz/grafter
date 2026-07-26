@@ -174,26 +174,21 @@ export interface OpenDiffFileRequest extends DiffFileRequest {
   line?: number;
 }
 
-export interface CommitDetails {
+export interface Commit {
   hash: string;
   title: string;
-  body: string;
   authorName: string;
   authorEmail?: string;
   authoredAt: string;
+}
+
+export interface CommitDetails extends Commit {
+  body: string;
   stats: DiffStats;
 }
 
-export interface BranchCommit {
-  hash: string;
-  title: string;
-  authorName: string;
-  authorEmail?: string;
-  authoredAt: string;
-}
-
-export interface BranchCommitPage {
-  commits: BranchCommit[];
+export interface CommitPage {
+  commits: Commit[];
   total: number;
   hasMore: boolean;
 }
@@ -272,7 +267,7 @@ export interface GrafterApi {
   rejectCommand(approvalId: string): Promise<AppSnapshot>;
   getWorktreeDetails(worktreeId: string): Promise<WorktreeDetails>;
   setComparisonBase(request: SetComparisonBaseRequest): Promise<WorktreeComparison>;
-  listBranchCommits(request: ListBranchCommitsRequest): Promise<BranchCommitPage>;
+  listBranchCommits(request: ListBranchCommitsRequest): Promise<CommitPage>;
   openDiff(worktreeId: string): Promise<DiffSession>;
   openBranchDiff(request: OpenBranchDiffRequest): Promise<DiffSession>;
   openCommitDiff(request: OpenCommitDiffRequest): Promise<DiffSession>;

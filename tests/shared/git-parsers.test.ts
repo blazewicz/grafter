@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  parseBranchCommits,
+  parseCommits,
   parseCommitDetails,
   parseDiffFiles,
   parseNumStat,
@@ -91,10 +91,10 @@ describe('parseCommitDetails', () => {
   });
 });
 
-describe('parseBranchCommits', () => {
+describe('parseCommits', () => {
   it('parses newest-first compact commit metadata and skips malformed records', () => {
     expect(
-      parseBranchCommits(
+      parseCommits(
         'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\u001fNewest change\u001fAda Lovelace\u001fada@example.com\u001f2026-07-22T15:18:00+02:00\u0000\n' +
           'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\u001fEarlier change\u001fGrace Hopper\u001f\u001f2026-07-21T09:30:00Z\u0000\n' +
           'incomplete\u001frecord\u0000',
