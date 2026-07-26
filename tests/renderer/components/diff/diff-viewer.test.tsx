@@ -329,4 +329,31 @@ describe('DiffViewer', () => {
     });
     expect(target).toHaveAttribute('aria-current', 'true');
   });
+
+  it('collapses and expands an individual file patch', async () => {
+    const user = userEvent.setup();
+    const file = scenario.files.modified;
+    renderDiffViewer();
+    const collapseButton = screen.getByRole('button', {
+      name: `Collapse ${file.path} diff`,
+    });
+    const fileSection = collapseButton.closest('section');
+    if (!fileSection) throw new Error(`Expected a file section for ${file.path}.`);
+
+    expect(collapseButton).toHaveAttribute('aria-expanded', 'true');
+    expect(within(fileSection).getByText('Patch will load when visible')).toBeVisible();
+
+    await user.click(collapseButton);
+    const expandButton = screen.getByRole('button', {
+      name: `Expand ${file.path} diff`,
+    });
+    expect(expandButton).toHaveAttribute('aria-expanded', 'false');
+    expect(within(fileSection).queryByText('Patch will load when visible')).toBeNull();
+
+    await user.click(expandButton);
+    expect(
+      screen.getByRole('button', { name: `Collapse ${file.path} diff` }),
+    ).toHaveAttribute('aria-expanded', 'true');
+    expect(within(fileSection).getByText('Patch will load when visible')).toBeVisible();
+  });
 });
