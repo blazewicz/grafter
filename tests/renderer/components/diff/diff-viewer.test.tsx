@@ -6,13 +6,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DiffViewer } from '../../../../src/renderer/components/diff/DiffViewer';
 import { api } from '../../../../src/renderer/grafter-api';
 import type { DiffFileStatus, DiffSession } from '../../../../src/shared/contracts';
+import { settingsFactory } from '../../../factories';
 import { buildDiffViewerScenario } from '../../../scenarios/diff/diff-viewer';
 
 const scenario = buildDiffViewerScenario();
-const settings = {
-  dateFormat: 'year-month-day',
-  timeFormat: '24-hour',
-} as const;
+const settings = settingsFactory.build();
 const detachedEditorReason =
   'Check out the source branch in a worktree to open files in an editor';
 const deletedEditorReason = 'Deleted files cannot be opened in an editor';
