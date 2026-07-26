@@ -83,6 +83,15 @@ function diffPaneFor(file: DiffFileSummary): HTMLElement {
   return pane;
 }
 
+function expectSelectionToIntersect(row: HTMLElement): void {
+  const code = row.querySelector('code');
+  const selection = window.getSelection();
+  if (!code || !selection?.rangeCount) {
+    throw new Error('Expected a selected diff line.');
+  }
+  expect(selection.getRangeAt(0).intersectsNode(code)).toBe(true);
+}
+
 describe('DiffViewer integrated file context menu', () => {
   beforeEach(() => {
     intersectionObservers = installDiffViewerObservers();
@@ -558,12 +567,13 @@ describe('DiffViewer selected line ranges', () => {
     const file = scenario.files.renamed;
     await renderLoadedTextualDiff();
     const context = getDiffLineRow(file, scenario.lines.context);
+    const deletion = getDiffLineRow(file, scenario.lines.deletion);
     const addition = getDiffLineRow(file, scenario.lines.addition);
     const selectedText = selectDiffLineText(context, addition);
 
-    expect(selectedText).toContain(scenario.lines.context.text);
-    expect(selectedText).toContain(scenario.lines.deletion.text);
-    expect(selectedText).toContain(scenario.lines.addition.text);
+    expectSelectionToIntersect(context);
+    expectSelectionToIntersect(deletion);
+    expectSelectionToIntersect(addition);
     expect(addition).toBeVisible();
     fireEvent.contextMenu(addition);
     let menu = screen.getByRole('menu', { name: 'Diff line actions' });

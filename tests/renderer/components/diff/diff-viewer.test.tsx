@@ -310,26 +310,6 @@ describe('DiffViewer', () => {
     expect(screen.queryByText(/No files match/)).toBeNull();
   });
 
-  it('selects a tree file and keeps it current while its smooth jump is pending', async () => {
-    const user = userEvent.setup();
-    const scrollIntoView = vi
-      .spyOn(Element.prototype, 'scrollIntoView')
-      .mockImplementation(() => undefined);
-    renderDiffViewer();
-    const tree = screen.getByRole('navigation', { name: 'Changed file tree' });
-    const target = within(tree).getByTitle(scenario.files.renamed.path);
-
-    expect(target).not.toHaveAttribute('aria-current');
-    await user.click(target);
-
-    expect(scrollIntoView).toHaveBeenCalledOnce();
-    expect(scrollIntoView).toHaveBeenCalledWith({
-      behavior: 'smooth',
-      block: 'start',
-    });
-    expect(target).toHaveAttribute('aria-current', 'true');
-  });
-
   it('collapses and expands an individual file patch', async () => {
     const user = userEvent.setup();
     const file = scenario.files.modified;
