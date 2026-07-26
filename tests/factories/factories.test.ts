@@ -24,12 +24,25 @@ describe('domain factories', () => {
     const project = projectFactory.build();
 
     expect(projectConfig).not.toHaveProperty('worktrees');
+    expect(projectConfig).not.toHaveProperty('setupScript');
+    expect(project).not.toHaveProperty('setupScript');
     expect(project.worktrees).toHaveLength(1);
     expect(project.worktrees[0]).toMatchObject({
       projectId: project.id,
       path: project.path,
       isMain: true,
     });
+  });
+
+  it('adds a generated setup script to project configs and projects when requested', () => {
+    const projectConfig = projectConfigFactory.build(
+      {},
+      { transient: { withSetupScript: true } },
+    );
+    const project = projectFactory.build({}, { transient: { withSetupScript: true } });
+
+    expect(projectConfig.setupScript).toMatch(/ install$/);
+    expect(project.setupScript).toMatch(/ install$/);
   });
 
   it('builds realistic neutral worktree defaults', () => {

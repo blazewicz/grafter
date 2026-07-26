@@ -7,7 +7,7 @@ import { SettingsDialog } from '../../../../src/renderer/components/dialogs/Sett
 import type { AppSnapshot, Settings } from '../../../../src/shared/contracts';
 import { appSnapshotFactory, projectFactory, settingsFactory } from '../../../factories';
 
-const project = projectFactory.build({ setupScript: 'npm install' });
+const project = projectFactory.build({}, { transient: { withSetupScript: true } });
 const settings = settingsFactory.build();
 const snapshot = appSnapshotFactory.build(
   { settings },
