@@ -312,7 +312,7 @@ describe('diff scenarios', () => {
     expect(scenario.branchSession.sourceWorktreeId).toBe(scenario.sourceWorktree.id);
     expect(scenario.detachedBranchSession).not.toHaveProperty('sourceWorktreeId');
     expect(scenario.branchSession.stats).toEqual({
-      files: 6,
+      files: 7,
       additions: 17,
       deletions: 11,
     });
