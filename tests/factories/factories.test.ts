@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  approvalRequestFactory,
+  commandRecordFactory,
   mainWorktreeFactory,
   projectConfigFactory,
   projectFactory,
@@ -19,6 +21,22 @@ import {
 import { buildWorktreeOrderingScenario } from '../scenarios/details/worktree-ordering';
 
 describe('domain factories', () => {
+  it('builds neutral commands and approval requests at their distinct states', () => {
+    const command = commandRecordFactory.build();
+    const approval = approvalRequestFactory.build();
+
+    expect(command).toMatchObject({
+      isReadOnly: true,
+      status: 'succeeded',
+      requiresApproval: false,
+    });
+    expect(approval.command).toMatchObject({
+      isReadOnly: false,
+      status: 'awaiting-approval',
+      requiresApproval: true,
+    });
+  });
+
   it('builds project configs and hydrated projects at their distinct boundaries', () => {
     const projectConfig = projectConfigFactory.build();
     const project = projectFactory.build();
