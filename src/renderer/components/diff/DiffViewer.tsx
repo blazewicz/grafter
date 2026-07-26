@@ -1,11 +1,10 @@
-import { GitCommitHorizontal, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { MouseEvent as ReactMouseEvent } from 'react';
 import type {
   DiffFileSummary,
   DiffLine,
   DiffSession,
-  EditorTool,
   Settings,
 } from '../../../shared/contracts';
 import { githubFileUrl } from '../../../shared/github';
@@ -16,11 +15,11 @@ import {
   filterDiffFiles,
   flattenDiffTree,
 } from './diff-tree';
-import { DiffFile } from './DiffFile';
 import {
   DiffFileContextMenu,
   type DiffFileContextMenuState,
 } from './DiffFileContextMenu';
+import { DiffFilesPane } from './DiffFilesPane';
 import { DiffFileTree } from './DiffFileTree';
 import {
   type DiffLineSelection,
@@ -62,11 +61,8 @@ export function DiffViewer({
   const [expanded, setExpanded] = useState(
     () => new Set(diffDirectoryPaths(session.files)),
   );
-  const [collapsedFileIds, setCollapsedFileIds] = useState<Set<string>>(new Set());
-  const [copiedFileId, setCopiedFileId] = useState<string>();
   const [fileContextMenu, setFileContextMenu] = useState<DiffFileContextMenuState>();
   const [lineContextMenu, setLineContextMenu] = useState<DiffLineContextMenuState>();
-  const copyResetTimer = useRef<number | undefined>(undefined);
   const filteredFiles = useMemo(
     () => filterDiffFiles(session.files, query),
     [query, session.files],
@@ -91,15 +87,6 @@ export function DiffViewer({
     };
   }, []);
 
-  useEffect(
-    () => () => {
-      if (copyResetTimer.current !== undefined) {
-        window.clearTimeout(copyResetTimer.current);
-      }
-    },
-    [],
-  );
-
   useEffect(() => {
     const pane = diffPaneRef.current;
     const updateSelection = (): void => updateDiffLineSelection(pane);
@@ -119,40 +106,9 @@ export function DiffViewer({
     });
   };
 
-  const toggleFile = (fileId: string): void => {
-    setCollapsedFileIds((current) => {
-      const next = new Set(current);
-      if (next.has(fileId)) next.delete(fileId);
-      else next.add(fileId);
-      return next;
-    });
-  };
-
   const selectFile = (fileId: string): void => {
     setFileContextMenu(undefined);
     navigateToFile(fileId);
-  };
-
-  const copyPath = (file: DiffFileSummary): void => {
-    void api
-      .copyText(file.path)
-      .then(() => {
-        setCopiedFileId(file.id);
-        if (copyResetTimer.current !== undefined) {
-          window.clearTimeout(copyResetTimer.current);
-        }
-        copyResetTimer.current = window.setTimeout(
-          () => setCopiedFileId(undefined),
-          1600,
-        );
-      })
-      .catch((caught: unknown) => onError(friendlyError(caught)));
-  };
-
-  const openFileInEditor = (file: DiffFileSummary, editor: EditorTool): void => {
-    void api
-      .openDiffFileInEditor({ sessionId: session.id, fileId: file.id, editor })
-      .catch((caught: unknown) => onError(friendlyError(caught)));
   };
 
   const openFileContextMenu = (
@@ -339,58 +295,21 @@ export function DiffViewer({
             </nav>
           </aside>
 
-          <div
-            ref={diffPaneRef}
-            className={styles.diffPane}
-            data-context-menu-open={lineContextMenu ? 'true' : undefined}
+          <DiffFilesPane
+            session={session}
+            files={orderedFiles}
+            patches={patches}
+            loading={loading}
+            fileErrors={fileErrors}
+            filtering={filtering}
+            query={query}
+            contextLineId={lineContextMenu?.lineId}
+            scrollRoot={diffPaneRef}
+            onVisible={requestPatch}
             onScroll={closeLineContextMenu}
-          >
-            {orderedFiles.length ? (
-              orderedFiles.map((file) => (
-                <DiffFile
-                  key={file.id}
-                  file={file}
-                  patch={patches.get(file.id)}
-                  loading={loading.has(file.id)}
-                  error={fileErrors.get(file.id)}
-                  copied={copiedFileId === file.id}
-                  contextLineId={lineContextMenu?.lineId}
-                  expanded={!collapsedFileIds.has(file.id)}
-                  editorAvailable={
-                    session.kind === 'branch' && session.sourceWorktreeId !== undefined
-                  }
-                  showEditorControls={session.kind === 'branch'}
-                  scrollRoot={diffPaneRef}
-                  onVisible={requestPatch}
-                  onCopy={() => copyPath(file)}
-                  onOpenInEditor={(editor) => openFileInEditor(file, editor)}
-                  onToggle={() => toggleFile(file.id)}
-                  onLineContextMenu={(event, line, selection) =>
-                    openLineContextMenu(event, file, line, selection)
-                  }
-                />
-              ))
-            ) : (
-              <div className={styles.emptyDiff}>
-                {filtering ? (
-                  <>
-                    <Search size={20} />
-                    <strong>No files match “{query.trim()}”</strong>
-                    <span>Try another path or file name.</span>
-                  </>
-                ) : (
-                  <>
-                    <GitCommitHorizontal size={20} />
-                    <strong>
-                      {session.kind === 'commit'
-                        ? 'This commit has no file changes'
-                        : 'These branches have no committed changes'}
-                    </strong>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
+            onLineContextMenu={openLineContextMenu}
+            onError={onError}
+          />
         </div>
         {fileContextMenu && (
           <DiffFileContextMenu
