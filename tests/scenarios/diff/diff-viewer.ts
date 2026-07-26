@@ -56,9 +56,20 @@ export interface DiffViewerScenario {
       revision: string;
       githubUrl: string;
     };
+    renamedFile: {
+      path: string;
+      revision: string;
+      githubUrl: string;
+    };
     deletedFile: {
       path: string;
       revision: string;
+      githubUrl: string;
+    };
+    contextLine: {
+      path: string;
+      revision: string;
+      reference: string;
       githubUrl: string;
     };
     deletionLine: {
@@ -74,6 +85,10 @@ export interface DiffViewerScenario {
       githubUrl: string;
     };
     newSideSelection: {
+      reference: string;
+      githubUrl: string;
+    };
+    oldSideSelection: {
       reference: string;
       githubUrl: string;
     };
@@ -285,11 +300,24 @@ export function buildDiffViewerScenario(): DiffViewerScenario {
         githubUrl:
           'https://github.com/grafter-tests/git-workflow-app/blob/2222222222222222222222222222222222222222/src/renderer/components/NewDiffPanel.tsx',
       },
+      renamedFile: {
+        path: 'src/shared/diff-contracts.ts',
+        revision: '2222222222222222222222222222222222222222',
+        githubUrl:
+          'https://github.com/grafter-tests/git-workflow-app/blob/2222222222222222222222222222222222222222/src/shared/diff-contracts.ts',
+      },
       deletedFile: {
         path: 'src/renderer/legacy-diff.ts',
         revision: '1111111111111111111111111111111111111111',
         githubUrl:
           'https://github.com/grafter-tests/git-workflow-app/blob/1111111111111111111111111111111111111111/src/renderer/legacy-diff.ts',
+      },
+      contextLine: {
+        path: 'src/shared/diff-contracts.ts',
+        revision: '2222222222222222222222222222222222222222',
+        reference: 'src/shared/diff-contracts.ts:50',
+        githubUrl:
+          'https://github.com/grafter-tests/git-workflow-app/blob/2222222222222222222222222222222222222222/src/shared/diff-contracts.ts#L50',
       },
       deletionLine: {
         path: 'src/shared/diff-types.ts',
@@ -309,6 +337,11 @@ export function buildDiffViewerScenario(): DiffViewerScenario {
         reference: 'src/shared/diff-contracts.ts:50-51',
         githubUrl:
           'https://github.com/grafter-tests/git-workflow-app/blob/2222222222222222222222222222222222222222/src/shared/diff-contracts.ts#L50-L51',
+      },
+      oldSideSelection: {
+        reference: 'src/shared/diff-types.ts:40-41',
+        githubUrl:
+          'https://github.com/grafter-tests/git-workflow-app/blob/1111111111111111111111111111111111111111/src/shared/diff-types.ts#L40-L41',
       },
     },
   };
