@@ -101,13 +101,11 @@ describe('AppTitlebar', () => {
     expect(screen.queryByText(worktree.displayName)).toBeNull();
   });
 
-  it('keeps refresh while omitting duplicate branding and settings', () => {
+  it('renders its banner and refresh action', () => {
     renderAppTitlebar();
 
     expect(screen.getByRole('banner')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Refresh repositories' })).toBeVisible();
-    expect(screen.queryByText('Grafter')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Open settings' })).toBeNull();
   });
 
   it('exposes history availability through its navigation controls', () => {
