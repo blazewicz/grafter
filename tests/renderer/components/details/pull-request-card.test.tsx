@@ -6,14 +6,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PullRequestCard } from '../../../../src/renderer/components/details/PullRequestCard';
 import { api } from '../../../../src/renderer/grafter-api';
 import type { PullRequest, PullRequestState } from '../../../../src/shared/contracts';
+import { pullRequestFactory } from '../../../factories';
 
-const pullRequest: PullRequest = {
-  number: 18,
-  title: 'State-aware pull request',
-  url: 'https://github.com/example/repo/pull/18',
-  state: 'OPEN',
-  baseBranch: 'main',
-};
+const pullRequest = pullRequestFactory.build();
 
 function renderPullRequestCard(
   nextPullRequest: PullRequest = pullRequest,

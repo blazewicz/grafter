@@ -99,6 +99,11 @@ and navigation clearer, but do not reproduce the source tree mechanically. Keep 
 helpers near the layer they serve, and place tests that genuinely span multiple boundaries
 in a dedicated integration area.
 
+Use shared test data instead of local fixtures. Domain factories live in `tests/factories/`
+and use Fishery with `@faker-js/faker` defaults. Reusable multi-object and behavioral
+setups live in `tests/scenarios/`. Prefer reusing or extending them over creating parallel
+test data.
+
 Use `@testing-library/react` to test the renderer components. Use `@testing-library/user-event`
 for simulating user interactions. Use `@testing-library/jest-dom` for expressive DOM assertions.
 See `tests/renderer/components/details/path-card.test.tsx` as an example of a great test file.
