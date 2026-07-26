@@ -9,7 +9,7 @@ import {
 } from '../../../../src/renderer/components/details/CommitHistoryCard';
 import { formatDate, formatTime } from '../../../../src/renderer/date-time';
 import { api } from '../../../../src/renderer/grafter-api';
-import type { BranchCommitPage } from '../../../../src/shared/contracts';
+import type { CommitPage } from '../../../../src/shared/contracts';
 import { settingsFactory } from '../../../factories';
 import { buildBranchComparisonScenario } from '../../../scenarios/details/branch-comparison';
 import { buildCommitHistoryCardScenario } from '../../../scenarios/details/commit-history';
@@ -61,7 +61,7 @@ describe('CommitHistoryCard', () => {
   });
 
   it('loads the first page of commits', () => {
-    const firstPage = deferred<BranchCommitPage>();
+    const firstPage = deferred<CommitPage>();
     const listBranchCommits = vi
       .spyOn(api, 'listBranchCommits')
       .mockReturnValue(firstPage.promise);
@@ -237,7 +237,7 @@ describe('CommitHistoryCard', () => {
 
   it('loads and appends another page of commits', async () => {
     const user = userEvent.setup();
-    const nextPage = deferred<BranchCommitPage>();
+    const nextPage = deferred<CommitPage>();
     const listBranchCommits = vi
       .spyOn(api, 'listBranchCommits')
       .mockResolvedValueOnce(historyScenario.firstPage)

@@ -3,7 +3,10 @@ import {
   approvalRequestFactory,
   branchDiffSessionFactory,
   commandRecordFactory,
+  commitDetailsFactory,
   commitDiffSessionFactory,
+  commitFactory,
+  commitPageFactory,
   diffFilePatchFactory,
   diffFileSummaryFactory,
   mainWorktreeFactory,
@@ -101,6 +104,34 @@ describe('domain factories', () => {
     expect(worktree.pullRequest).toBeUndefined();
     expect(details.targetBranch).toBeUndefined();
     expect(details.diffStats).toBeUndefined();
+  });
+
+  it('builds commit details by extending the shared commit data', () => {
+    const commitFields = {
+      hash: '1234567890abcdef1234567890abcdef12345678',
+      title: 'Share commit metadata',
+      authorName: 'Ada Lovelace',
+      authoredAt: '2026-07-21T12:30:00.000Z',
+    };
+    const commit = commitFactory.build(commitFields, {
+      transient: { withAuthorEmail: false },
+    });
+    const details = commitDetailsFactory.build(
+      {
+        ...commitFields,
+        body: 'Keep the detailed representation additive.',
+        stats: { files: 2, additions: 8, deletions: 3 },
+      },
+      { transient: { withAuthorEmail: false } },
+    );
+    const page = commitPageFactory.build({ commits: [commit] });
+
+    expect(details).toEqual({
+      ...commit,
+      body: 'Keep the detailed representation additive.',
+      stats: { files: 2, additions: 8, deletions: 3 },
+    });
+    expect(page).toEqual({ commits: [commit], total: 1, hasMore: false });
   });
 
   it('builds diff files and valid patches through focused composition', () => {
@@ -255,6 +286,9 @@ describe('domain factories', () => {
     const firstDiffFile = diffFileSummaryFactory.build();
     const firstDiffPatch = diffFilePatchFactory.build();
     const firstBranchSession = branchDiffSessionFactory.build();
+    const firstCommit = commitFactory.build();
+    const firstCommitPage = commitPageFactory.build();
+    const firstCommitDetails = commitDetailsFactory.build();
     const firstCommitSession = commitDiffSessionFactory.build();
 
     resetTestDataFactories();
@@ -264,6 +298,9 @@ describe('domain factories', () => {
     expect(diffFileSummaryFactory.build()).toEqual(firstDiffFile);
     expect(diffFilePatchFactory.build()).toEqual(firstDiffPatch);
     expect(branchDiffSessionFactory.build()).toEqual(firstBranchSession);
+    expect(commitFactory.build()).toEqual(firstCommit);
+    expect(commitPageFactory.build()).toEqual(firstCommitPage);
+    expect(commitDetailsFactory.build()).toEqual(firstCommitDetails);
     expect(commitDiffSessionFactory.build()).toEqual(firstCommitSession);
   });
 });

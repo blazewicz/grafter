@@ -1,11 +1,11 @@
 export { approvalRequestFactory } from './approval-request';
 export { appSnapshotFactory } from './app-snapshot';
 export { branchDiffSessionFactory } from './branch-diff-session';
-export { branchCommitFactory } from './branch-commit';
-export { branchCommitPageFactory } from './branch-commit-page';
 export { commandRecordFactory } from './command-record';
 export { commitDetailsFactory } from './commit-details';
 export { commitDiffSessionFactory } from './commit-diff-session';
+export { commitPageFactory } from './commit-page';
+export { commitFactory } from './commit';
 export { diffFilePatchFactory } from './diff-file-patch';
 export { diffFileSummaryFactory } from './diff-file-summary';
 export { diffStatsFactory } from './diff-stats';
@@ -20,11 +20,11 @@ export { worktreeDetailsFactory } from './worktree-details';
 import { approvalRequestFactory } from './approval-request';
 import { appSnapshotFactory } from './app-snapshot';
 import { branchDiffSessionFactory } from './branch-diff-session';
-import { branchCommitFactory } from './branch-commit';
-import { branchCommitPageFactory } from './branch-commit-page';
 import { commandRecordFactory } from './command-record';
 import { commitDetailsFactory } from './commit-details';
 import { commitDiffSessionFactory } from './commit-diff-session';
+import { commitPageFactory } from './commit-page';
+import { commitFactory } from './commit';
 import { diffFilePatchFactory } from './diff-file-patch';
 import { diffFileSummaryFactory } from './diff-file-summary';
 import { diffStatsFactory } from './diff-stats';
@@ -41,11 +41,11 @@ const factories = [
   approvalRequestFactory,
   appSnapshotFactory,
   branchDiffSessionFactory,
-  branchCommitFactory,
-  branchCommitPageFactory,
   commandRecordFactory,
   commitDetailsFactory,
   commitDiffSessionFactory,
+  commitPageFactory,
+  commitFactory,
   diffFilePatchFactory,
   diffFileSummaryFactory,
   diffStatsFactory,

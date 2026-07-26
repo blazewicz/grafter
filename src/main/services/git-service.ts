@@ -7,7 +7,7 @@ import {
   worktreeCommandContext,
 } from '../../shared/command-context';
 import type {
-  BranchCommitPage,
+  CommitPage,
   CommandContext,
   DiffFilePatch,
   DiffFileRequest,
@@ -21,7 +21,7 @@ import type {
   WorktreeStatus,
 } from '../../shared/contracts';
 import {
-  parseBranchCommits,
+  parseCommits,
   parseCommitDetails,
   parseDiffFiles,
   parseNumStat,
@@ -236,7 +236,7 @@ export class GitService {
     targetBranch: string,
     offset: number,
     limit: number,
-  ): Promise<BranchCommitPage> {
+  ): Promise<CommitPage> {
     const context = worktreeCommandContext(worktree);
     const targetRef = await this.#comparisonBranchRef(
       worktree.path,
@@ -274,7 +274,7 @@ export class GitService {
     if (!Number.isSafeInteger(total) || total < 0) {
       throw new Error(`Could not count commits ahead of ${targetBranch}.`);
     }
-    const commits = parseBranchCommits(logResult.stdout);
+    const commits = parseCommits(logResult.stdout);
     return {
       commits,
       total,
