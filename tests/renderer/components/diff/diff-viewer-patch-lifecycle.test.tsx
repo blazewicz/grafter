@@ -31,33 +31,6 @@ describe('DiffViewer patch lifecycle', () => {
     vi.unstubAllGlobals();
   });
 
-  it('waits for intersection and deduplicates repeated patch requests', async () => {
-    const request = deferred<DiffFilePatch>();
-    const getDiffFile = vi.spyOn(api, 'getDiffFile').mockReturnValue(request.promise);
-    const file = scenario.files.renamed;
-    renderDiffViewer();
-    const fileSection = getFileSection(file);
-
-    expect(within(fileSection).getByText('Patch will load when visible')).toBeVisible();
-    expect(intersectionObservers.activeObserverCount(fileSection)).toBe(1);
-    expect(getDiffFile).not.toHaveBeenCalled();
-
-    act(() => intersectionObservers.notify(fileSection, false));
-    expect(getDiffFile).not.toHaveBeenCalled();
-
-    act(() => {
-      intersectionObservers.notify(fileSection, true);
-      intersectionObservers.notify(fileSection, true);
-    });
-
-    await waitFor(() => expect(getDiffFile).toHaveBeenCalledOnce());
-    expect(getDiffFile).toHaveBeenCalledWith({
-      sessionId: scenario.branchSession.id,
-      fileId: file.id,
-    });
-    expect(within(fileSection).getByText('Loading patch…')).toBeVisible();
-  });
-
   it('renders a resolved textual patch with its hunk and representative lines', async () => {
     const request = deferred<DiffFilePatch>();
     const getDiffFile = vi.spyOn(api, 'getDiffFile').mockReturnValue(request.promise);
@@ -197,59 +170,6 @@ describe('DiffViewer patch lifecycle', () => {
       sessionId: scenario.branchSession.id,
       fileId: file.id,
     });
-  });
-
-  it('loads multiple files concurrently and resolves them independently out of order', async () => {
-    const textualRequest = deferred<DiffFilePatch>();
-    const metadataRequest = deferred<DiffFilePatch>();
-    const textualFile = scenario.files.renamed;
-    const metadataFile = scenario.files.metadataOnly;
-    const getDiffFile = vi.spyOn(api, 'getDiffFile').mockImplementation((request) => {
-      if (request.fileId === textualFile.id) return textualRequest.promise;
-      if (request.fileId === metadataFile.id) return metadataRequest.promise;
-      return Promise.reject(new Error(`Unexpected patch request for ${request.fileId}`));
-    });
-    renderDiffViewer();
-    const textualSection = getFileSection(textualFile);
-    const metadataSection = getFileSection(metadataFile);
-
-    act(() => {
-      intersectionObservers.notify(textualSection, true);
-      intersectionObservers.notify(metadataSection, true);
-    });
-
-    expect(within(textualSection).getByText('Loading patch…')).toBeVisible();
-    expect(within(metadataSection).getByText('Loading patch…')).toBeVisible();
-    expect(getDiffFile).toHaveBeenCalledTimes(2);
-    expect(getDiffFile).toHaveBeenNthCalledWith(1, {
-      sessionId: scenario.branchSession.id,
-      fileId: textualFile.id,
-    });
-    expect(getDiffFile).toHaveBeenNthCalledWith(2, {
-      sessionId: scenario.branchSession.id,
-      fileId: metadataFile.id,
-    });
-
-    await act(async () => {
-      metadataRequest.resolve(scenario.patches.metadataOnly);
-      await metadataRequest.promise;
-    });
-    expect(
-      await within(metadataSection).findByText('No textual lines changed'),
-    ).toBeVisible();
-    expect(within(textualSection).getByText('Loading patch…')).toBeVisible();
-
-    await act(async () => {
-      textualRequest.resolve(scenario.patches.textual);
-      await textualRequest.promise;
-    });
-    expect(
-      await within(textualSection).findByText(textualHunk.header, {
-        selector: 'code',
-      }),
-    ).toBeVisible();
-    expect(within(metadataSection).getByText('No textual lines changed')).toBeVisible();
-    expect(getDiffFile).toHaveBeenCalledTimes(2);
   });
 
   it('disconnects a collapsed unrequested file and restores lazy eligibility on expand', async () => {

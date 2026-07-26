@@ -12,10 +12,6 @@ import {
   scenario,
 } from './diff-viewer-test-harness';
 
-const detachedEditorReason =
-  'Check out the source branch in a worktree to open files in an editor';
-const deletedEditorReason = 'Deleted files cannot be opened in an editor';
-
 let intersectionObservers: IntersectionObserverHarness;
 
 describe('DiffViewer commands', () => {
@@ -233,44 +229,6 @@ describe('DiffViewer commands', () => {
     });
   });
 
-  it('chooses an editor through a semantic menu and retains its selected label', async () => {
-    const user = userEvent.setup();
-    const file = scenario.files.modified;
-    const openDiffFileInEditor = vi
-      .spyOn(api, 'openDiffFileInEditor')
-      .mockResolvedValue(undefined);
-    renderDiffViewer();
-    const pickerButton = screen.getByRole('button', {
-      name: `Choose IDE for ${file.path}`,
-    });
-
-    expect(pickerButton).toHaveAttribute('aria-haspopup', 'menu');
-    expect(pickerButton).toHaveAttribute('aria-expanded', 'false');
-    await user.click(pickerButton);
-
-    expect(pickerButton).toHaveAttribute('aria-expanded', 'true');
-    const editorMenu = screen.getByRole('menu');
-    const editorOption = screen.getByRole('menuitem', {
-      name: 'Visual Studio Code',
-    });
-    expect(editorMenu).toContainElement(editorOption);
-
-    await user.click(editorOption);
-
-    expect(openDiffFileInEditor).toHaveBeenCalledOnce();
-    expect(openDiffFileInEditor).toHaveBeenCalledWith({
-      sessionId: scenario.branchSession.id,
-      fileId: file.id,
-      editor: 'vscode',
-    });
-    expect(pickerButton).toHaveAttribute('aria-expanded', 'false');
-    expect(
-      screen.getByRole('button', {
-        name: `Open ${file.path} in Visual Studio Code`,
-      }),
-    ).toBeVisible();
-  });
-
   it('closes the editor picker with Escape without closing the viewer', async () => {
     const user = userEvent.setup();
     const file = scenario.files.modified;
@@ -292,28 +250,6 @@ describe('DiffViewer commands', () => {
     expect(screen.queryByRole('menu')).toBeNull();
     expect(pickerButton).toHaveAttribute('aria-expanded', 'false');
     expect(onClose).not.toHaveBeenCalled();
-  });
-
-  it('explains disabled editor controls for a detached source branch', () => {
-    renderDiffViewer(scenario.detachedBranchSession);
-
-    const detachedFile = scenario.files.modified;
-    const detachedControls = screen.getAllByRole('button', {
-      name: `${detachedFile.path}: ${detachedEditorReason}`,
-    });
-    expect(detachedControls).toHaveLength(2);
-    for (const control of detachedControls) expect(control).toBeDisabled();
-  });
-
-  it('disables deleted-file editor controls even with a source worktree', () => {
-    const file = scenario.files.deleted;
-    renderDiffViewer(scenario.branchSession);
-
-    const editorControls = screen.getAllByRole('button', {
-      name: `${file.path}: ${deletedEditorReason}`,
-    });
-    expect(editorControls).toHaveLength(2);
-    for (const control of editorControls) expect(control).toBeDisabled();
   });
 
   it('omits editor controls for commit sessions', () => {

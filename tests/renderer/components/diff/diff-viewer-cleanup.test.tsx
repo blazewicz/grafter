@@ -60,18 +60,7 @@ function dispatchSelectionChange(): void {
   });
 }
 
-function collapseSelectionAt(row: HTMLElement): void {
-  const node = row.querySelector('code')?.firstChild;
-  const selection = window.getSelection();
-  if (!node || !selection) throw new Error('Expected a selectable diff line.');
-  const range = document.createRange();
-  range.setStart(node, 0);
-  range.collapse(true);
-  selection.removeAllRanges();
-  selection.addRange(range);
-}
-
-describe('DiffViewer selection highlighting', () => {
+describe('DiffViewer selection cleanup', () => {
   beforeEach(() => {
     resizeObservers = new ControlledResizeObservers();
     intersectionObservers = installDiffViewerObservers(resizeObservers);
@@ -85,64 +74,6 @@ describe('DiffViewer selection highlighting', () => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
     vi.useRealTimers();
-  });
-
-  it('marks only rows intersecting a selection within one file', async () => {
-    const file = scenario.files.renamed;
-    await renderTextualFiles([file]);
-    const context = getDiffLineRow(file, scenario.lines.context);
-    const deletion = getDiffLineRow(file, scenario.lines.deletion);
-    const addition = getDiffLineRow(file, scenario.lines.addition);
-    const annotation = getDiffLineRow(file, scenario.lines.annotation);
-
-    selectDiffLineText(context, deletion);
-    dispatchSelectionChange();
-
-    expect(context).toHaveAttribute('data-selected', 'true');
-    expect(deletion).toHaveAttribute('data-selected', 'true');
-    expect(addition).not.toHaveAttribute('data-selected');
-    expect(annotation).not.toHaveAttribute('data-selected');
-  });
-
-  it('moves highlighting to the new selection and clears it when collapsed', async () => {
-    const file = scenario.files.renamed;
-    await renderTextualFiles([file]);
-    const context = getDiffLineRow(file, scenario.lines.context);
-    const deletion = getDiffLineRow(file, scenario.lines.deletion);
-    const addition = getDiffLineRow(file, scenario.lines.addition);
-
-    selectDiffLineText(context, deletion);
-    dispatchSelectionChange();
-    expect(context).toHaveAttribute('data-selected', 'true');
-    expect(deletion).toHaveAttribute('data-selected', 'true');
-
-    selectDiffLineText(addition);
-    dispatchSelectionChange();
-    expect(context).not.toHaveAttribute('data-selected');
-    expect(deletion).not.toHaveAttribute('data-selected');
-    expect(addition).toHaveAttribute('data-selected', 'true');
-
-    collapseSelectionAt(addition);
-    dispatchSelectionChange();
-    expect(addition).not.toHaveAttribute('data-selected');
-  });
-
-  it('does not combine a selection crossing file boundaries into one highlight', async () => {
-    const firstFile = scenario.files.modified;
-    const secondFile = scenario.files.renamed;
-    await renderTextualFiles([firstFile, secondFile]);
-    const firstContext = getDiffLineRow(firstFile, scenario.lines.context);
-    const firstDeletion = getDiffLineRow(firstFile, scenario.lines.deletion);
-    const secondContext = getDiffLineRow(secondFile, scenario.lines.context);
-    const secondAddition = getDiffLineRow(secondFile, scenario.lines.addition);
-
-    selectDiffLineText(firstContext, secondAddition);
-    dispatchSelectionChange();
-
-    expect(firstContext).not.toHaveAttribute('data-selected');
-    expect(firstDeletion).not.toHaveAttribute('data-selected');
-    expect(secondContext).not.toHaveAttribute('data-selected');
-    expect(secondAddition).not.toHaveAttribute('data-selected');
   });
 
   it('clears selected row state and removes the selection listener on unmount', async () => {

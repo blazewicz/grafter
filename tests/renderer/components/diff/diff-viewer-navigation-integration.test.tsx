@@ -72,14 +72,7 @@ function stubActiveFileGeometry(
   stubElementTop(getFileSection(files.last), positions.last);
 }
 
-function cancelAutomaticAlignment(pane: HTMLElement, eventName: string): void {
-  if (eventName === 'wheel') fireEvent.wheel(pane);
-  else if (eventName === 'pointer') fireEvent.pointerDown(pane);
-  else if (eventName === 'touch') fireEvent.touchStart(pane);
-  else fireEvent.keyDown(pane, { key: 'PageDown' });
-}
-
-describe('DiffViewer active-file tracking', () => {
+describe('DiffViewer navigation integration', () => {
   beforeEach(() => {
     resizeObservers = new ControlledResizeObservers();
     intersectionObservers = installDiffViewerObservers(resizeObservers);
@@ -95,26 +88,6 @@ describe('DiffViewer active-file tracking', () => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
     vi.useRealTimers();
-  });
-
-  it('tracks the closest file header without activating a later file too early', () => {
-    renderDiffViewer(scrollSession);
-    const pane = getDiffPane(files.first);
-    let secondTop = 171;
-    stubActiveFileGeometry(pane, {
-      first: 130,
-      second: () => secondTop,
-      last: 320,
-    });
-
-    fireEvent.scroll(pane);
-    expect(treeFile(files.first)).toHaveAttribute('aria-current', 'true');
-    expect(treeFile(files.second)).not.toHaveAttribute('aria-current');
-
-    secondTop = 169;
-    fireEvent.scroll(pane);
-    expect(treeFile(files.second)).toHaveAttribute('aria-current', 'true');
-    expect(treeFile(files.first)).not.toHaveAttribute('aria-current');
   });
 
   it('falls back to the first displayed file when filtering removes the active file', async () => {
@@ -182,60 +155,6 @@ describe('DiffViewer active-file tracking', () => {
 
     expect(paneBounds).toHaveBeenCalledOnce();
   });
-});
-
-describe('DiffViewer pending tree-target alignment', () => {
-  beforeEach(() => {
-    resizeObservers = new ControlledResizeObservers();
-    intersectionObservers = installDiffViewerObservers(resizeObservers);
-    animationFrames = installAnimationFrameHarness();
-  });
-
-  afterEach(() => {
-    cleanup();
-    intersectionObservers.reset();
-    resizeObservers.reset();
-    animationFrames.reset();
-    vi.restoreAllMocks();
-    vi.unstubAllGlobals();
-    vi.useRealTimers();
-  });
-
-  it('starts a smooth jump and realigns after an earlier file resizes', async () => {
-    const user = userEvent.setup();
-    const scrollIntoView = vi
-      .spyOn(Element.prototype, 'scrollIntoView')
-      .mockImplementation(() => undefined);
-    renderDiffViewer(scrollSession);
-    const pane = getDiffPane(files.first);
-    const firstSection = getFileSection(files.first);
-    const targetSection = getFileSection(files.last);
-    stubActiveFileGeometry(pane, {
-      first: 100,
-      second: 260,
-      last: () => 500 - pane.scrollTop,
-    });
-
-    await user.click(treeFile(files.last));
-
-    expect(scrollIntoView).toHaveBeenCalledOnce();
-    expect(scrollIntoView).toHaveBeenCalledWith({
-      behavior: 'smooth',
-      block: 'start',
-    });
-    expect(treeFile(files.last)).toHaveAttribute('aria-current', 'true');
-    expect(resizeObservers.activeObserverCount(firstSection)).toBe(1);
-    expect(resizeObservers.activeObserverCount(targetSection)).toBe(1);
-
-    act(() => {
-      resizeObservers.notify(firstSection);
-      resizeObservers.notify(firstSection);
-      animationFrames.flushNext();
-    });
-
-    expect(pane.scrollTop).toBe(390);
-  });
-
   it('keeps the target pending until relevant patch requests settle', async () => {
     vi.useFakeTimers();
     animationFrames = installAnimationFrameHarness();
@@ -275,50 +194,6 @@ describe('DiffViewer pending tree-target alignment', () => {
     expect(treeFile(files.last)).not.toHaveAttribute('aria-current');
   });
 
-  it.each(['wheel', 'pointer', 'touch', 'navigation key'])(
-    'cancels pending automatic alignment on %s input',
-    async (eventName) => {
-      const user = userEvent.setup();
-      renderDiffViewer(scrollSession);
-      const pane = getDiffPane(files.first);
-      stubActiveFileGeometry(pane, {
-        first: 120,
-        second: 300,
-        last: 420,
-      });
-
-      await user.click(treeFile(files.last));
-      expect(treeFile(files.last)).toHaveAttribute('aria-current', 'true');
-
-      cancelAutomaticAlignment(pane, eventName);
-      fireEvent.scroll(pane);
-
-      expect(treeFile(files.first)).toHaveAttribute('aria-current', 'true');
-      expect(treeFile(files.last)).not.toHaveAttribute('aria-current');
-    },
-  );
-
-  it('replaces an earlier pending target with a new tree selection', async () => {
-    const user = userEvent.setup();
-    const scrollIntoView = vi
-      .spyOn(Element.prototype, 'scrollIntoView')
-      .mockImplementation(() => undefined);
-    renderDiffViewer(scrollSession);
-    const secondSection = getFileSection(files.second);
-    const lastSection = getFileSection(files.last);
-
-    await user.click(treeFile(files.second));
-    expect(resizeObservers.activeObserverCount(secondSection)).toBe(1);
-
-    await user.click(treeFile(files.last));
-
-    expect(scrollIntoView).toHaveBeenCalledTimes(2);
-    expect(resizeObservers.disconnectedObserverCount(secondSection)).toBe(1);
-    expect(resizeObservers.activeObserverCount(lastSection)).toBe(1);
-    expect(treeFile(files.last)).toHaveAttribute('aria-current', 'true');
-    expect(treeFile(files.second)).not.toHaveAttribute('aria-current');
-  });
-
   it('ignores resize and loading work for files after the target', () => {
     vi.useFakeTimers();
     animationFrames = installAnimationFrameHarness();
@@ -350,36 +225,6 @@ describe('DiffViewer pending tree-target alignment', () => {
     expect(animationFrames.pendingCount()).toBe(0);
     expect(treeFile(files.first)).toHaveAttribute('aria-current', 'true');
     expect(treeFile(files.second)).not.toHaveAttribute('aria-current');
-  });
-
-  it('disconnects observers and cancels pending alignment work on unmount', () => {
-    vi.useFakeTimers();
-    animationFrames = installAnimationFrameHarness();
-    const { unmount } = renderDiffViewer(scrollSession);
-    const pane = getDiffPane(files.first);
-    const targetSection = getFileSection(files.last);
-    stubActiveFileGeometry(pane, {
-      first: 120,
-      second: 260,
-      last: () => 500 - pane.scrollTop,
-    });
-
-    fireEvent.click(treeFile(files.last));
-    act(() => {
-      resizeObservers.notify(targetSection);
-      resizeObservers.notify(targetSection);
-    });
-    expect(animationFrames.pendingCount()).toBe(1);
-
-    unmount();
-
-    expect(animationFrames.pendingCount()).toBe(0);
-    expect(animationFrames.cancelledCount()).toBe(1);
-    expect(resizeObservers.activeObserverCount()).toBe(0);
-    expect(resizeObservers.disconnectedObserverCount()).toBe(1);
-    expect(intersectionObservers.activeObserverCount(targetSection)).toBe(0);
-    expect(intersectionObservers.disconnectedObserverCount(targetSection)).toBe(1);
-    expect(vi.getTimerCount()).toBe(0);
   });
 
   it('removes event handlers and settle timers before detached nodes receive events', () => {

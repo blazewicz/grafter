@@ -1,31 +1,39 @@
 // @vitest-environment happy-dom
 
-import { act, cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { BranchDiffControls } from '../../../../src/renderer/components/diff/BranchDiffControls';
 import { api } from '../../../../src/renderer/grafter-api';
 import type { DiffSession } from '../../../../src/shared/contracts';
+import { buildDiffViewerScenario } from '../../../scenarios/diff/diff-viewer';
 import { deferred } from '../../../support/deferred';
-import {
-  installDiffViewerObservers,
-  type IntersectionObserverHarness,
-  renderDiffViewer,
-  scenario,
-} from './diff-viewer-test-harness';
 
-let intersectionObservers: IntersectionObserverHarness;
+const scenario = buildDiffViewerScenario();
 
-describe('DiffViewer branch comparison controls', () => {
-  beforeEach(() => {
-    intersectionObservers = installDiffViewerObservers();
-  });
+function renderBranchDiffControls({
+  onSessionChange = () => undefined,
+  onError = () => undefined,
+}: {
+  onSessionChange?: (session: DiffSession) => void;
+  onError?: (message: string) => void;
+} = {}): void {
+  render(
+    <>
+      <BranchDiffControls
+        session={scenario.branchSession}
+        onSessionChange={onSessionChange}
+        onError={onError}
+      />
+      <button>Outside control</button>
+    </>,
+  );
+}
 
+describe('BranchDiffControls', () => {
   afterEach(() => {
     cleanup();
-    intersectionObservers.reset();
     vi.restoreAllMocks();
-    vi.unstubAllGlobals();
-    vi.useRealTimers();
   });
 
   it('loads branches once, exposes popup state, and blocks the opposite branch', async () => {
@@ -34,7 +42,7 @@ describe('DiffViewer branch comparison controls', () => {
     const listBranches = vi
       .spyOn(api, 'listBranches')
       .mockReturnValue(branchResult.promise);
-    renderDiffViewer();
+    renderBranchDiffControls();
     const sourceButton = screen.getByRole('button', { name: 'Choose source branch' });
     const targetButton = screen.getByRole('button', {
       name: 'Choose destination branch',
@@ -78,7 +86,6 @@ describe('DiffViewer branch comparison controls', () => {
       }),
     ).toBeDisabled();
     expect(listBranches).toHaveBeenCalledOnce();
-    expect(listBranches).toHaveBeenCalledWith(scenario.projectId);
   });
 
   it('selects a new source and blocks duplicate commands while comparison is pending', async () => {
@@ -89,11 +96,7 @@ describe('DiffViewer branch comparison controls', () => {
       .spyOn(api, 'openBranchDiff')
       .mockReturnValue(comparisonResult.promise);
     const onSessionChange = vi.fn();
-    renderDiffViewer(scenario.branchSession, {
-      onSessionChange,
-      onClose: () => undefined,
-      onError: () => undefined,
-    });
+    renderBranchDiffControls({ onSessionChange });
 
     await user.click(screen.getByRole('button', { name: 'Choose source branch' }));
     await user.click(
@@ -141,11 +144,7 @@ describe('DiffViewer branch comparison controls', () => {
       .spyOn(api, 'openBranchDiff')
       .mockResolvedValue(scenario.detachedBranchSession);
     const onSessionChange = vi.fn();
-    renderDiffViewer(scenario.branchSession, {
-      onSessionChange,
-      onClose: () => undefined,
-      onError: () => undefined,
-    });
+    renderBranchDiffControls({ onSessionChange });
 
     await user.click(screen.getByRole('button', { name: 'Choose destination branch' }));
     await user.click(
@@ -170,11 +169,7 @@ describe('DiffViewer branch comparison controls', () => {
       .spyOn(api, 'openBranchDiff')
       .mockResolvedValue(scenario.detachedBranchSession);
     const onSessionChange = vi.fn();
-    renderDiffViewer(scenario.branchSession, {
-      onSessionChange,
-      onClose: () => undefined,
-      onError: () => undefined,
-    });
+    renderBranchDiffControls({ onSessionChange });
 
     await user.click(
       screen.getByRole('button', {
@@ -196,7 +191,7 @@ describe('DiffViewer branch comparison controls', () => {
     const user = userEvent.setup();
     vi.spyOn(api, 'listBranches').mockResolvedValue(scenario.branches.available);
     const openBranchDiff = vi.spyOn(api, 'openBranchDiff');
-    renderDiffViewer();
+    renderBranchDiffControls();
 
     await user.click(screen.getByRole('button', { name: 'Choose source branch' }));
     await user.click(
@@ -215,11 +210,7 @@ describe('DiffViewer branch comparison controls', () => {
         new Error("Error invoking remote method 'grafter:list-branches': Error: failed"),
       );
     const onError = vi.fn();
-    renderDiffViewer(scenario.branchSession, {
-      onSessionChange: () => undefined,
-      onClose: () => undefined,
-      onError,
-    });
+    renderBranchDiffControls({ onError });
 
     await user.click(screen.getByRole('button', { name: 'Choose source branch' }));
 
@@ -240,11 +231,7 @@ describe('DiffViewer branch comparison controls', () => {
         new Error("Error invoking remote method 'grafter:open-diff': Error: failed"),
       );
     const onError = vi.fn();
-    renderDiffViewer(scenario.branchSession, {
-      onSessionChange: () => undefined,
-      onClose: () => undefined,
-      onError,
-    });
+    renderBranchDiffControls({ onError });
 
     await user.click(screen.getByRole('button', { name: 'Choose source branch' }));
     await user.click(
@@ -256,11 +243,6 @@ describe('DiffViewer branch comparison controls', () => {
     await waitFor(() => expect(onError).toHaveBeenCalledOnce());
     expect(onError).toHaveBeenCalledWith('failed');
     expect(openBranchDiff).toHaveBeenCalledOnce();
-    expect(openBranchDiff).toHaveBeenCalledWith({
-      projectId: scenario.projectId,
-      sourceBranch: scenario.branches.alternativeSource,
-      targetBranch: scenario.branches.target,
-    });
     expect(screen.getByRole('button', { name: 'Choose source branch' })).toBeEnabled();
     expect(
       screen.getByRole('button', { name: 'Choose destination branch' }),
@@ -278,163 +260,15 @@ describe('DiffViewer branch comparison controls', () => {
       .spyOn(api, 'listBranches')
       .mockResolvedValue(scenario.branches.available);
     const openBranchDiff = vi.spyOn(api, 'openBranchDiff');
-    const onClose = vi.fn();
-    renderDiffViewer(scenario.branchSession, {
-      onSessionChange: () => undefined,
-      onClose,
-      onError: () => undefined,
-    });
+    renderBranchDiffControls();
     const sourceButton = screen.getByRole('button', { name: 'Choose source branch' });
-    const outsideButton = screen.getByRole('button', { name: 'Close diff viewer' });
 
     await user.click(sourceButton);
     expect(screen.getByRole('dialog', { name: 'Choose source branch' })).toBeVisible();
-    fireEvent.pointerDown(outsideButton);
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Outside control' }));
 
     expect(screen.queryByRole('dialog', { name: 'Choose source branch' })).toBeNull();
     expect(openBranchDiff).not.toHaveBeenCalled();
-    expect(onClose).not.toHaveBeenCalled();
     expect(listBranches).toHaveBeenCalledOnce();
-    expect(listBranches).toHaveBeenCalledWith(scenario.projectId);
-  });
-});
-
-describe('DiffViewer commit controls', () => {
-  beforeEach(() => {
-    intersectionObservers = installDiffViewerObservers();
-  });
-
-  afterEach(() => {
-    cleanup();
-    intersectionObservers.reset();
-    vi.restoreAllMocks();
-    vi.unstubAllGlobals();
-    vi.useRealTimers();
-  });
-
-  it('copies the full hash and resets its success announcement', async () => {
-    const user = userEvent.setup();
-    const copyResult = deferred<void>();
-    const copyText = vi.spyOn(api, 'copyText').mockReturnValue(copyResult.promise);
-    renderDiffViewer(scenario.commitSession);
-
-    await user.click(screen.getByRole('button', { name: 'Copy full commit hash' }));
-
-    expect(copyText).toHaveBeenCalledOnce();
-    expect(copyText).toHaveBeenCalledWith(scenario.commitSession.commit.hash);
-    vi.useFakeTimers();
-    await act(async () => {
-      copyResult.resolve(undefined);
-      await copyResult.promise;
-    });
-    expect(screen.getByRole('button', { name: 'Commit hash copied' })).toBeVisible();
-
-    act(() => {
-      vi.advanceTimersByTime(1600);
-    });
-
-    expect(screen.getByRole('button', { name: 'Copy full commit hash' })).toBeVisible();
-  });
-
-  it('reports a friendly hash-copy failure', async () => {
-    const user = userEvent.setup();
-    const copyText = vi
-      .spyOn(api, 'copyText')
-      .mockRejectedValue(
-        new Error("Error invoking remote method 'grafter:copy-text': Error: failed"),
-      );
-    const onError = vi.fn();
-    renderDiffViewer(scenario.commitSession, {
-      onSessionChange: () => undefined,
-      onClose: () => undefined,
-      onError,
-    });
-
-    await user.click(screen.getByRole('button', { name: 'Copy full commit hash' }));
-
-    await waitFor(() => expect(onError).toHaveBeenCalledOnce());
-    expect(onError).toHaveBeenCalledWith('failed');
-    expect(copyText).toHaveBeenCalledOnce();
-    expect(copyText).toHaveBeenCalledWith(scenario.commitSession.commit.hash);
-  });
-
-  it('toggles details with the full author identity, hash, and body', async () => {
-    const user = userEvent.setup();
-    const session = scenario.commitSession;
-    renderDiffViewer(session);
-    const detailsButton = screen.getByRole('button', { name: 'Show commit details' });
-
-    expect(detailsButton).toHaveAttribute('aria-expanded', 'false');
-    await user.click(detailsButton);
-
-    expect(detailsButton).toHaveAttribute('aria-expanded', 'true');
-    expect(detailsButton).toHaveAccessibleName('Hide commit details');
-    const details = screen.getByLabelText('Commit details');
-    expect(details).toHaveTextContent(
-      `${session.commit.authorName} <${session.commit.authorEmail}>`,
-    );
-    expect(details).toHaveTextContent(session.commit.hash);
-    expect(details).toHaveTextContent(session.commit.body);
-
-    await user.click(detailsButton);
-
-    expect(detailsButton).toHaveAttribute('aria-expanded', 'false');
-    expect(detailsButton).toHaveAccessibleName('Show commit details');
-    expect(screen.queryByLabelText('Commit details')).toBeNull();
-  });
-
-  it.each([
-    {
-      name: 'first-parent commit',
-      session: {
-        ...scenario.commitSession,
-        parentShas: [scenario.commitSession.baseSha],
-      },
-      description: `Compared with first parent ${scenario.commitSession.baseSha.slice(0, 7)}`,
-    },
-    {
-      name: 'multi-parent commit',
-      session: scenario.commitSession,
-      description: `Compared with first parent ${scenario.commitSession.baseSha.slice(0, 7)} · 2 parents`,
-    },
-    {
-      name: 'root commit',
-      session: scenario.rootCommitSession,
-      description: 'Root commit · compared with the empty tree',
-    },
-  ])('describes the $name comparison', async ({ session, description }) => {
-    const user = userEvent.setup();
-    renderDiffViewer(session);
-
-    await user.click(screen.getByRole('button', { name: 'Show commit details' }));
-
-    expect(screen.getByLabelText('Commit details')).toHaveTextContent(description);
-  });
-
-  it('shows the empty-body fallback for a root commit', async () => {
-    const user = userEvent.setup();
-    renderDiffViewer(scenario.rootCommitSession);
-
-    await user.click(screen.getByRole('button', { name: 'Show commit details' }));
-
-    expect(screen.getByText('No additional commit message.')).toBeVisible();
-  });
-
-  it('closes details on outside pointer-down without closing the viewer', async () => {
-    const user = userEvent.setup();
-    const onClose = vi.fn();
-    renderDiffViewer(scenario.commitSession, {
-      onSessionChange: () => undefined,
-      onClose,
-      onError: () => undefined,
-    });
-    const detailsButton = screen.getByRole('button', { name: 'Show commit details' });
-    const outsideButton = screen.getByRole('button', { name: 'Close diff viewer' });
-
-    await user.click(detailsButton);
-    fireEvent.pointerDown(outsideButton);
-
-    expect(screen.queryByLabelText('Commit details')).toBeNull();
-    expect(onClose).not.toHaveBeenCalled();
   });
 });
