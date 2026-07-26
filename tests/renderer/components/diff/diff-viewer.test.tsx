@@ -1,84 +1,30 @@
 // @vitest-environment happy-dom
 
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { cleanup, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { DiffViewer } from '../../../../src/renderer/components/diff/DiffViewer';
-import { api } from '../../../../src/renderer/grafter-api';
 import type { DiffFileStatus, DiffSession } from '../../../../src/shared/contracts';
-import { settingsFactory } from '../../../factories';
-import { buildDiffViewerScenario } from '../../../scenarios/diff/diff-viewer';
+import {
+  installDiffViewerObservers,
+  type IntersectionObserverHarness,
+  renderDiffViewer,
+  scenario,
+} from './diff-viewer-test-harness';
 
-const scenario = buildDiffViewerScenario();
-const settings = settingsFactory.build();
 const detachedEditorReason =
   'Check out the source branch in a worktree to open files in an editor';
 const deletedEditorReason = 'Deleted files cannot be opened in an editor';
 
-class InertIntersectionObserver implements IntersectionObserver {
-  readonly root = null;
-  readonly rootMargin = '0px';
-  readonly scrollMargin = '0px';
-  readonly thresholds = [];
-
-  disconnect(): void {
-    return undefined;
-  }
-  observe(target: Element): void {
-    void target;
-  }
-  takeRecords(): IntersectionObserverEntry[] {
-    return [];
-  }
-  unobserve(target: Element): void {
-    void target;
-  }
-}
-
-class InertResizeObserver implements ResizeObserver {
-  disconnect(): void {
-    return undefined;
-  }
-  observe(target: Element): void {
-    void target;
-  }
-  unobserve(target: Element): void {
-    void target;
-  }
-}
-
-interface DiffViewerCallbacks {
-  onSessionChange: (session: DiffSession) => void;
-  onClose: () => void;
-  onError: (message: string) => void;
-}
-
-function renderDiffViewer(
-  session: DiffSession = scenario.branchSession,
-  callbacks: DiffViewerCallbacks = {
-    onSessionChange: () => undefined,
-    onClose: () => undefined,
-    onError: () => undefined,
-  },
-): void {
-  render(
-    <DiffViewer
-      session={session}
-      settings={settings}
-      systemLocale="en-US"
-      {...callbacks}
-    />,
-  );
-}
+let intersectionObservers: IntersectionObserverHarness;
 
 describe('DiffViewer', () => {
   beforeEach(() => {
-    vi.stubGlobal('IntersectionObserver', InertIntersectionObserver);
-    vi.stubGlobal('ResizeObserver', InertResizeObserver);
+    intersectionObservers = installDiffViewerObservers();
   });
 
   afterEach(() => {
     cleanup();
+    intersectionObservers.reset();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
@@ -463,13 +409,5 @@ describe('DiffViewer', () => {
       screen.getByRole('button', { name: `Collapse ${file.path} diff` }),
     ).toHaveAttribute('aria-expanded', 'true');
     expect(within(fileSection).getByText('Patch will load when visible')).toBeVisible();
-  });
-
-  it('keeps presentation observers inert without requesting patches', () => {
-    const getDiffFile = vi.spyOn(api, 'getDiffFile');
-
-    renderDiffViewer();
-
-    expect(getDiffFile).not.toHaveBeenCalled();
   });
 });
