@@ -52,8 +52,8 @@ export function Sidebar({
     <aside className={styles.sidebar} id="sidebar">
       <div className={styles.sidebarChrome} aria-hidden="true" />
       <div className={styles.sidebarBrand}>Grafter</div>
-      <SidebarHeading onChooseProject={onChooseProject} />
-      <SidebarTree
+      <ProjectTreeHeading onChooseProject={onChooseProject} />
+      <ProjectTree
         projects={projects}
         homeDirectory={homeDirectory}
         selectedId={selectedId}
@@ -75,7 +75,7 @@ export function Sidebar({
   );
 }
 
-function SidebarHeading({
+function ProjectTreeHeading({
   onChooseProject,
 }: {
   onChooseProject: () => void;
@@ -96,7 +96,7 @@ function SidebarHeading({
   );
 }
 
-function SidebarTree({
+function ProjectTree({
   projects,
   homeDirectory,
   selectedId,
