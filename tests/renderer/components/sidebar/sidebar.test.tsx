@@ -5,17 +5,17 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   defaultSidebarWidth,
-  ProjectSidebar,
-} from '../../../../src/renderer/components/sidebar/ProjectSidebar';
+  Sidebar,
+} from '../../../../src/renderer/components/sidebar/Sidebar';
 import { api } from '../../../../src/renderer/grafter-api';
 import type { GrafterApi, Project } from '../../../../src/shared/contracts';
 import { buildNewWorktreeScenario } from '../../../scenarios/sidebar/new-worktree';
-import { buildProjectSidebarScenario } from '../../../scenarios/sidebar/project-sidebar';
+import { buildSidebarScenario } from '../../../scenarios/sidebar/sidebar';
 
-const scenario = buildProjectSidebarScenario();
+const scenario = buildSidebarScenario();
 const newWorktreeScenario = buildNewWorktreeScenario();
 
-interface RenderProjectSidebarOptions {
+interface RenderSidebarOptions {
   projects?: Project[];
   width?: number;
   expanded?: ReadonlySet<string>;
@@ -32,9 +32,9 @@ interface RenderProjectSidebarOptions {
   onResize?: (width: number) => void;
 }
 
-function renderProjectSidebar(options: RenderProjectSidebarOptions = {}): void {
+function renderSidebar(options: RenderSidebarOptions = {}): void {
   render(
-    <ProjectSidebar
+    <Sidebar
       homeDirectory={scenario.homeDirectory}
       projects={options.projects ?? scenario.projects}
       width={options.width ?? defaultSidebarWidth}
@@ -54,7 +54,7 @@ function renderProjectSidebar(options: RenderProjectSidebarOptions = {}): void {
   );
 }
 
-describe('ProjectSidebar', () => {
+describe('Sidebar', () => {
   afterEach(() => {
     cleanup();
     vi.restoreAllMocks();
@@ -63,7 +63,7 @@ describe('ProjectSidebar', () => {
   it('composes multiple projects in order with independent expansion state', async () => {
     const user = userEvent.setup();
     const onToggleProject = vi.fn();
-    renderProjectSidebar({ onToggleProject });
+    renderSidebar({ onToggleProject });
 
     const firstProjectButton = screen.getByRole('button', {
       name: scenario.firstProject.name,
@@ -120,7 +120,7 @@ describe('ProjectSidebar', () => {
     const listBranches = vi.spyOn(api, 'listBranches').mockResolvedValue([]);
     const onExpandProject = vi.fn();
     const onRemoveProject = vi.fn();
-    renderProjectSidebar({ onExpandProject, onRemoveProject });
+    renderSidebar({ onExpandProject, onRemoveProject });
 
     await user.click(
       screen.getByRole('button', {
@@ -151,7 +151,7 @@ describe('ProjectSidebar', () => {
     const user = userEvent.setup();
     const onChooseProject = vi.fn();
     const onOpenSettings = vi.fn();
-    renderProjectSidebar({ onChooseProject, onOpenSettings });
+    renderSidebar({ onChooseProject, onOpenSettings });
 
     const addProject = screen.getByRole('button', { name: 'Add Git project' });
     const settings = screen.getByRole('button', { name: 'Settings' });
@@ -168,7 +168,7 @@ describe('ProjectSidebar', () => {
   it('opens the project chooser from the empty state', async () => {
     const user = userEvent.setup();
     const onChooseProject = vi.fn();
-    renderProjectSidebar({
+    renderSidebar({
       projects: [],
       expanded: new Set(),
       onChooseProject,
@@ -217,7 +217,7 @@ describe('ProjectSidebar', () => {
   ])('resizes $label with the keyboard', async ({ width, key, expectedWidth }) => {
     const user = userEvent.setup();
     const onResize = vi.fn();
-    renderProjectSidebar({ width, onResize });
+    renderSidebar({ width, onResize });
 
     const resizeHandle = screen.getByRole('separator', {
       name: 'Resize projects sidebar',
@@ -234,7 +234,7 @@ describe('ProjectSidebar', () => {
   it('resets the sidebar width with a double click', async () => {
     const user = userEvent.setup();
     const onResize = vi.fn();
-    renderProjectSidebar({ width: 360, onResize });
+    renderSidebar({ width: 360, onResize });
 
     await user.dblClick(
       screen.getByRole('separator', { name: 'Resize projects sidebar' }),
@@ -247,7 +247,7 @@ describe('ProjectSidebar', () => {
   it('resizes the sidebar by dragging its handle', async () => {
     const user = userEvent.setup();
     const onResize = vi.fn();
-    renderProjectSidebar({ onResize });
+    renderSidebar({ onResize });
 
     const resizeHandle = screen.getByRole('separator', {
       name: 'Resize projects sidebar',
@@ -286,7 +286,7 @@ describe('ProjectSidebar', () => {
       .spyOn(api, 'createWorktree')
       .mockResolvedValue(newWorktreeScenario.createdResult);
     const onCreated = vi.fn();
-    renderProjectSidebar({
+    renderSidebar({
       projects: [newWorktreeScenario.project],
       expanded: new Set([newWorktreeScenario.project.id]),
       onCreated,

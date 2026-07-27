@@ -18,7 +18,7 @@ import { ErrorToast } from './components/feedback/ErrorToast';
 import { AppTitlebar } from './components/shell/AppTitlebar';
 import { Splash } from './components/shell/Splash';
 import { useNavigationHistory } from './components/shell/useNavigationHistory';
-import { defaultSidebarWidth, ProjectSidebar } from './components/sidebar/ProjectSidebar';
+import { defaultSidebarWidth, Sidebar } from './components/sidebar/Sidebar';
 import { useProjectWorktreeRefresh } from './components/sidebar/useProjectWorktreeRefresh';
 import { api, friendlyError } from './grafter-api';
 import styles from './App.module.css';
@@ -247,7 +247,7 @@ export function App(): React.JSX.Element {
       />
 
       <div className={styles.workspace}>
-        <ProjectSidebar
+        <Sidebar
           homeDirectory={snapshot.homeDirectory}
           projects={snapshot.projects}
           width={sidebarWidth}

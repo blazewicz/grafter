@@ -11,7 +11,7 @@ const maximumSidebarWidth = 480;
 export const defaultSidebarWidth = 292;
 const keyboardResizeStep = 16;
 
-export function ProjectSidebar({
+export function Sidebar({
   homeDirectory,
   projects,
   width,
@@ -49,7 +49,7 @@ export function ProjectSidebar({
   onResize: (width: number) => void;
 }): React.JSX.Element {
   return (
-    <aside className={styles.sidebar} id="project-sidebar">
+    <aside className={styles.sidebar} id="sidebar">
       <div className={styles.sidebarChrome} aria-hidden="true" />
       <div className={styles.sidebarBrand}>Grafter</div>
       <SidebarHeading onChooseProject={onChooseProject} />
@@ -185,7 +185,7 @@ function SidebarResize({
       className={styles.sidebarResizeHandle}
       role="separator"
       aria-label="Resize projects sidebar"
-      aria-controls="project-sidebar"
+      aria-controls="sidebar"
       aria-orientation="vertical"
       aria-valuemin={minimumSidebarWidth}
       aria-valuemax={maximumSidebarWidth}
