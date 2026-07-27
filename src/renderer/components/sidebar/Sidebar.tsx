@@ -1,10 +1,8 @@
-import { FolderOpen, Plus, Settings } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { Settings } from 'lucide-react';
+import { useRef } from 'react';
 import type { GrafterApi, Project, Worktree } from '../../../shared/contracts';
-import controls from '../../styles/controls.module.css';
-import { EmptyTree } from './EmptyTree';
-import { ProjectNode } from './ProjectNode';
 import styles from './sidebar.module.css';
+import { ProjectTree } from './ProjectTree';
 
 const minimumSidebarWidth = 230;
 const maximumSidebarWidth = 480;
@@ -52,7 +50,6 @@ export function Sidebar({
     <aside className={styles.sidebar} id="sidebar">
       <div className={styles.sidebarChrome} aria-hidden="true" />
       <div className={styles.sidebarBrand}>Grafter</div>
-      <ProjectTreeHeading onChooseProject={onChooseProject} />
       <ProjectTree
         projects={projects}
         homeDirectory={homeDirectory}
@@ -70,97 +67,12 @@ export function Sidebar({
       <button className={styles.sidebarSettings} onClick={onOpenSettings}>
         <Settings size={15} /> Settings
       </button>
-      <SidebarResize width={width} onResize={onResize} />
+      <ResizeHandle width={width} onResize={onResize} />
     </aside>
   );
 }
 
-function ProjectTreeHeading({
-  onChooseProject,
-}: {
-  onChooseProject: () => void;
-}): React.JSX.Element {
-  return (
-    <div className={styles.sidebarHeading}>
-      <span>Projects</span>
-      <button
-        className={`${controls.iconButton} ${styles.headingAction}`}
-        aria-label="Add Git project"
-        title="Add Git project"
-        onClick={onChooseProject}
-      >
-        <FolderOpen size={16} />
-        <Plus className={styles.cornerPlus} size={9} />
-      </button>
-    </div>
-  );
-}
-
-function ProjectTree({
-  projects,
-  homeDirectory,
-  selectedId,
-  expanded,
-  onToggleProject,
-  onExpandProject,
-  onChooseProject,
-  onRemoveProject,
-  onRemoveWorktree,
-  onSelect,
-  onCreated,
-  onError,
-}: {
-  homeDirectory: string;
-  projects: Project[];
-  selectedId: string | undefined;
-  expanded: ReadonlySet<string>;
-  onToggleProject: (projectId: string) => void;
-  onExpandProject: (projectId: string) => void;
-  onChooseProject: () => void;
-  onSelect: (id: string) => void;
-  onCreated: (
-    projectId: string,
-    result: Awaited<ReturnType<GrafterApi['createWorktree']>>,
-    request: { path: string },
-  ) => void;
-  onRemoveProject: (projectId: string) => void;
-  onRemoveWorktree: (worktree: Worktree) => void;
-  onError: (message: string) => void;
-}): React.JSX.Element {
-  const [addingTo, setAddingTo] = useState<string>();
-
-  return (
-    <div className={styles.projectTree}>
-      {projects.map((project) => (
-        <ProjectNode
-          key={project.id}
-          homeDirectory={homeDirectory}
-          project={project}
-          expanded={expanded.has(project.id)}
-          selectedId={selectedId}
-          adding={addingTo === project.id}
-          onToggle={() => onToggleProject(project.id)}
-          onSelect={onSelect}
-          onAdd={() => {
-            setAddingTo(project.id);
-            onExpandProject(project.id);
-          }}
-          onCancelAdd={() => setAddingTo(undefined)}
-          onCreated={(result, request) => {
-            setAddingTo(undefined);
-            onCreated(project.id, result, request);
-          }}
-          onRemoveProject={() => onRemoveProject(project.id)}
-          onRemoveWorktree={onRemoveWorktree}
-          onError={onError}
-        />
-      ))}
-      {!projects.length && <EmptyTree onAdd={onChooseProject} />}
-    </div>
-  );
-}
-
-function SidebarResize({
+function ResizeHandle({
   width,
   onResize,
 }: {
