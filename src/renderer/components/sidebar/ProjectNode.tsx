@@ -54,7 +54,7 @@ export function ProjectNode({
   );
 
   return (
-    <div>
+    <>
       <ProjectRoot
         project={project}
         expanded={expanded}
@@ -89,7 +89,7 @@ export function ProjectNode({
           )}
         </div>
       )}
-    </div>
+    </>
   );
 }
 
