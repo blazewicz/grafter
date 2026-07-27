@@ -45,7 +45,19 @@ describe('Sidebar', () => {
     vi.restoreAllMocks();
   });
 
-  // TODO: Add composition assertion that ProjectTree gets rendered
+  it('composes the title, project tree and settings button in order', () => {
+    renderSidebar();
+
+    const title = screen.getByText('Grafter');
+    const projectTree = screen.getByText('Projects');
+    const settings = screen.getByRole('button', { name: 'Settings' });
+
+    expect(title).toBeVisible();
+    expect(projectTree).toBeVisible();
+    expect(settings).toBeVisible();
+    expect(title).toAppearBefore(projectTree);
+    expect(projectTree).toAppearBefore(settings);
+  });
 
   it('opens settings from the global sidebar actions', async () => {
     const user = userEvent.setup();
