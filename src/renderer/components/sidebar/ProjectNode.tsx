@@ -164,7 +164,14 @@ function WorktreeRow({
           data-worktree-path={worktree.path}
         />
         {(!worktree.isMain || worktree.branch !== 'main') && (
-          <BranchName branch={worktree.branch} />
+          <SidebarTooltip
+            className={styles.branchNameWrap}
+            label={worktree.branch}
+            labelClassName={styles.branchName}
+            onlyWhenTruncated
+            tooltip={worktree.branch}
+            data-branch-name={worktree.branch}
+          />
         )}
       </button>
       {!worktree.isMain && (
@@ -185,17 +192,4 @@ function WorktreeRow({
 
 function releasePointerFocus(event: React.PointerEvent<HTMLButtonElement>): void {
   event.currentTarget.blur();
-}
-
-function BranchName({ branch }: { branch: string }): React.JSX.Element {
-  return (
-    <SidebarTooltip
-      className={styles.branchNameWrap}
-      label={branch}
-      labelClassName={styles.branchName}
-      onlyWhenTruncated
-      tooltip={branch}
-      data-branch-name={branch}
-    />
-  );
 }
