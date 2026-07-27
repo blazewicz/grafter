@@ -42,31 +42,44 @@ export function ProjectTree({
     <>
       <Heading onChooseProject={onChooseProject} />
       <div className={styles.projectTree}>
-        {projects.map((project) => (
-          <ProjectNode
-            key={project.id}
-            homeDirectory={homeDirectory}
-            project={project}
-            expanded={expanded.has(project.id)}
-            selectedId={selectedId}
-            adding={addingTo === project.id}
-            onToggle={() => onToggleProject(project.id)}
-            onSelect={onSelect}
-            onAdd={() => {
-              setAddingTo(project.id);
-              onExpandProject(project.id);
-            }}
-            onCancelAdd={() => setAddingTo(undefined)}
-            onCreated={(result, request) => {
-              setAddingTo(undefined);
-              onCreated(project.id, result, request);
-            }}
-            onRemoveProject={() => onRemoveProject(project.id)}
-            onRemoveWorktree={onRemoveWorktree}
-            onError={onError}
-          />
-        ))}
-        {!projects.length && <EmptyTree onAdd={onChooseProject} />}
+        {projects.length ? (
+          projects.map((project) => (
+            <ProjectNode
+              key={project.id}
+              homeDirectory={homeDirectory}
+              project={project}
+              expanded={expanded.has(project.id)}
+              selectedId={selectedId}
+              adding={addingTo === project.id}
+              onToggle={() => onToggleProject(project.id)}
+              onSelect={onSelect}
+              onAdd={() => {
+                setAddingTo(project.id);
+                onExpandProject(project.id);
+              }}
+              onCancelAdd={() => setAddingTo(undefined)}
+              onCreated={(result, request) => {
+                setAddingTo(undefined);
+                onCreated(project.id, result, request);
+              }}
+              onRemoveProject={() => onRemoveProject(project.id)}
+              onRemoveWorktree={onRemoveWorktree}
+              onError={onError}
+            />
+          ))
+        ) : (
+          <div className={styles.emptyTree}>
+            <FolderOpen size={23} />
+            <span>No projects yet</span>
+            <p>Add the main clone of a Git repository.</p>
+            <button
+              className={`${controls.button} ${controls.subtle}`}
+              onClick={onChooseProject}
+            >
+              <Plus size={13} /> Add project
+            </button>
+          </div>
+        )}
       </div>
     </>
   );
@@ -88,19 +101,6 @@ function Heading({
       >
         <FolderOpen size={16} />
         <Plus className={styles.cornerPlus} size={9} />
-      </button>
-    </div>
-  );
-}
-
-function EmptyTree({ onAdd }: { onAdd: () => void }): React.JSX.Element {
-  return (
-    <div className={styles.emptyTree}>
-      <FolderOpen size={23} />
-      <span>No projects yet</span>
-      <p>Add the main clone of a Git repository.</p>
-      <button className={`${controls.button} ${controls.subtle}`} onClick={onAdd}>
-        <Plus size={13} /> Add project
       </button>
     </div>
   );
