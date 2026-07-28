@@ -35,7 +35,7 @@ export function App(): React.JSX.Element {
   const [approval, setApproval] = useState<ApprovalRequest>();
   const [projectRemovalId, setProjectRemovalId] = useState<string>();
   const [dialog, setDialog] = useState<DialogName>(null);
-  const [logsOpen, setLogsOpen] = useState(true);
+  const [logsOpen, setLogsOpen] = useState(false);
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(defaultSidebarWidth);
