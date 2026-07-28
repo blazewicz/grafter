@@ -70,10 +70,29 @@ describe('AuditPanel', () => {
     vi.useRealTimers();
   });
 
+  it('composes the command log controls, history, and output in order', () => {
+    renderAuditPanel();
+
+    const toggle = screen.getByRole('button', { name: 'Collapse command log' });
+    const hideReadOnly = screen.getByRole('checkbox', { name: 'Hide read-only' });
+    const toolFilter = screen.getByRole('combobox', { name: 'Select command tool' });
+    const history = commandHistory();
+    const output = commandOutput();
+
+    expect(toggle).toBeVisible();
+    expect(hideReadOnly).toBeVisible();
+    expect(toolFilter).toBeVisible();
+    expect(history).toBeVisible();
+    expect(output).toBeVisible();
+    expect(toggle).toAppearBefore(hideReadOnly);
+    expect(hideReadOnly).toAppearBefore(toolFilter);
+    expect(toolFilter).toAppearBefore(history);
+    expect(history).toAppearBefore(output);
+  });
+
   it('follows the latest command quietly by default', () => {
     renderAuditPanel();
 
-    expect(screen.getByRole('button', { name: 'Collapse command log' })).toBeVisible();
     expect(screen.getByRole('checkbox', { name: 'Hide read-only' })).not.toBeChecked();
     expect(screen.getByRole('combobox', { name: 'Select command tool' })).toHaveValue(
       'all',
