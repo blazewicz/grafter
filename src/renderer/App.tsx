@@ -6,20 +6,20 @@ import type {
   CommandContext,
   DiffSession,
 } from '../shared/contracts';
-import { AuditPanel } from './components/audit/AuditPanel';
-import { useCommandLogs } from './components/audit/useCommandLogs';
-import { MainView } from './components/details/MainView';
-import { useWorktreeInspection } from './components/details/useWorktreeInspection';
-import { DiffViewer } from './components/diff/DiffViewer';
-import { ApprovalDialog } from './components/dialogs/ApprovalDialog';
-import { ProjectRemovalDialog } from './components/dialogs/ProjectRemovalDialog';
-import { SettingsDialog } from './components/dialogs/SettingsDialog';
-import { ErrorToast } from './components/feedback/ErrorToast';
-import { AppTitlebar } from './components/shell/AppTitlebar';
-import { Splash } from './components/shell/Splash';
-import { useNavigationHistory } from './components/shell/useNavigationHistory';
-import { defaultSidebarWidth, Sidebar } from './components/sidebar/Sidebar';
-import { useProjectWorktreeRefresh } from './components/sidebar/useProjectWorktreeRefresh';
+import { AuditPanel } from './audit/AuditPanel';
+import { useCommandLogs } from './audit/useCommandLogs';
+import { MainView } from './details/MainView';
+import { useWorktreeInspection } from './details/useWorktreeInspection';
+import { DiffViewer } from './diff/DiffViewer';
+import { ApprovalDialog } from './dialogs/ApprovalDialog';
+import { ProjectRemovalDialog } from './dialogs/ProjectRemovalDialog';
+import { SettingsDialog } from './dialogs/SettingsDialog';
+import { ErrorToast } from './feedback/ErrorToast';
+import { AppTitlebar } from './shell/AppTitlebar';
+import { Splash } from './shell/Splash';
+import { useNavigationHistory } from './shell/useNavigationHistory';
+import { defaultSidebarWidth, Sidebar } from './sidebar/Sidebar';
+import { useProjectWorktreeRefresh } from './sidebar/useProjectWorktreeRefresh';
 import { api, friendlyError } from './grafter-api';
 import styles from './App.module.css';
 
