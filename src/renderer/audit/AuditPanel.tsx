@@ -70,6 +70,7 @@ export function AuditPanel({
       : baseTitle;
   const commandListRef = useRef<HTMLDivElement>(null);
   const commandOutputRef = useRef<HTMLDivElement>(null);
+  const copyResetTimerRef = useRef<number | undefined>(undefined);
   const listLayoutRef = useRef<ScrollLayout | undefined>(undefined);
   const outputLayoutRef = useRef<ScrollLayout | undefined>(undefined);
   const handledActivityIdRef = useRef<string | undefined>(undefined);
@@ -143,6 +144,9 @@ export function AuditPanel({
 
   useEffect(
     () => () => {
+      if (copyResetTimerRef.current !== undefined) {
+        window.clearTimeout(copyResetTimerRef.current);
+      }
       cancelScrollAnimation(listScrollAnimationRef);
       cancelScrollAnimation(outputScrollAnimationRef);
     },
@@ -154,13 +158,15 @@ export function AuditPanel({
       .copyText(command.displayCommand)
       .then(() => {
         setCopiedCommandId(command.id);
-        window.setTimeout(
-          () =>
-            setCopiedCommandId((currentId) =>
-              currentId === command.id ? undefined : currentId,
-            ),
-          1600,
-        );
+        if (copyResetTimerRef.current !== undefined) {
+          window.clearTimeout(copyResetTimerRef.current);
+        }
+        copyResetTimerRef.current = window.setTimeout(() => {
+          copyResetTimerRef.current = undefined;
+          setCopiedCommandId((currentId) =>
+            currentId === command.id ? undefined : currentId,
+          );
+        }, 1600);
       })
       .catch((caught: unknown) => onError(friendlyError(caught)));
   };
@@ -171,7 +177,7 @@ export function AuditPanel({
         <button
           className={styles.auditTitle}
           aria-label={open ? 'Collapse command log' : 'Expand command log'}
-          onClick={onToggle}
+          onClick={() => onToggle()}
         >
           {open ? <ChevronsDownUp size={14} /> : <ChevronsUpDown size={14} />}
           <TerminalSquare size={15} />
@@ -233,6 +239,8 @@ export function AuditPanel({
             <div
               ref={commandListRef}
               className={styles.commandList}
+              role="region"
+              aria-label="Command history"
               onScroll={(event) => {
                 if (listLayoutRef.current) {
                   listLayoutRef.current.scrollTop = event.currentTarget.scrollTop;
@@ -319,6 +327,8 @@ export function AuditPanel({
           <div
             ref={commandOutputRef}
             className={styles.commandOutput}
+            role="region"
+            aria-label="Command output"
             onScroll={(event) => {
               if (outputLayoutRef.current) {
                 outputLayoutRef.current.scrollTop = event.currentTarget.scrollTop;
