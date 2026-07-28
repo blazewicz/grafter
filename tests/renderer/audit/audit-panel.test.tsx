@@ -30,8 +30,8 @@ interface RenderAuditPanelOptions {
   onError?: (message: string) => void;
 }
 
-function renderAuditPanel(options: RenderAuditPanelOptions = {}): RenderResult {
-  return render(
+function auditPanel(options: RenderAuditPanelOptions = {}): React.JSX.Element {
+  return (
     <AuditPanel
       open={options.open ?? true}
       commands={options.commands ?? scenario.commands}
@@ -40,8 +40,12 @@ function renderAuditPanel(options: RenderAuditPanelOptions = {}): RenderResult {
       systemLocale="en-US"
       onToggle={options.onToggle ?? (() => undefined)}
       onError={options.onError ?? (() => undefined)}
-    />,
+    />
   );
+}
+
+function renderAuditPanel(options: RenderAuditPanelOptions = {}): RenderResult {
+  return render(auditPanel(options));
 }
 
 function commandHistory(): HTMLElement {
@@ -381,15 +385,10 @@ describe('AuditPanel', () => {
     scrollHeight.mockReturnValue(500);
 
     rerender(
-      <AuditPanel
-        open
-        commands={[latestActivity, ...scenario.commands]}
-        latestActivity={latestActivity}
-        settings={settings}
-        systemLocale="en-US"
-        onToggle={() => undefined}
-        onError={() => undefined}
-      />,
+      auditPanel({
+        commands: [latestActivity, ...scenario.commands],
+        latestActivity,
+      }),
     );
 
     const newCommands = screen.getByRole('button', { name: '1 new command' });
