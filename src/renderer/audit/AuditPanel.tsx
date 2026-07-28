@@ -177,7 +177,7 @@ export function AuditPanel({
         <button
           className={styles.auditTitle}
           aria-label={open ? 'Collapse command log' : 'Expand command log'}
-          onClick={() => onToggle()}
+          onClick={onToggle}
         >
           {open ? <ChevronsDownUp size={14} /> : <ChevronsUpDown size={14} />}
           <TerminalSquare size={15} />

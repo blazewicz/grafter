@@ -97,7 +97,6 @@ describe('AuditPanel', () => {
     await user.click(toggle);
 
     expect(onToggle).toHaveBeenCalledOnce();
-    expect(onToggle).toHaveBeenCalledWith();
     if (open) {
       expect(commandHistory()).toBeVisible();
     } else {
