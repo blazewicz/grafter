@@ -54,45 +54,16 @@ export function ProjectNode({
   );
 
   return (
-    <div>
-      <div
-        className={`${styles.treeRow} ${styles.projectRow} ${
-          selectedId === project.id ? styles.selected : ''
-        }`}
-      >
-        <button
-          className={styles.treeToggle}
-          aria-label={expanded ? `Collapse ${project.name}` : `Expand ${project.name}`}
-          onClick={onToggle}
-        >
-          {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-        </button>
-        <button
-          className={styles.treeLabel}
-          onClick={() => onSelect(project.id)}
-          onPointerUp={releasePointerFocus}
-        >
-          <FolderOpen size={15} />
-          <span>{project.name}</span>
-        </button>
-        <div className={styles.rowActions}>
-          <button
-            aria-label={`Add worktree to ${project.name}`}
-            title="New worktree"
-            onClick={onAdd}
-          >
-            <Plus size={14} />
-          </button>
-          <button
-            aria-label={`Remove ${project.name} from Grafter`}
-            aria-haspopup="dialog"
-            title="Remove from Grafter"
-            onClick={onRemoveProject}
-          >
-            <FolderMinus size={13} />
-          </button>
-        </div>
-      </div>
+    <>
+      <ProjectRoot
+        project={project}
+        expanded={expanded}
+        selectedId={selectedId}
+        onToggle={onToggle}
+        onSelect={onSelect}
+        onAdd={onAdd}
+        onRemoveProject={onRemoveProject}
+      />
       {expanded && (
         <div>
           <div className={styles.branchList}>
@@ -118,6 +89,65 @@ export function ProjectNode({
           )}
         </div>
       )}
+    </>
+  );
+}
+
+function ProjectRoot({
+  project,
+  expanded,
+  selectedId,
+  onToggle,
+  onSelect,
+  onAdd,
+  onRemoveProject,
+}: {
+  project: Project;
+  expanded: boolean;
+  selectedId: string | undefined;
+  onToggle: () => void;
+  onSelect: (id: string) => void;
+  onAdd: () => void;
+  onRemoveProject: () => void;
+}): React.JSX.Element {
+  return (
+    <div
+      className={`${styles.treeRow} ${styles.projectRow} ${
+        selectedId === project.id ? styles.selected : ''
+      }`}
+    >
+      <button
+        className={styles.treeToggle}
+        aria-label={expanded ? `Collapse ${project.name}` : `Expand ${project.name}`}
+        onClick={onToggle}
+      >
+        {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+      </button>
+      <button
+        className={styles.treeLabel}
+        onClick={() => onSelect(project.id)}
+        onPointerUp={releasePointerFocus}
+      >
+        <FolderOpen size={15} />
+        <span>{project.name}</span>
+      </button>
+      <div className={styles.rowActions}>
+        <button
+          aria-label={`Add worktree to ${project.name}`}
+          title="New worktree"
+          onClick={onAdd}
+        >
+          <Plus size={14} />
+        </button>
+        <button
+          aria-label={`Remove ${project.name} from Grafter`}
+          aria-haspopup="dialog"
+          title="Remove from Grafter"
+          onClick={onRemoveProject}
+        >
+          <FolderMinus size={13} />
+        </button>
+      </div>
     </div>
   );
 }
@@ -164,7 +194,14 @@ function WorktreeRow({
           data-worktree-path={worktree.path}
         />
         {(!worktree.isMain || worktree.branch !== 'main') && (
-          <BranchName branch={worktree.branch} />
+          <SidebarTooltip
+            className={styles.branchNameWrap}
+            label={worktree.branch}
+            labelClassName={styles.branchName}
+            onlyWhenTruncated
+            tooltip={worktree.branch}
+            data-branch-name={worktree.branch}
+          />
         )}
       </button>
       {!worktree.isMain && (
@@ -185,17 +222,4 @@ function WorktreeRow({
 
 function releasePointerFocus(event: React.PointerEvent<HTMLButtonElement>): void {
   event.currentTarget.blur();
-}
-
-function BranchName({ branch }: { branch: string }): React.JSX.Element {
-  return (
-    <SidebarTooltip
-      className={styles.branchNameWrap}
-      label={branch}
-      labelClassName={styles.branchName}
-      onlyWhenTruncated
-      tooltip={branch}
-      data-branch-name={branch}
-    />
-  );
 }

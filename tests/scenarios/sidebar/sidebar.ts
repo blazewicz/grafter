@@ -5,14 +5,14 @@ import {
   projectFactory,
 } from '../../factories';
 
-export interface ProjectSidebarScenario {
+export interface SidebarScenario {
   homeDirectory: string;
   projects: Project[];
   firstProject: Project;
   secondProject: Project;
 }
 
-export function buildProjectSidebarScenario(): ProjectSidebarScenario {
+export function buildSidebarScenario(): SidebarScenario {
   const firstProject = buildProject('trunk');
   const secondProject = buildProject('main');
 
