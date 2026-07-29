@@ -1,11 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
-import type {
-  AppSnapshot,
-  ApprovalRequest,
-  CommandContext,
-  DiffSession,
-} from '../shared/contracts';
+import type { AppSnapshot, ApprovalRequest, CommandContext } from '../shared/contracts';
 import { AuditPanel } from './audit/AuditPanel';
 import { useCommandLogs } from './audit/useCommandLogs';
 import { MainView } from './details/MainView';
@@ -20,6 +15,7 @@ import { Splash } from './shell/Splash';
 import { useNavigationHistory } from './shell/useNavigationHistory';
 import { defaultSidebarWidth, Sidebar } from './sidebar/Sidebar';
 import { useProjectWorktreeRefresh } from './sidebar/useProjectWorktreeRefresh';
+import { useDiffViewer } from './diff/useDiffViewer';
 import { api, friendlyError } from './grafter-api';
 import styles from './App.module.css';
 
@@ -39,8 +35,6 @@ export function App(): React.JSX.Element {
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(defaultSidebarWidth);
-  const [diffSession, setDiffSession] = useState<DiffSession>();
-  const [diffOpening, setDiffOpening] = useState(false);
   const {
     selectedId,
     canGoBack,
@@ -166,43 +160,14 @@ export function App(): React.JSX.Element {
     );
   };
 
-  const openDiff = (worktreeId: string): void => {
-    setDiffOpening(true);
-    setError(undefined);
-    void api
-      .openDiff(worktreeId)
-      .then(setDiffSession)
-      .catch((caught: unknown) => setError(friendlyError(caught)))
-      .finally(() => setDiffOpening(false));
-  };
-
-  const openCommitDiff = (projectId: string, commitHash: string): void => {
-    setDiffOpening(true);
-    setError(undefined);
-    void api
-      .openCommitDiff({ projectId, commitHash })
-      .then(setDiffSession)
-      .catch((caught: unknown) => setError(friendlyError(caught)))
-      .finally(() => setDiffOpening(false));
-  };
-
-  const closeDiff = (): void => {
-    const sessionId = diffSession?.id;
-    setDiffSession(undefined);
-    if (!sessionId) return;
-    void api
-      .closeDiff(sessionId)
-      .catch((caught: unknown) => setError(friendlyError(caught)));
-  };
-
-  const replaceDiffSession = (next: DiffSession): void => {
-    const previousId = diffSession?.id;
-    setDiffSession(next);
-    if (!previousId || previousId === next.id) return;
-    void api
-      .closeDiff(previousId)
-      .catch((caught: unknown) => setError(friendlyError(caught)));
-  };
+  const {
+    diffSession,
+    diffOpening,
+    openDiff,
+    openCommitDiff,
+    closeDiff,
+    replaceDiffSession,
+  } = useDiffViewer(api, setError);
 
   const resolveApproval = (decision: 'approve' | 'reject'): void => {
     if (!approval) return;
