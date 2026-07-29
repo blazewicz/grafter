@@ -1,5 +1,6 @@
 import type { CommandRecord } from '../../../src/shared/contracts';
 import { commandRecordFactory } from '../../factories';
+import { timestampSequence } from '../../support/timestampSequence';
 
 export interface AuditPanelScenario {
   commands: CommandRecord[];
@@ -36,30 +37,19 @@ export function buildAuditPanelScenario(): AuditPanelScenario {
     repeatedLatest: 'latest repeated output\n',
     repeatedOlder: 'older repeated output\n',
   };
-  const latestGit = commandRecordFactory.build({
+  const start = new Date('2026-07-20T12:01:00.000');
+  const nextTs = timestampSequence(start);
+  const olderGit = commandRecordFactory.build({
     context,
-    args: ['status', '--short'],
-    startedAt: '2026-07-20T12:04:00.000',
-    durationMs: 12.34,
+    args: ['branch', '--show-current'],
+    // startedAt: start.toISOString(),
+    // startedAt: nextTs({milliseconds: 0}),
+    startedAt: '2026-07-20T12:01:00.000',
     output: [
       {
         stream: 'stdout',
-        text: expectedOutput.latestGit,
-        timestamp: '2026-07-20T12:04:00.100',
-      },
-    ],
-  });
-  const github = commandRecordFactory.build({
-    context,
-    tool: 'github',
-    executable: 'gh',
-    args: ['pr', 'view'],
-    startedAt: '2026-07-20T12:03:00.000',
-    output: [
-      {
-        stream: 'stdout',
-        text: expectedOutput.github,
-        timestamp: '2026-07-20T12:03:00.100',
+        text: expectedOutput.olderGit,
+        timestamp: '2026-07-20T12:01:00.100',
       },
     ],
   });
@@ -78,43 +68,58 @@ export function buildAuditPanelScenario(): AuditPanelScenario {
       },
     ],
   });
-  const olderGit = commandRecordFactory.build({
+  const github = commandRecordFactory.build({
     context,
-    args: ['branch', '--show-current'],
-    startedAt: '2026-07-20T12:01:00.000',
+    tool: 'github',
+    executable: 'gh',
+    args: ['pr', 'view'],
+    startedAt: '2026-07-20T12:03:00.000',
     output: [
       {
         stream: 'stdout',
-        text: expectedOutput.olderGit,
-        timestamp: '2026-07-20T12:01:00.100',
+        text: expectedOutput.github,
+        timestamp: '2026-07-20T12:03:00.100',
+      },
+    ],
+  });
+  const latestGit = commandRecordFactory.build({
+    context,
+    args: ['status', '--short'],
+    startedAt: '2026-07-20T12:04:00.000',
+    durationMs: 12.34,
+    output: [
+      {
+        stream: 'stdout',
+        text: expectedOutput.latestGit,
+        timestamp: '2026-07-20T12:04:00.100',
       },
     ],
   });
 
-  const repeatedLatest = commandRecordFactory.build({
-    context,
-    args: ['rev-parse', '--show-toplevel'],
-    startedAt: '2026-07-20T12:06:00.000',
-    output: [
-      {
-        stream: 'stdout',
-        text: expectedOutput.repeatedLatest,
-        timestamp: '2026-07-20T12:06:00.100',
-      },
-    ],
-  });
   const repeatedOlder = commandRecordFactory.build({
     context,
-    executable: repeatedLatest.executable,
-    args: repeatedLatest.args,
-    cwd: repeatedLatest.cwd,
-    displayCommand: repeatedLatest.displayCommand,
+    args: ['rev-parse', '--show-toplevel'],
     startedAt: '2026-07-20T12:05:00.000',
     output: [
       {
         stream: 'stdout',
         text: expectedOutput.repeatedOlder,
         timestamp: '2026-07-20T12:05:00.100',
+      },
+    ],
+  });
+  const repeatedLatest = commandRecordFactory.build({
+    context,
+    executable: repeatedOlder.executable,
+    args: repeatedOlder.args,
+    cwd: repeatedOlder.cwd,
+    displayCommand: repeatedOlder.displayCommand,
+    startedAt: '2026-07-20T12:06:00.000',
+    output: [
+      {
+        stream: 'stdout',
+        text: expectedOutput.repeatedLatest,
+        timestamp: '2026-07-20T12:06:00.100',
       },
     ],
   });
