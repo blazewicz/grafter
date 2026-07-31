@@ -20,7 +20,7 @@ const request = approvalRequestFactory.build(
 
 function renderApprovalDialog(
   nextRequest: ApprovalRequest = request,
-  busy = false,
+  running = false,
   onReject: () => void = () => undefined,
   onApprove: () => void = () => undefined,
 ): void {
@@ -28,7 +28,7 @@ function renderApprovalDialog(
     <ApprovalDialog
       homeDirectory={homeDirectory}
       request={nextRequest}
-      busy={busy}
+      running={running}
       onReject={onReject}
       onApprove={onApprove}
     />,
@@ -86,17 +86,21 @@ describe('ApprovalDialog', () => {
     expect(onReject).not.toHaveBeenCalled();
   });
 
-  it('disables both actions while the approval is being resolved', async () => {
+  it('shows execution progress and disables both actions while running', async () => {
     const user = userEvent.setup();
     const onReject = vi.fn();
     const onApprove = vi.fn();
     renderApprovalDialog(request, true, onReject, onApprove);
 
     const rejectButton = screen.getByRole('button', { name: 'Don’t run' });
-    const approveButton = screen.getByRole('button', { name: 'Approve & run' });
+    const approveButton = screen.getByRole('button', { name: 'Running…' });
 
     expect(rejectButton).toBeDisabled();
     expect(approveButton).toBeDisabled();
+    expect(approveButton).toHaveAttribute('aria-busy', 'true');
+    expect(
+      screen.queryByRole('button', { name: 'Approve & run' }),
+    ).not.toBeInTheDocument();
     await user.click(rejectButton);
     await user.click(approveButton);
 

@@ -20,7 +20,7 @@ afterEach(() => {
 });
 
 describe('ApprovalManager', () => {
-  it('marks an expired approval as declined in the command audit', () => {
+  it('actively expires an abandoned approval in the command audit', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-07-18T10:00:00Z'));
     const runner = new CommandRunner(() => undefined);
@@ -29,9 +29,6 @@ describe('ApprovalManager', () => {
 
     vi.advanceTimersByTime(5 * 60_000 + 1);
 
-    expect(() => approvals.reject(request.approvalId)).toThrow(
-      'This approval request expired. Please start the action again.',
-    );
     expect(runner.recordsFor(command.context)).toMatchObject([
       {
         id: request.command.id,
@@ -39,20 +36,25 @@ describe('ApprovalManager', () => {
         output: [
           {
             stream: 'system',
-            text: 'Approval declined. Command was not run.\n',
+            text: 'Approval expired. Command was not run.\n',
           },
         ],
       },
     ]);
+    expect(() => approvals.reject(request.approvalId)).toThrow(
+      'This approval request expired. Please start the action again.',
+    );
   });
 
   it('runs the exact prepared command once inside an execution wrapper', async () => {
+    vi.useFakeTimers();
     let afterSuccess = false;
     let wrapperUsed = false;
     const runner = new StubCommandRunner((spec) => {
       expect(spec).toEqual({ ...command, requiresApproval: true });
       return {};
     });
+    const expire = vi.spyOn(runner, 'expire');
     const approvals = new ApprovalManager(runner);
     const request = approvals.prepare(
       command,
@@ -74,5 +76,8 @@ describe('ApprovalManager', () => {
     expect(wrapperUsed).toBe(true);
     expect(afterSuccess).toBe(true);
     expect(runner.commands).toHaveLength(1);
+
+    vi.advanceTimersByTime(5 * 60_000 + 1);
+    expect(expire).not.toHaveBeenCalled();
   });
 });

@@ -7,13 +7,13 @@ import styles from './dialogs.module.css';
 export function ApprovalDialog({
   homeDirectory,
   request,
-  busy,
+  running,
   onReject,
   onApprove,
 }: {
   homeDirectory: string;
   request: ApprovalRequest;
-  busy: boolean;
+  running: boolean;
   onReject: () => void;
   onApprove: () => void;
 }): React.JSX.Element {
@@ -52,18 +52,19 @@ export function ApprovalDialog({
         <div className={styles.modalActions}>
           <button
             className={`${controls.button} ${controls.ghost}`}
-            disabled={busy}
+            disabled={running}
             onClick={onReject}
           >
             Don’t run
           </button>
           <button
             className={`${controls.button} ${controls.danger}`}
-            disabled={busy}
+            disabled={running}
+            aria-busy={running}
             onClick={onApprove}
           >
-            {busy ? <LoaderCircle className="spin" size={14} /> : <Check size={14} />}{' '}
-            Approve & run
+            {running ? <LoaderCircle className="spin" size={14} /> : <Check size={14} />}{' '}
+            {running ? 'Running…' : 'Approve & run'}
           </button>
         </div>
       </div>

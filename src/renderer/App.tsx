@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
-import type { AppSnapshot, ApprovalRequest, CommandContext } from '../shared/contracts';
+import type { AppSnapshot, CommandContext } from '../shared/contracts';
 import { AuditPanel } from './audit/AuditPanel';
 import { useCommandLogs } from './audit/useCommandLogs';
 import { MainView } from './details/MainView';
@@ -9,6 +9,7 @@ import { DiffViewer } from './diff/DiffViewer';
 import { ApprovalDialog } from './dialogs/ApprovalDialog';
 import { ProjectRemovalDialog } from './dialogs/ProjectRemovalDialog';
 import { SettingsDialog } from './dialogs/SettingsDialog';
+import { useCommandApproval } from './dialogs/useCommandApproval';
 import { ErrorToast } from './feedback/ErrorToast';
 import { AppTitlebar } from './shell/AppTitlebar';
 import { Splash } from './shell/Splash';
@@ -28,7 +29,6 @@ interface AppShellStyle extends CSSProperties {
 export function App(): React.JSX.Element {
   const [snapshot, setSnapshot] = useState<AppSnapshot | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const [approval, setApproval] = useState<ApprovalRequest>();
   const [projectRemovalId, setProjectRemovalId] = useState<string>();
   const [dialog, setDialog] = useState<DialogName>(null);
   const [logsOpen, setLogsOpen] = useState(false);
@@ -169,22 +169,8 @@ export function App(): React.JSX.Element {
     replaceDiffSession,
   } = useDiffViewer(api, setError);
 
-  const resolveApproval = (decision: 'approve' | 'reject'): void => {
-    if (!approval) return;
-    const approvalId = approval.approvalId;
-
-    // Approval IDs are single-use. Release the dialog before invoking the main
-    // process so an expired token or failed command cannot leave a stale modal
-    // blocking the interface.
-    setApproval(undefined);
-    void run(
-      () =>
-        decision === 'approve'
-          ? api.approveCommand(approvalId)
-          : api.rejectCommand(approvalId),
-      applySnapshot,
-    );
-  };
+  const { approval, approvalRunning, enqueueApproval, resolveApproval } =
+    useCommandApproval(api, run, applySnapshot);
 
   const toggleProject = (projectId: string): void => {
     setExpanded((current) => {
@@ -230,11 +216,11 @@ export function App(): React.JSX.Element {
               .find((project) => project.id === projectId)
               ?.worktrees.find((worktree) => worktree.path === request.path);
             if (created) navigate(created.id);
-            if (next.setupApproval) setApproval(next.setupApproval);
+            if (next.setupApproval) enqueueApproval(next.setupApproval);
           }}
           onRemoveProject={setProjectRemovalId}
           onRemoveWorktree={(worktree) =>
-            void run(() => api.prepareRemoveWorktree(worktree.id), setApproval)
+            void run(() => api.prepareRemoveWorktree(worktree.id), enqueueApproval)
           }
           onOpenSettings={() => setDialog('settings')}
           onError={setError}
@@ -275,7 +261,7 @@ export function App(): React.JSX.Element {
         <ApprovalDialog
           homeDirectory={snapshot.homeDirectory}
           request={approval}
-          busy={busy}
+          running={approvalRunning}
           onReject={() => resolveApproval('reject')}
           onApprove={() => resolveApproval('approve')}
         />
