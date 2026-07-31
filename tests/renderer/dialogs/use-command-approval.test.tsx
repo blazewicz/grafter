@@ -37,21 +37,37 @@ describe('useCommandApproval', () => {
     vi.restoreAllMocks();
   });
 
-  it('replaces the active approval when another request arrives', () => {
+  it('presents queued approvals in arrival order', async () => {
     const firstRequest = approvalRequestFactory.build();
     const secondRequest = approvalRequestFactory.build();
+    const snapshot = appSnapshotFactory.build();
+    const request = deferred<AppSnapshot>();
     const api = createApi();
+    api.approveCommand.mockReturnValue(request.promise);
     const run = createRun();
     const applySnapshot = vi.fn<(next: AppSnapshot) => void>();
     const { result } = renderHook(() => useCommandApproval(api, run.run, applySnapshot));
 
     expect(result.current.approval).toBeUndefined();
 
-    act(() => result.current.requestApproval(firstRequest));
+    act(() => {
+      result.current.enqueueApproval(firstRequest);
+      result.current.enqueueApproval(secondRequest);
+    });
     expect(result.current.approval).toEqual(firstRequest);
 
-    act(() => result.current.requestApproval(secondRequest));
-    expect(result.current.approval).toEqual(secondRequest);
+    act(() => result.current.resolveApproval('approve'));
+
+    expect(result.current.approval).toBeUndefined();
+    expect(api.approveCommand).toHaveBeenCalledOnce();
+    expect(api.approveCommand).toHaveBeenCalledWith(firstRequest.approvalId);
+
+    await act(async () => {
+      request.resolve(snapshot);
+      await request.promise;
+    });
+
+    await waitFor(() => expect(result.current.approval).toEqual(secondRequest));
   });
 
   it.each([
@@ -71,7 +87,7 @@ describe('useCommandApproval', () => {
         useCommandApproval(api, run.run, applySnapshot),
       );
 
-      act(() => result.current.requestApproval(approval));
+      act(() => result.current.enqueueApproval(approval));
       act(() => result.current.resolveApproval(decision));
 
       expect(result.current.approval).toBeUndefined();
@@ -90,6 +106,37 @@ describe('useCommandApproval', () => {
       expect(applySnapshot).toHaveBeenCalledOnce();
     },
   );
+
+  it('retains new requests and ignores repeated decisions while resolving', async () => {
+    const firstRequest = approvalRequestFactory.build();
+    const secondRequest = approvalRequestFactory.build();
+    const snapshot = appSnapshotFactory.build();
+    const request = deferred<AppSnapshot>();
+    const api = createApi();
+    api.approveCommand.mockReturnValue(request.promise);
+    const run = createRun();
+    const applySnapshot = vi.fn<(next: AppSnapshot) => void>();
+    const { result } = renderHook(() => useCommandApproval(api, run.run, applySnapshot));
+
+    act(() => result.current.enqueueApproval(firstRequest));
+    act(() => {
+      result.current.resolveApproval('approve');
+      result.current.resolveApproval('reject');
+      result.current.enqueueApproval(secondRequest);
+    });
+
+    expect(result.current.approval).toBeUndefined();
+    expect(run.state.callCount).toBe(1);
+    expect(api.approveCommand).toHaveBeenCalledOnce();
+    expect(api.rejectCommand).not.toHaveBeenCalled();
+
+    await act(async () => {
+      request.resolve(snapshot);
+      await request.promise;
+    });
+
+    await waitFor(() => expect(result.current.approval).toEqual(secondRequest));
+  });
 
   it('does nothing when resolving without a pending approval', () => {
     const api = createApi();

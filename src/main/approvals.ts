@@ -7,11 +7,13 @@ interface PendingApproval {
   spec: CommandSpec;
   recordId: string;
   expiresAt: number;
+  expirationTimer: ReturnType<typeof setTimeout>;
   afterSuccess?: () => Promise<void>;
   execution?: ApprovalExecution;
 }
 
 type ApprovalExecution = (executePreparedCommand: () => Promise<void>) => Promise<void>;
+const approvalLifetimeMs = 5 * 60_000;
 
 export class ApprovalManager {
   readonly #pending = new Map<string, PendingApproval>();
@@ -27,10 +29,16 @@ export class ApprovalManager {
     const approvalId = randomUUID();
     const approvedSpec = { ...spec, requiresApproval: true };
     const command = this.runner.createPending(approvedSpec);
+    const expirationTimer = setTimeout(
+      () => this.#expire(approvalId),
+      approvalLifetimeMs,
+    );
+    expirationTimer.unref();
     this.#pending.set(approvalId, {
       spec: approvedSpec,
       recordId: command.id,
-      expiresAt: Date.now() + 5 * 60_000,
+      expiresAt: Date.now() + approvalLifetimeMs,
+      expirationTimer,
       ...(afterSuccess ? { afterSuccess } : {}),
       ...(execution ? { execution } : {}),
     });
@@ -61,10 +69,18 @@ export class ApprovalManager {
     if (!pending) {
       throw new Error('This approval request expired. Please start the action again.');
     }
+    clearTimeout(pending.expirationTimer);
     if (pending.expiresAt < Date.now()) {
-      this.runner.reject(pending.recordId);
+      this.runner.expire(pending.recordId);
       throw new Error('This approval request expired. Please start the action again.');
     }
     return pending;
+  }
+
+  #expire(approvalId: string): void {
+    const pending = this.#pending.get(approvalId);
+    if (!pending) return;
+    this.#pending.delete(approvalId);
+    this.runner.expire(pending.recordId);
   }
 }

@@ -169,7 +169,7 @@ export function App(): React.JSX.Element {
     replaceDiffSession,
   } = useDiffViewer(api, setError);
 
-  const { approval, requestApproval, resolveApproval } = useCommandApproval(
+  const { approval, enqueueApproval, resolveApproval } = useCommandApproval(
     api,
     run,
     applySnapshot,
@@ -219,11 +219,11 @@ export function App(): React.JSX.Element {
               .find((project) => project.id === projectId)
               ?.worktrees.find((worktree) => worktree.path === request.path);
             if (created) navigate(created.id);
-            if (next.setupApproval) requestApproval(next.setupApproval);
+            if (next.setupApproval) enqueueApproval(next.setupApproval);
           }}
           onRemoveProject={setProjectRemovalId}
           onRemoveWorktree={(worktree) =>
-            void run(() => api.prepareRemoveWorktree(worktree.id), requestApproval)
+            void run(() => api.prepareRemoveWorktree(worktree.id), enqueueApproval)
           }
           onOpenSettings={() => setDialog('settings')}
           onError={setError}

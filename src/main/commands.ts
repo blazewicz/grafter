@@ -99,13 +99,21 @@ export class CommandRunner {
   }
 
   reject(id: string): void {
+    this.#finishPending(id, 'Approval declined. Command was not run.');
+  }
+
+  expire(id: string): void {
+    this.#finishPending(id, 'Approval expired. Command was not run.');
+  }
+
+  #finishPending(id: string, message: string): void {
     const record = this.#records.get(id);
     if (record?.status !== 'awaiting-approval') return;
     record.status = 'failed';
     record.finishedAt = new Date().toISOString();
     record.output.push({
       stream: 'system',
-      text: 'Approval declined. Command was not run.\n',
+      text: `${message}\n`,
       timestamp: record.finishedAt,
     });
     this.#save(record);
