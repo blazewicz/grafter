@@ -7,13 +7,15 @@ export function useCommandApproval(
   applySnapshot: (next: AppSnapshot) => void,
 ): {
   approval: ApprovalRequest | undefined;
+  approvalRunning: boolean;
   enqueueApproval: (next: ApprovalRequest) => void;
   resolveApproval: (decision: 'approve' | 'reject') => void;
 } {
   const [approvals, setApprovals] = useState<ApprovalRequest[]>([]);
-  const [resolving, setResolving] = useState(false);
+  const [resolvingDecision, setResolvingDecision] = useState<'approve' | 'reject'>();
   const resolvingApprovalId = useRef<string | undefined>(undefined);
-  const approval = resolving ? undefined : approvals[0];
+  const approval = resolvingDecision === 'reject' ? undefined : approvals[0];
+  const approvalRunning = resolvingDecision === 'approve';
 
   const enqueueApproval = (next: ApprovalRequest): void => {
     setApprovals((current) => [...current, next]);
@@ -23,16 +25,16 @@ export function useCommandApproval(
     if (!approval || resolvingApprovalId.current) return;
     const approvalId = approval.approvalId;
     resolvingApprovalId.current = approvalId;
-    setResolving(true);
+    setResolvingDecision(decision);
 
-    // Approval IDs are single-use. Release the dialog before invoking the main
-    // process so an expired token or failed command cannot leave a stale modal
-    // blocking the interface.
-    setApprovals((current) => current.slice(1));
+    // Keep approved commands visible while they execute so the dialog can show
+    // progress. Rejections disappear immediately, but the next queued request
+    // waits until the current decision settles.
     const releaseResolution = (): void => {
       if (resolvingApprovalId.current !== approvalId) return;
       resolvingApprovalId.current = undefined;
-      setResolving(false);
+      setApprovals((current) => current.slice(1));
+      setResolvingDecision(undefined);
     };
     void run(
       () =>
@@ -45,6 +47,7 @@ export function useCommandApproval(
 
   return {
     approval,
+    approvalRunning,
     enqueueApproval,
     resolveApproval,
   };

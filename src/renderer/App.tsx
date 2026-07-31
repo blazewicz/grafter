@@ -169,11 +169,8 @@ export function App(): React.JSX.Element {
     replaceDiffSession,
   } = useDiffViewer(api, setError);
 
-  const { approval, enqueueApproval, resolveApproval } = useCommandApproval(
-    api,
-    run,
-    applySnapshot,
-  );
+  const { approval, approvalRunning, enqueueApproval, resolveApproval } =
+    useCommandApproval(api, run, applySnapshot);
 
   const toggleProject = (projectId: string): void => {
     setExpanded((current) => {
@@ -264,7 +261,7 @@ export function App(): React.JSX.Element {
         <ApprovalDialog
           homeDirectory={snapshot.homeDirectory}
           request={approval}
-          busy={busy}
+          running={approvalRunning}
           onReject={() => resolveApproval('reject')}
           onApprove={() => resolveApproval('approve')}
         />

@@ -49,6 +49,7 @@ describe('useCommandApproval', () => {
     const { result } = renderHook(() => useCommandApproval(api, run.run, applySnapshot));
 
     expect(result.current.approval).toBeUndefined();
+    expect(result.current.approvalRunning).toBe(false);
 
     act(() => {
       result.current.enqueueApproval(firstRequest);
@@ -58,7 +59,8 @@ describe('useCommandApproval', () => {
 
     act(() => result.current.resolveApproval('approve'));
 
-    expect(result.current.approval).toBeUndefined();
+    expect(result.current.approval).toEqual(firstRequest);
+    expect(result.current.approvalRunning).toBe(true);
     expect(api.approveCommand).toHaveBeenCalledOnce();
     expect(api.approveCommand).toHaveBeenCalledWith(firstRequest.approvalId);
 
@@ -68,14 +70,25 @@ describe('useCommandApproval', () => {
     });
 
     await waitFor(() => expect(result.current.approval).toEqual(secondRequest));
+    expect(result.current.approvalRunning).toBe(false);
   });
 
   it.each([
-    { decision: 'approve', method: 'approveCommand', otherMethod: 'rejectCommand' },
-    { decision: 'reject', method: 'rejectCommand', otherMethod: 'approveCommand' },
+    {
+      decision: 'approve',
+      method: 'approveCommand',
+      otherMethod: 'rejectCommand',
+      remainsVisible: true,
+    },
+    {
+      decision: 'reject',
+      method: 'rejectCommand',
+      otherMethod: 'approveCommand',
+      remainsVisible: false,
+    },
   ] as const)(
     '$decision forwards the exact approval ID and applies the resulting snapshot',
-    async ({ decision, method, otherMethod }) => {
+    async ({ decision, method, otherMethod, remainsVisible }) => {
       const approval = approvalRequestFactory.build();
       const snapshot = appSnapshotFactory.build();
       const request = deferred<AppSnapshot>();
@@ -90,7 +103,8 @@ describe('useCommandApproval', () => {
       act(() => result.current.enqueueApproval(approval));
       act(() => result.current.resolveApproval(decision));
 
-      expect(result.current.approval).toBeUndefined();
+      expect(result.current.approval).toEqual(remainsVisible ? approval : undefined);
+      expect(result.current.approvalRunning).toBe(remainsVisible);
       expect(run.state.callCount).toBe(1);
       expect(api[method]).toHaveBeenCalledOnce();
       expect(api[method]).toHaveBeenCalledWith(approval.approvalId);
@@ -104,6 +118,8 @@ describe('useCommandApproval', () => {
 
       await waitFor(() => expect(applySnapshot).toHaveBeenCalledWith(snapshot));
       expect(applySnapshot).toHaveBeenCalledOnce();
+      expect(result.current.approval).toBeUndefined();
+      expect(result.current.approvalRunning).toBe(false);
     },
   );
 
@@ -125,7 +141,8 @@ describe('useCommandApproval', () => {
       result.current.enqueueApproval(secondRequest);
     });
 
-    expect(result.current.approval).toBeUndefined();
+    expect(result.current.approval).toEqual(firstRequest);
+    expect(result.current.approvalRunning).toBe(true);
     expect(run.state.callCount).toBe(1);
     expect(api.approveCommand).toHaveBeenCalledOnce();
     expect(api.rejectCommand).not.toHaveBeenCalled();
@@ -136,6 +153,7 @@ describe('useCommandApproval', () => {
     });
 
     await waitFor(() => expect(result.current.approval).toEqual(secondRequest));
+    expect(result.current.approvalRunning).toBe(false);
   });
 
   it('does nothing when resolving without a pending approval', () => {
@@ -147,6 +165,7 @@ describe('useCommandApproval', () => {
     act(() => result.current.resolveApproval('approve'));
 
     expect(result.current.approval).toBeUndefined();
+    expect(result.current.approvalRunning).toBe(false);
     expect(run.state.callCount).toBe(0);
     expect(api.approveCommand).not.toHaveBeenCalled();
     expect(api.rejectCommand).not.toHaveBeenCalled();
