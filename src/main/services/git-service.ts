@@ -1,4 +1,4 @@
-import { readFile, realpath } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import pLimit from 'p-limit';
@@ -51,36 +51,6 @@ export class GitService {
   readonly #diffFileReadsLimit = pLimit(GitService.maximumConcurrentDiffFileReads);
 
   constructor(private readonly runner: CommandRunner) {}
-
-  async inspectMainClone(selectedPath: string): Promise<Omit<ProjectConfig, 'id'>> {
-    const context: CommandContext = { kind: 'application' };
-    const chosen = await realpath(selectedPath);
-    const topLevel = (
-      await this.#git(
-        chosen,
-        ['rev-parse', '--show-toplevel'],
-        'Validate Git repository',
-        true,
-        context,
-      )
-    ).stdout.trim();
-    const worktreeOutput = (
-      await this.#git(
-        topLevel,
-        ['worktree', 'list', '--porcelain'],
-        'Find main clone',
-        true,
-        context,
-      )
-    ).stdout;
-    const firstPath = /^worktree (.+)$/m.exec(worktreeOutput)?.[1];
-    if (!firstPath || (await realpath(firstPath)) !== (await realpath(topLevel))) {
-      throw new Error(
-        'Select the repository’s main clone, not one of its linked worktrees.',
-      );
-    }
-    return { name: path.basename(topLevel), path: topLevel };
-  }
 
   async listWorktrees(project: ProjectConfig): Promise<Worktree[]> {
     const context = projectCommandContext(project);

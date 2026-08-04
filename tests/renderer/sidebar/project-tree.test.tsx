@@ -161,7 +161,9 @@ describe('ProjectTree', () => {
     });
 
     expect(screen.getByText('No projects yet')).toBeVisible();
-    expect(screen.getByText('Add the main clone of a Git repository.')).toBeVisible();
+    expect(
+      screen.getByText('Add a Git repository from any of its worktrees.'),
+    ).toBeVisible();
     const addProject = screen.getByRole('button', { name: 'Add project' });
     expect(addProject).toBeVisible();
     await user.click(addProject);

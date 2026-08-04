@@ -71,7 +71,7 @@ export function ProjectTree({
           <div className={styles.emptyTree}>
             <FolderOpen size={23} />
             <span>No projects yet</span>
-            <p>Add the main clone of a Git repository.</p>
+            <p>Add a Git repository from any of its worktrees.</p>
             <button
               className={`${controls.button} ${controls.subtle}`}
               onClick={onChooseProject}

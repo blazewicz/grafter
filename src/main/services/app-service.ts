@@ -33,6 +33,7 @@ import { ApprovalManager } from '../approvals';
 import { CommandRunner } from '../commands';
 import { GitService } from './git-service';
 import { GitHubService } from './github-service';
+import { RepositoryLocator } from './repository-locator';
 import type { StateStore } from '../store';
 
 const pullRequestFreshnessMs = 30_000;
@@ -59,6 +60,7 @@ export class AppService {
 
   readonly git: GitService;
   readonly github: GitHubService;
+  readonly repositoryLocator: RepositoryLocator;
   readonly approvals: ApprovalManager;
   #trees: Project[] = [];
   readonly #onSnapshotUpdate: (snapshot: AppSnapshot) => void;
@@ -82,6 +84,7 @@ export class AppService {
   ) {
     this.git = new GitService(runner);
     this.github = new GitHubService(runner);
+    this.repositoryLocator = new RepositoryLocator(runner);
     this.approvals = new ApprovalManager(runner);
     this.#homeDirectory = options.homeDirectory ?? os.homedir();
     this.#systemLocale =
@@ -112,7 +115,11 @@ export class AppService {
   }
 
   async addProject(selectedPath: string): Promise<AppSnapshot> {
-    const details = await this.git.inspectMainClone(selectedPath);
+    const location = await this.repositoryLocator.locate(selectedPath);
+    const details: Omit<ProjectConfig, 'id'> = {
+      name: location.name,
+      path: location.mainWorktreePath,
+    };
     const existing = this.store.state.projects.find(
       (project) => project.path === details.path,
     );

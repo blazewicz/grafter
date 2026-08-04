@@ -73,7 +73,7 @@ function registerIpc(): void {
   );
   ipcMain.handle(ipc.chooseProject, async () => {
     const result = await dialog.showOpenDialog(mainWindow!, {
-      title: 'Choose the main Git clone',
+      title: 'Choose a Git repository or worktree',
       buttonLabel: 'Add project',
       properties: ['openDirectory'],
     });
