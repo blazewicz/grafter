@@ -120,16 +120,32 @@ export class AppService {
       name: location.name,
       path: location.mainWorktreePath,
     };
-    const existing = this.store.state.projects.find(
-      (project) => project.path === details.path,
+    const persisted = this.store.state;
+    const existingRecent = persisted.recentRepositories.find(
+      (repository) =>
+        repository.commonDirectoryPath === location.commonDirectoryPath ||
+        repository.mainWorktreePath === details.path,
+    );
+    const existing = persisted.projects.find(
+      (project) =>
+        project.id === existingRecent?.repositoryId || project.path === details.path,
     );
     if (existing) {
+      await this.store.openRepository(
+        existing.id,
+        location.selectedWorktreePath,
+        location.commonDirectoryPath,
+      );
       this.#reconcileProjectTrees();
       return this.snapshot();
     }
 
     const project = this.git.createProject(details);
-    await this.store.update((state) => state.projects.push(project));
+    await this.store.addRepository(
+      project,
+      location.selectedWorktreePath,
+      location.commonDirectoryPath,
+    );
     this.#reconcileProjectTrees();
     const worktrees = await this.#runProjectOperationSerialized(project.id, () =>
       this.#refreshProject(project, false),
@@ -143,9 +159,7 @@ export class AppService {
   }
 
   async removeProject(projectId: string): Promise<AppSnapshot> {
-    await this.store.update((state) => {
-      state.projects = state.projects.filter((project) => project.id !== projectId);
-    });
+    await this.store.removeRepository(projectId);
     this.#projectRefreshVersions.delete(projectId);
     this.#reconcileProjectTrees();
     this.#prunePullRequestCache(this.#trees.flatMap((item) => item.worktrees));
@@ -316,16 +330,11 @@ export class AppService {
         }
       }
       const comparison = await this.git.comparison(project, worktree, targetBranch);
-      await this.store.update((state) => {
-        if (targetBranch) {
-          state.comparisonBaseOverrides[worktree.id] = {
-            sourceBranch: worktree.branch,
-            targetBranch,
-          };
-        } else {
-          delete state.comparisonBaseOverrides[worktree.id];
-        }
-      });
+      await this.store.setComparisonBaseOverride(
+        project.id,
+        worktree.id,
+        targetBranch ? { sourceBranch: worktree.branch, targetBranch } : undefined,
+      );
       return comparison;
     });
   }
@@ -426,12 +435,7 @@ export class AppService {
   }
 
   async updateProjectSetup(projectId: string, script: string): Promise<AppSnapshot> {
-    await this.store.update((state) => {
-      const project = state.projects.find((item) => item.id === projectId);
-      if (!project) throw new Error('Project not found.');
-      if (script.trim()) project.setupScript = script.trim();
-      else delete project.setupScript;
-    });
+    await this.store.setRepositorySetupScript(projectId, script);
     this.#reconcileProjectTrees();
     return this.snapshot();
   }
@@ -596,7 +600,7 @@ export class AppService {
   }
 
   #comparisonBaseOverride(worktree: Worktree): string | undefined {
-    const override = this.store.state.comparisonBaseOverrides[worktree.id];
+    const override = this.store.comparisonBaseOverride(worktree.projectId, worktree.id);
     return override?.sourceBranch === worktree.branch ? override.targetBranch : undefined;
   }
 }

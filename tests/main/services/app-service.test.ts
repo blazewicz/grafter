@@ -707,6 +707,15 @@ branch refs/heads/feature
     expect(fromMain.projects).toHaveLength(1);
     expect(store.state.projects).toHaveLength(1);
     expect(store.state.projects[0]?.path).toBe(main);
+    expect(store.state.recentRepositories).toHaveLength(1);
+    expect(store.state.recentRepositories[0]).toMatchObject({
+      repositoryId: store.state.projects[0]?.id,
+      name: 'repository',
+      commonDirectoryPath: commonDirectory,
+      mainWorktreePath: main,
+      lastOpenedPath: main,
+    });
+    expect(typeof store.state.recentRepositories[0]?.lastOpenedAt).toBe('string');
   });
 
   it('adds and removes projects without scanning unrelated repositories', async () => {
@@ -752,6 +761,9 @@ branch refs/heads/feature
     expect(removed.projects.map((item) => item.path)).toEqual(['/added']);
     expect(runner.commands).toHaveLength(0);
     expect(removed.projects[0]?.worktrees).toHaveLength(1);
+    expect(store.state.recentRepositories.map((item) => item.repositoryId)).toEqual([
+      store.state.projects[0]?.id,
+    ]);
   });
 
   it('creates a worktree with one targeted post-mutation scan', async () => {
@@ -822,6 +834,7 @@ branch refs/heads/feature
       setupScript: 'npm ci',
       worktrees: [{ branch: 'main' }, { branch: 'feature/stacked' }],
     });
+    expect(store.state.repositoryPreferences[project.id]?.setupScript).toBe('npm ci');
     expect(runner.commands).toHaveLength(0);
   });
 
@@ -1418,6 +1431,12 @@ describe('AppService branch comparisons', () => {
       sourceBranch: 'feature/stacked',
       targetBranch: 'release/next',
     });
+    expect(
+      store.state.repositoryPreferences[project.id]?.comparisonBaseOverrides[feature.id],
+    ).toEqual({
+      sourceBranch: 'feature/stacked',
+      targetBranch: 'release/next',
+    });
     expect(comparison).toHaveBeenCalledWith(project, feature, 'release/next');
 
     await expect(service.openDiff(feature.id)).resolves.toEqual(session);
@@ -1430,6 +1449,9 @@ describe('AppService branch comparisons', () => {
     });
     await service.setComparisonBase({ worktreeId: feature.id });
     expect(store.state.comparisonBaseOverrides[feature.id]).toBeUndefined();
+    expect(
+      store.state.repositoryPreferences[project.id]?.comparisonBaseOverrides[feature.id],
+    ).toBeUndefined();
   });
 
   it('binds editor access only to a worktree checked out on the source branch', async () => {
