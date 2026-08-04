@@ -1,4 +1,4 @@
-import { mkdtemp } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
@@ -650,6 +650,65 @@ branch refs/heads/main
 });
 
 describe('AppService targeted project updates', () => {
+  it('adds one project rooted at the main worktree when opened through a linked worktree', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-app-service-'));
+    const unresolvedMain = path.join(directory, 'repository');
+    const unresolvedLinked = path.join(directory, 'repository.worktrees', 'feature');
+    const unresolvedCommonDirectory = path.join(unresolvedMain, '.git');
+    await Promise.all([
+      mkdir(unresolvedCommonDirectory, { recursive: true }),
+      mkdir(unresolvedLinked, { recursive: true }),
+    ]);
+    const [main, linked, commonDirectory] = await Promise.all([
+      realpath(unresolvedMain),
+      realpath(unresolvedLinked),
+      realpath(unresolvedCommonDirectory),
+    ]);
+    const store = new StateStore(directory);
+    await store.load();
+    const topology = `worktree ${main}
+HEAD 1111111
+branch refs/heads/main
+
+worktree ${linked}
+HEAD 2222222
+branch refs/heads/feature
+`;
+    const runner = new StubCommandRunner((spec) => {
+      if (spec.args[0] === 'rev-parse' && spec.args[1] === '--is-bare-repository') {
+        return { stdout: 'false\n' };
+      }
+      if (spec.args[0] === 'rev-parse' && spec.args[1] === '--show-toplevel') {
+        return { stdout: `${spec.cwd === linked ? linked : main}\n` };
+      }
+      if (spec.args.includes('--git-common-dir')) {
+        return { stdout: `${commonDirectory}\n` };
+      }
+      if (spec.tool === 'git' && spec.args[0] === 'worktree') {
+        return { stdout: topology };
+      }
+      if (spec.tool === 'github') return { exitCode: 1 };
+      throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
+    });
+    const service = new AppService(store, runner);
+
+    const fromLinked = await service.addProject(linked);
+    const fromMain = await service.addProject(main);
+
+    expect(fromLinked.projects).toHaveLength(1);
+    expect(fromLinked.projects[0]).toMatchObject({
+      name: 'repository',
+      path: main,
+      worktrees: [
+        { path: main, isMain: true },
+        { path: linked, isMain: false },
+      ],
+    });
+    expect(fromMain.projects).toHaveLength(1);
+    expect(store.state.projects).toHaveLength(1);
+    expect(store.state.projects[0]?.path).toBe(main);
+  });
+
   it('adds and removes projects without scanning unrelated repositories', async () => {
     const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-app-service-'));
     const store = new StateStore(directory);
@@ -672,9 +731,11 @@ describe('AppService targeted project updates', () => {
     const service = new AppService(store, runner);
     await service.refresh();
     runner.commands.splice(0);
-    vi.spyOn(service.git, 'inspectMainClone').mockResolvedValue({
+    vi.spyOn(service.repositoryLocator, 'locate').mockResolvedValue({
+      commonDirectoryPath: '/added/.git',
+      mainWorktreePath: '/added',
+      selectedWorktreePath: '/added',
       name: 'added',
-      path: '/added',
     });
 
     const added = await service.addProject('/added');
