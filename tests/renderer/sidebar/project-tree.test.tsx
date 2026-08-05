@@ -143,7 +143,7 @@ describe('ProjectTree', () => {
     const onChooseProject = vi.fn();
     renderProjectTree({ onChooseProject });
 
-    const addProject = screen.getByRole('button', { name: 'Add Git project' });
+    const addProject = screen.getByRole('button', { name: 'Open Repository...' });
     expect(addProject).toBeVisible();
 
     await user.click(addProject);
@@ -164,7 +164,9 @@ describe('ProjectTree', () => {
     expect(
       screen.getByText('Add a Git repository from any of its worktrees.'),
     ).toBeVisible();
-    const addProject = screen.getByRole('button', { name: 'Add project' });
+    const openActions = screen.getAllByRole('button', { name: 'Open Repository...' });
+    const addProject = openActions.at(-1);
+    if (!addProject) throw new Error('Expected an empty-state repository action.');
     expect(addProject).toBeVisible();
     await user.click(addProject);
 

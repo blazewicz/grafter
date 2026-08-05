@@ -56,6 +56,7 @@ export class RepositoryService {
   readonly #now: () => number;
   #project: Project;
   #refreshVersion = 0;
+  #allowUnpersistedRefresh = false;
   #disposed = false;
 
   constructor(
@@ -111,12 +112,37 @@ export class RepositoryService {
       ? this.#runtime.runRepositoryRefresh(operation)
       : operation());
     if (options.hydratePullRequests) {
-      this.#startBackgroundTask(
-        this.#hydratePullRequests(worktrees),
-        'Background pull-request hydration failed.',
-      );
+      this.startPullRequestHydration(worktrees);
     }
     return this.#disposed ? structuredClone(this.#project) : this.snapshot();
+  }
+
+  startPullRequestHydration(
+    worktrees: readonly Worktree[] = this.#project.worktrees,
+  ): void {
+    this.#assertActive();
+    this.#startBackgroundTask(
+      this.#hydratePullRequests(worktrees),
+      'Background pull-request hydration failed.',
+    );
+  }
+
+  /**
+   * Validates a newly discovered repository before the window manager records recency.
+   * The compatibility store entry is intentionally unavailable during this first refresh.
+   */
+  async refreshForInitialOpen(options: RepositoryRefreshOptions = {}): Promise<Project> {
+    if (
+      this.#store.state.projects.some((candidate) => candidate.id === this.repositoryId)
+    ) {
+      return this.refresh(options);
+    }
+    this.#allowUnpersistedRefresh = true;
+    try {
+      return await this.refresh(options);
+    } finally {
+      this.#allowUnpersistedRefresh = false;
+    }
   }
 
   listBranches(): Promise<string[]> {
@@ -387,6 +413,7 @@ export class RepositoryService {
       return this.#project.worktrees;
     }
     if (
+      !this.#allowUnpersistedRefresh &&
       !this.#store.state.projects.some((candidate) => candidate.id === this.repositoryId)
     ) {
       return this.#project.worktrees;
@@ -486,6 +513,14 @@ export class RepositoryService {
     const project = this.#store.state.projects.find(
       (candidate) => candidate.id === this.repositoryId,
     );
+    if (!project && this.#allowUnpersistedRefresh) {
+      return {
+        id: this.#project.id,
+        name: this.#project.name,
+        path: this.#project.path,
+        ...(this.#project.setupScript ? { setupScript: this.#project.setupScript } : {}),
+      };
+    }
     if (!project) throw new Error('Project not found.');
     return project;
   }

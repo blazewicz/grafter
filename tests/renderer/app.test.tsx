@@ -8,6 +8,7 @@ import { api } from '../../src/renderer/grafter-api';
 import type { AppSnapshot } from '../../src/shared/contracts';
 import { buildWelcomeScenario } from '../scenarios/welcome/welcome';
 import { deferred } from '../support/deferred';
+import { appSnapshotFactory, projectFactory, worktreeFactory } from '../factories';
 
 const scenario = buildWelcomeScenario();
 
@@ -55,7 +56,9 @@ describe('App welcome state', () => {
 
     expect(openRecentRepository).toHaveBeenCalledOnce();
     expect(openRecentRepository).toHaveBeenCalledWith(recent.repositoryId);
-    expect(await screen.findByRole('button', { name: 'Add Git project' })).toBeVisible();
+    expect(
+      await screen.findByRole('button', { name: 'Open Repository...' }),
+    ).toBeVisible();
     expect(screen.queryByRole('heading', { name: 'Welcome to Grafter' })).toBeNull();
   });
 
@@ -86,5 +89,33 @@ describe('App welcome state', () => {
         name: new RegExp(`^Open ${recent.name} repository at `),
       }),
     ).toBeEnabled();
+  });
+
+  it('honors a window-manager linked-worktree selection handoff', async () => {
+    const project = projectFactory.build();
+    const linkedWorktree = worktreeFactory.build({
+      projectId: project.id,
+      path: `${project.path}.worktrees/selected-feature`,
+      displayName: 'selected-feature',
+    });
+    const repository = { ...project, worktrees: [...project.worktrees, linkedWorktree] };
+    const selectedSnapshot = appSnapshotFactory.build(
+      {
+        selectedWorktreeId: linkedWorktree.id,
+        worktreeSelectionRequestId: 1,
+      },
+      { associations: { projects: [repository] } },
+    );
+    const getWorktreeDetails = vi
+      .spyOn(api, 'getWorktreeDetails')
+      .mockReturnValue(new Promise(() => undefined));
+    vi.spyOn(api, 'getWorktreeStatus').mockReturnValue(new Promise(() => undefined));
+    vi.spyOn(api, 'getCommandLog').mockResolvedValue([]);
+
+    renderApp(Promise.resolve(selectedSnapshot));
+
+    await waitFor(() => {
+      expect(getWorktreeDetails).toHaveBeenCalledWith(linkedWorktree.id);
+    });
   });
 });

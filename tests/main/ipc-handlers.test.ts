@@ -19,6 +19,9 @@ interface Harness {
   openExternal: ReturnType<typeof vi.fn>;
   writeText: ReturnType<typeof vi.fn>;
   launchEditor: ReturnType<typeof vi.fn>;
+  openRepository: ReturnType<typeof vi.fn>;
+  openRecentRepository: ReturnType<typeof vi.fn>;
+  removeRepository: ReturnType<typeof vi.fn>;
 }
 
 function createHarness(
@@ -38,10 +41,14 @@ function createHarness(
   const openExternal = vi.fn().mockResolvedValue(undefined);
   const writeText = vi.fn();
   const launchEditor = vi.fn().mockResolvedValue(undefined);
+  const openRepository = vi.fn().mockResolvedValue(undefined);
+  const openRecentRepository = vi.fn().mockResolvedValue(undefined);
+  const removeRepository = vi.fn().mockResolvedValue(undefined);
 
   registerIpcHandlers({
     ipcMain: { handle },
     sessions: { resolve } as unknown as Sessions,
+    windowManager: { openRepository, openRecentRepository, removeRepository },
     dialog: { showOpenDialog },
     shell: { openPath, openExternal },
     clipboard: { writeText },
@@ -56,6 +63,9 @@ function createHarness(
     openExternal,
     writeText,
     launchEditor,
+    openRepository,
+    openRecentRepository,
+    removeRepository,
   };
 }
 
@@ -107,8 +117,10 @@ describe('registerIpcHandlers', () => {
     const secondSender = {} as WebContents;
     const firstSnapshot = appSnapshotFactory.build({ homeDirectory: '/first' });
     const secondSnapshot = appSnapshotFactory.build({ homeDirectory: '/second' });
-    const firstService = serviceStub({ snapshot: vi.fn(() => firstSnapshot) });
-    const secondService = serviceStub({ snapshot: vi.fn(() => secondSnapshot) });
+    const firstSnapshotMethod = vi.fn(() => firstSnapshot);
+    const secondSnapshotMethod = vi.fn(() => secondSnapshot);
+    const firstService = serviceStub({ snapshot: firstSnapshotMethod });
+    const secondService = serviceStub({ snapshot: secondSnapshotMethod });
     const firstWindow = {} as BrowserWindow;
     const secondWindow = {} as BrowserWindow;
     const harness = createHarness((sender) =>
@@ -119,16 +131,15 @@ describe('registerIpcHandlers', () => {
 
     expect(invoke(harness, ipc.snapshot, firstSender)).toBe(firstSnapshot);
     expect(invoke(harness, ipc.snapshot, secondSender)).toBe(secondSnapshot);
-    expect(firstService.snapshot).toHaveBeenCalledOnce();
-    expect(secondService.snapshot).toHaveBeenCalledOnce();
+    expect(firstSnapshotMethod).toHaveBeenCalledOnce();
+    expect(secondSnapshotMethod).toHaveBeenCalledOnce();
   });
 
   it('parents the repository dialog to the invoking session window', async () => {
     const sender = {} as WebContents;
     const window = {} as BrowserWindow;
-    const addProject = vi.fn();
     const harness = createHarness(() => ({
-      service: serviceStub({ addProject }),
+      service: serviceStub({}),
       dialogParent: window,
     }));
     harness.showOpenDialog.mockResolvedValue({
@@ -139,11 +150,11 @@ describe('registerIpcHandlers', () => {
     await invoke(harness, ipc.chooseProject, sender);
 
     expect(harness.showOpenDialog).toHaveBeenCalledWith(window, {
-      title: 'Choose a Git repository or worktree',
-      buttonLabel: 'Open repository',
+      title: 'Open a Git repository or worktree',
+      buttonLabel: 'Open Repository',
       properties: ['openDirectory'],
     });
-    expect(addProject).toHaveBeenCalledWith('/repository');
+    expect(harness.openRepository).toHaveBeenCalledWith(sender, '/repository');
   });
 
   it('preserves approval, URL, and clipboard validation behind session resolution', async () => {

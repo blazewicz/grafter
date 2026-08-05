@@ -4,22 +4,21 @@ import {
   clipboard,
   dialog,
   ipcMain,
+  Menu,
   shell,
+  type MenuItemConstructorOptions,
   type WebContents,
 } from 'electron';
 import path from 'node:path';
-import { AppService } from './services/app-service';
 import { ApplicationRuntime } from './application-runtime';
 import { launchEditor } from './editors';
-import { registerIpcHandlers, type WindowSessionService } from './ipc-handlers';
+import { registerIpcHandlers } from './ipc-handlers';
 import { StateStore } from './store';
+import { WindowManager } from './window-manager';
+import type { WindowSessionService } from './window-session-services';
 import { WindowSessionRegistry } from './window-sessions';
 
-async function createWindow(
-  sessions: WindowSessionRegistry<WebContents, BrowserWindow, WindowSessionService>,
-  service: AppService,
-  runtime: ApplicationRuntime,
-): Promise<void> {
+function createBrowserWindow(): BrowserWindow {
   const window = new BrowserWindow({
     width: 1220,
     height: 790,
@@ -35,14 +34,6 @@ async function createWindow(
       sandbox: true,
     },
   });
-  sessions.register({
-    window,
-    service,
-    subscribeToSnapshotUpdates: (subscriber) =>
-      service.subscribeToSnapshotUpdates(subscriber),
-    subscribeToCommandUpdates: (subscriber) =>
-      runtime.subscribeToCommandUpdates(subscriber),
-  });
 
   window.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith('https://')) {
@@ -54,7 +45,10 @@ async function createWindow(
     }
     return { action: 'deny' };
   });
+  return window;
+}
 
+async function loadBrowserWindow(window: BrowserWindow): Promise<void> {
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     await window.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
   } else {
@@ -66,33 +60,104 @@ async function createWindow(
 
 async function startApplication(): Promise<void> {
   const runtime = new ApplicationRuntime();
-  const service = new AppService(new StateStore(app.getPath('userData')), runtime, {
-    homeDirectory: app.getPath('home'),
-    systemLocale: app.getSystemLocale(),
-  });
+  const store = new StateStore(app.getPath('userData'));
+  await store.load();
   const sessions = new WindowSessionRegistry<
     WebContents,
     BrowserWindow,
     WindowSessionService
   >();
-  await service.initialize();
+  const windowManager = new WindowManager({
+    store,
+    runtime,
+    sessions,
+    createWindow: createBrowserWindow,
+    loadWindow: loadBrowserWindow,
+    homeDirectory: app.getPath('home'),
+    systemLocale: app.getSystemLocale(),
+  });
+
   registerIpcHandlers({
     ipcMain,
     sessions,
+    windowManager,
     dialog,
     shell,
     clipboard,
     launchEditor,
   });
-  await createWindow(sessions, service, runtime);
+  Menu.setApplicationMenu(
+    buildApplicationMenu(() => {
+      void chooseRepository(windowManager).catch((error: unknown) =>
+        console.error('Failed to open a repository.', error),
+      );
+    }),
+  );
+  await windowManager.ensureWelcomeWindow();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      void createWindow(sessions, service, runtime).catch((error: unknown) =>
-        console.error('Failed to recreate the application window.', error),
-      );
+      void windowManager
+        .ensureWelcomeWindow()
+        .catch((error: unknown) =>
+          console.error('Failed to recreate the welcome window.', error),
+        );
     }
   });
+}
+
+async function chooseRepository(
+  windowManager: WindowManager<WebContents, BrowserWindow>,
+): Promise<void> {
+  const window =
+    BrowserWindow.getFocusedWindow() ??
+    BrowserWindow.getAllWindows()[0] ??
+    (await windowManager.ensureWelcomeWindow());
+  const result = await dialog.showOpenDialog(window, {
+    title: 'Open a Git repository or worktree',
+    buttonLabel: 'Open Repository',
+    properties: ['openDirectory'],
+  });
+  const selectedPath = result.filePaths[0];
+  if (!result.canceled && selectedPath) {
+    await windowManager.openRepositoryFromWindow(window, selectedPath);
+  }
+}
+
+function buildApplicationMenu(onOpenRepository: () => void): Menu {
+  const fileMenu: MenuItemConstructorOptions = {
+    label: 'File',
+    submenu: [
+      {
+        label: 'Open Repository...',
+        accelerator: 'CmdOrCtrl+O',
+        click: onOpenRepository,
+      },
+      { type: 'separator' },
+      { role: 'close' },
+    ],
+  };
+  const template: MenuItemConstructorOptions[] =
+    process.platform === 'darwin'
+      ? [
+          {
+            label: app.name,
+            submenu: [
+              { role: 'about' },
+              { type: 'separator' },
+              { role: 'hide' },
+              { role: 'hideOthers' },
+              { role: 'unhide' },
+              { type: 'separator' },
+              { role: 'quit' },
+            ],
+          },
+          fileMenu,
+          { role: 'editMenu' },
+          { role: 'windowMenu' },
+        ]
+      : [fileMenu, { role: 'editMenu' }, { role: 'windowMenu' }];
+  return Menu.buildFromTemplate(template);
 }
 
 void app
