@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import type { DiffSession, ProjectConfig } from '../../../src/shared/contracts';
+import { ApplicationRuntime } from '../../../src/main/application-runtime';
 import { AppService } from '../../../src/main/services/app-service';
 import { StateStore } from '../../../src/main/store';
 import { StubCommandRunner } from '../support/stub-command-runner';
@@ -21,6 +22,10 @@ worktree /repo.worktrees/feature
 HEAD 2222222
 branch refs/heads/feature/stacked
 `;
+
+function runtimeFor(runner: StubCommandRunner): ApplicationRuntime {
+  return new ApplicationRuntime({ commandRunner: runner });
+}
 
 function pullRequestJson(
   title: string,
@@ -57,11 +62,14 @@ describe('AppService pull request refresh', () => {
       throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
     });
     const snapshotFailure = new Error('Snapshot subscriber failed');
-    const service = new AppService(store, runner, {
+    const runtime = new ApplicationRuntime({
+      commandRunner: runner,
+      onBackgroundError: (message, error) => reportError?.({ message, error }),
+    });
+    const service = new AppService(store, runtime, {
       onSnapshotUpdate: () => {
         throw snapshotFailure;
       },
-      onBackgroundError: (message, error) => reportError?.({ message, error }),
     });
 
     const initial = await service.refresh();
@@ -127,7 +135,7 @@ describe('AppService pull request refresh', () => {
       }
       throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
     });
-    const service = new AppService(store, runner, {
+    const service = new AppService(store, runtimeFor(runner), {
       now: () => now,
       systemLocale: 'en-PL',
       onSnapshotUpdate: (snapshot) => {
@@ -238,11 +246,11 @@ branch refs/heads/branch-${index}`,
       throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
     });
 
-    const initial = await new AppService(store, runner).refresh();
+    const initial = await new AppService(store, runtimeFor(runner)).refresh();
     expect(initial.projects[0]?.worktrees).toHaveLength(12);
     await hydrationFinished;
 
-    expect(maximumActive).toBe(AppService.maximumConcurrentBackgroundPullRequestLookups);
+    expect(maximumActive).toBe(ApplicationRuntime.maximumConcurrentBackgroundCommands);
   });
 
   it('reserves room for interactive work and shares a queued lookup', async () => {
@@ -276,7 +284,7 @@ branch refs/heads/branch-${index}`,
       resolveAllCompleted = resolve;
     });
     const startsByBranch = new Map<string, number>();
-    const backgroundLimit = AppService.maximumConcurrentBackgroundPullRequestLookups;
+    const backgroundLimit = ApplicationRuntime.maximumConcurrentBackgroundCommands;
     const runner = new StubCommandRunner(async (spec) => {
       if (spec.tool === 'git' && spec.args[0] === 'worktree') {
         return { stdout: worktrees };
@@ -296,7 +304,7 @@ branch refs/heads/branch-${index}`,
       if (completed === 6) resolveAllCompleted?.();
       return { exitCode: 1 };
     });
-    const service = new AppService(store, runner);
+    const service = new AppService(store, runtimeFor(runner));
     const snapshot = await service.refresh();
 
     await backgroundFull;
@@ -347,7 +355,7 @@ branch refs/heads/branch-${offset + index}`,
     const allCompleted = new Promise<void>((resolve) => {
       resolveAllCompleted = resolve;
     });
-    const backgroundLimit = AppService.maximumConcurrentBackgroundPullRequestLookups;
+    const backgroundLimit = ApplicationRuntime.maximumConcurrentBackgroundCommands;
     const runner = new StubCommandRunner(async (spec) => {
       if (spec.tool === 'git') {
         const current = refreshes;
@@ -363,7 +371,7 @@ branch refs/heads/branch-${offset + index}`,
       if (completed === 12) resolveAllCompleted?.();
       return { exitCode: 1 };
     });
-    const service = new AppService(store, runner);
+    const service = new AppService(store, runtimeFor(runner));
 
     await service.refresh();
     await firstWave;
@@ -397,7 +405,7 @@ describe('AppService project refresh', () => {
         active += 1;
         started += 1;
         maximumActive = Math.max(maximumActive, active);
-        if (started === AppService.maximumConcurrentProjectRefreshes) {
+        if (started === ApplicationRuntime.maximumConcurrentRepositoryRefreshes) {
           limitReached.resolve();
         }
         await releaseRefreshes.promise;
@@ -409,16 +417,16 @@ describe('AppService project refresh', () => {
       if (spec.tool === 'github') return { exitCode: 1 };
       throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
     });
-    const service = new AppService(store, runner);
+    const service = new AppService(store, runtimeFor(runner));
     const refresh = service.refresh();
 
     await limitReached.promise;
-    expect(started).toBe(AppService.maximumConcurrentProjectRefreshes);
-    expect(maximumActive).toBe(AppService.maximumConcurrentProjectRefreshes);
+    expect(started).toBe(ApplicationRuntime.maximumConcurrentRepositoryRefreshes);
+    expect(maximumActive).toBe(ApplicationRuntime.maximumConcurrentRepositoryRefreshes);
     releaseRefreshes.resolve();
 
     const snapshot = await refresh;
-    expect(maximumActive).toBe(AppService.maximumConcurrentProjectRefreshes);
+    expect(maximumActive).toBe(ApplicationRuntime.maximumConcurrentRepositoryRefreshes);
     expect(snapshot.projects.map((item) => item.id)).toEqual(
       projects.map((item) => item.id),
     );
@@ -450,7 +458,7 @@ describe('AppService project refresh', () => {
       if (spec.tool === 'github') return { exitCode: 1 };
       throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
     });
-    const service = new AppService(store, runner);
+    const service = new AppService(store, runtimeFor(runner));
     const refresh = service.refresh();
 
     await allStarted.promise;
@@ -498,7 +506,7 @@ describe('AppService project refresh', () => {
       throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
     });
 
-    const snapshot = await new AppService(store, runner).refresh();
+    const snapshot = await new AppService(store, runtimeFor(runner)).refresh();
 
     expect(snapshot.projects).toMatchObject([
       { id: unavailable.id, worktrees: [] },
@@ -550,7 +558,7 @@ branch refs/heads/main
       }
       throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
     });
-    const service = new AppService(store, runner);
+    const service = new AppService(store, runtimeFor(runner));
 
     const initial = await service.refresh();
     expect(initial.projects[0]?.worktrees).toHaveLength(1);
@@ -575,9 +583,11 @@ branch refs/heads/main
     await store.load();
     const service = new AppService(
       store,
-      new StubCommandRunner(() => {
-        throw new Error('No command expected.');
-      }),
+      runtimeFor(
+        new StubCommandRunner(() => {
+          throw new Error('No command expected.');
+        }),
+      ),
     );
 
     await expect(service.refreshProject('missing')).rejects.toThrow('Project not found.');
@@ -598,7 +608,7 @@ branch refs/heads/main
       if (spec.tool === 'github') return { exitCode: 1 };
       throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
     });
-    const service = new AppService(store, runner);
+    const service = new AppService(store, runtimeFor(runner));
     const initial = await service.refresh();
 
     failRefresh = true;
@@ -635,7 +645,7 @@ branch refs/heads/main
       if (spec.tool === 'github') return { exitCode: 1 };
       throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
     });
-    const service = new AppService(store, runner);
+    const service = new AppService(store, runtimeFor(runner));
     await service.refresh();
 
     const refresh = service.refreshProject(project.id);
@@ -675,7 +685,7 @@ describe('AppService targeted project updates', () => {
     const runner = new StubCommandRunner((spec) => {
       throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
     });
-    const service = new AppService(store, runner);
+    const service = new AppService(store, runtimeFor(runner));
 
     const snapshot = service.snapshot();
 
@@ -710,7 +720,7 @@ describe('AppService targeted project updates', () => {
       if (spec.tool === 'github') return { exitCode: 1 };
       throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
     });
-    const service = new AppService(store, runner);
+    const service = new AppService(store, runtimeFor(runner));
     const locate = vi.spyOn(service.repositoryLocator, 'locate').mockResolvedValue({
       commonDirectoryPath: '/recent/.git',
       mainWorktreePath: '/recent',
@@ -738,7 +748,7 @@ describe('AppService targeted project updates', () => {
     const runner = new StubCommandRunner((spec) => {
       throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
     });
-    const service = new AppService(store, runner);
+    const service = new AppService(store, runtimeFor(runner));
     const locate = vi.spyOn(service.repositoryLocator, 'locate');
 
     await expect(service.openRecentRepository('missing')).rejects.toThrow(
@@ -788,7 +798,7 @@ branch refs/heads/feature
       if (spec.tool === 'github') return { exitCode: 1 };
       throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
     });
-    const service = new AppService(store, runner);
+    const service = new AppService(store, runtimeFor(runner));
 
     const fromLinked = await service.addProject(linked);
     const fromMain = await service.addProject(main);
@@ -835,7 +845,7 @@ branch refs/heads/feature
       if (spec.tool === 'github') return { exitCode: 1 };
       throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
     });
-    const service = new AppService(store, runner);
+    const service = new AppService(store, runtimeFor(runner));
     await service.refresh();
     runner.commands.splice(0);
     vi.spyOn(service.repositoryLocator, 'locate').mockResolvedValue({
@@ -892,7 +902,7 @@ branch refs/heads/feature
       if (spec.tool === 'github') return { exitCode: 1 };
       throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
     });
-    const service = new AppService(store, runner);
+    const service = new AppService(store, runtimeFor(runner));
     await service.refresh();
     runner.commands.splice(0);
 
@@ -922,7 +932,7 @@ branch refs/heads/feature
       if (spec.tool === 'github') return { exitCode: 1 };
       throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
     });
-    const service = new AppService(store, runner);
+    const service = new AppService(store, runtimeFor(runner));
     await service.refresh();
     runner.commands.splice(0);
 
@@ -968,7 +978,7 @@ branch refs/heads/feature
       if (spec.tool === 'github') return { exitCode: 1 };
       throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
     });
-    const service = new AppService(store, runner);
+    const service = new AppService(store, runtimeFor(runner));
     const initial = await service.refresh();
     const removable = initial.projects[0]?.worktrees[1];
     if (!removable) throw new Error('Expected a removable worktree.');
@@ -1009,7 +1019,7 @@ branch refs/heads/feature
       if (spec.tool === 'shell') return {};
       throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
     });
-    const service = new AppService(store, runner);
+    const service = new AppService(store, runtimeFor(runner));
     await service.refresh();
     const result = await service.createWorktree({
       projectId: setupProject.id,
@@ -1058,7 +1068,7 @@ branch refs/heads/feature/beta
       if (spec.tool === 'github') return { exitCode: 1 };
       throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
     });
-    const service = new AppService(store, runner);
+    const service = new AppService(store, runtimeFor(runner));
 
     const initial = await service.refresh();
     expect(initial.projects[0]?.worktrees).toMatchObject([
@@ -1109,7 +1119,7 @@ branch refs/heads/release/0.1
       if (spec.tool === 'github') return { exitCode: 1 };
       throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
     });
-    const service = new AppService(store, runner);
+    const service = new AppService(store, runtimeFor(runner));
     const initial = await service.refresh();
     const feature = initial.projects[0]?.worktrees[1];
     if (!feature) throw new Error('Expected the feature worktree.');
@@ -1145,6 +1155,80 @@ branch refs/heads/release/0.1
 });
 
 describe('AppService repository operation serialization', () => {
+  it('shares the canonical repository lock across service consumers', async () => {
+    const firstDirectory = await mkdtemp(path.join(os.tmpdir(), 'grafter-app-service-'));
+    const secondDirectory = await mkdtemp(path.join(os.tmpdir(), 'grafter-app-service-'));
+    const firstStore = new StateStore(firstDirectory);
+    const secondStore = new StateStore(secondDirectory);
+    await Promise.all([firstStore.load(), secondStore.load()]);
+    const firstProject = { ...project, id: 'first', path: '/first-entry' };
+    const secondProject = { ...project, id: 'second', path: '/second-entry' };
+    const canonicalRepositoryKey = '/canonical/repository/.git';
+    await Promise.all([
+      firstStore.addRepository(firstProject, firstProject.path, canonicalRepositoryKey),
+      secondStore.addRepository(
+        secondProject,
+        secondProject.path,
+        canonicalRepositoryKey,
+      ),
+    ]);
+    const releaseFirstAdd = deferred<void>();
+    const firstAddStarted = deferred<void>();
+    const secondAddStarted = deferred<void>();
+    const createdBranches = new Map<string, string[]>();
+    let addCalls = 0;
+    const runner = new StubCommandRunner(async (spec) => {
+      if (spec.tool === 'git' && spec.args[0] === 'worktree' && spec.args[1] === 'add') {
+        addCalls += 1;
+        if (addCalls === 1) {
+          firstAddStarted.resolve();
+          await releaseFirstAdd.promise;
+        } else {
+          secondAddStarted.resolve();
+        }
+        const branches = createdBranches.get(spec.cwd) ?? [];
+        branches.push(spec.args[3] ?? 'unknown');
+        createdBranches.set(spec.cwd, branches);
+        return {};
+      }
+      if (spec.tool === 'git' && spec.args[0] === 'worktree') {
+        const currentProject =
+          spec.cwd === firstProject.path ? firstProject : secondProject;
+        return {
+          stdout: worktreesFor(
+            currentProject,
+            createdBranches.get(currentProject.path) ?? [],
+          ),
+        };
+      }
+      if (spec.tool === 'github') return { exitCode: 1 };
+      throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
+    });
+    const runtime = new ApplicationRuntime({ commandRunner: runner });
+    const firstService = new AppService(firstStore, runtime);
+    const secondService = new AppService(secondStore, runtime);
+    await Promise.all([firstService.refresh(), secondService.refresh()]);
+
+    const firstMutation = firstService.createWorktree({
+      projectId: firstProject.id,
+      branch: 'feature/first',
+      path: '/first-entry.worktrees/feature-first',
+    });
+    await firstAddStarted.promise;
+    const secondMutation = secondService.createWorktree({
+      projectId: secondProject.id,
+      branch: 'feature/second',
+      path: '/second-entry.worktrees/feature-second',
+    });
+    await Promise.resolve();
+    expect(addCalls).toBe(1);
+
+    releaseFirstAdd.resolve();
+    await secondAddStarted.promise;
+    await Promise.all([firstMutation, secondMutation]);
+    expect(addCalls).toBe(2);
+  });
+
   it('does not overlap same-project mutations and holds the lock through refresh', async () => {
     const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-app-service-'));
     const store = new StateStore(directory);
@@ -1176,7 +1260,7 @@ describe('AppService repository operation serialization', () => {
       if (spec.tool === 'github') return { exitCode: 1 };
       throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
     });
-    const service = new AppService(store, runner);
+    const service = new AppService(store, runtimeFor(runner));
     await service.refresh();
 
     const first = service.createWorktree({
@@ -1242,7 +1326,7 @@ describe('AppService repository operation serialization', () => {
       if (spec.tool === 'github') return { exitCode: 1 };
       throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
     });
-    const service = new AppService(store, runner);
+    const service = new AppService(store, runtimeFor(runner));
     await service.refresh();
 
     const first = service.createWorktree({
@@ -1282,7 +1366,7 @@ describe('AppService repository operation serialization', () => {
       if (spec.tool === 'github') return { exitCode: 1 };
       throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
     });
-    const service = new AppService(store, runner);
+    const service = new AppService(store, runtimeFor(runner));
     await service.refresh();
 
     const failed = service.createWorktree({
@@ -1337,7 +1421,7 @@ describe('AppService repository operation serialization', () => {
       if (spec.tool === 'github') return { exitCode: 1 };
       throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
     });
-    const service = new AppService(store, runner);
+    const service = new AppService(store, runtimeFor(runner));
     const initial = await service.refresh();
     const removable = initial.projects[0]?.worktrees.find(
       (worktree) => worktree.branch === 'feature/stacked',
@@ -1388,7 +1472,7 @@ describe('AppService repository operation serialization', () => {
       if (spec.tool === 'github') return { exitCode: 1 };
       throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
     });
-    const service = new AppService(store, runner);
+    const service = new AppService(store, runtimeFor(runner));
     const initial = await service.refresh();
     const feature = initial.projects[0]?.worktrees[1];
     if (!feature) throw new Error('Expected the feature worktree.');
@@ -1435,7 +1519,7 @@ describe('AppService repository operation serialization', () => {
       if (spec.tool === 'github') return { exitCode: 1 };
       throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
     });
-    const service = new AppService(store, runner);
+    const service = new AppService(store, runtimeFor(runner));
     const initial = await service.refresh();
     const feature = initial.projects[0]?.worktrees[1];
     if (!feature) throw new Error('Expected the feature worktree.');
@@ -1490,7 +1574,7 @@ describe('AppService branch comparisons', () => {
       if (spec.tool === 'github') return { exitCode: 1 };
       throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
     });
-    const service = new AppService(store, runner);
+    const service = new AppService(store, runtimeFor(runner));
     const snapshot = await service.refresh();
     const feature = snapshot.projects[0]?.worktrees[1];
     if (!feature) throw new Error('Expected the feature worktree.');
@@ -1564,7 +1648,7 @@ describe('AppService branch comparisons', () => {
       if (spec.tool === 'github') return { exitCode: 1 };
       throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
     });
-    const service = new AppService(store, runner);
+    const service = new AppService(store, runtimeFor(runner));
     const snapshot = await service.refresh();
     const sourceWorktree = snapshot.projects[0]?.worktrees.find(
       (worktree) => worktree.branch === 'feature/stacked',
@@ -1605,7 +1689,7 @@ describe('AppService branch comparisons', () => {
     const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-app-service-'));
     const store = new StateStore(directory);
     await store.load();
-    const service = new AppService(store, new StubCommandRunner(() => ({})));
+    const service = new AppService(store, runtimeFor(new StubCommandRunner(() => ({}))));
 
     await expect(
       service.openBranchDiff({ projectId: 'project', sourceBranch: 'main' }),
@@ -1629,7 +1713,7 @@ describe('AppService commit changes', () => {
     const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-app-service-'));
     const store = new StateStore(directory);
     await store.load();
-    const service = new AppService(store, new StubCommandRunner(() => ({})));
+    const service = new AppService(store, runtimeFor(new StubCommandRunner(() => ({}))));
 
     await expect(
       service.openCommitDiff({ projectId: 'project', commitHash: 'HEAD' }),
