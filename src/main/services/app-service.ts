@@ -1,6 +1,5 @@
 import path from 'node:path';
 import os from 'node:os';
-import pLimit from 'p-limit';
 import { isCommandContext } from '../../shared/command-context';
 import type {
   AppSnapshot,
@@ -30,7 +29,7 @@ import type {
 import { expandWorktreeTemplate, worktreePathForBranch } from '../../shared/paths';
 import { isSettings } from '../../shared/settings';
 import { ApprovalManager } from '../approvals';
-import { CommandRunner } from '../commands';
+import type { ApplicationRuntime } from '../application-runtime';
 import { GitService } from './git-service';
 import { GitHubService } from './github-service';
 import { RepositoryLocator } from './repository-locator';
@@ -43,21 +42,9 @@ interface AppServiceOptions {
   systemLocale?: string;
   onSnapshotUpdate?: (snapshot: AppSnapshot) => void;
   now?: () => number;
-  onBackgroundError?: (message: string, error: unknown) => void;
 }
 
 export class AppService {
-  // Bulk workflows won't use CommandRunner's full aggregate capacity, so
-  // unrelated interactive commands retain room to start.
-  static readonly maximumConcurrentProjectRefreshes = Math.max(
-    1,
-    Math.floor(CommandRunner.maximumConcurrentCommands / 2),
-  );
-  static readonly maximumConcurrentBackgroundPullRequestLookups = Math.max(
-    1,
-    Math.floor(CommandRunner.maximumConcurrentCommands / 2),
-  );
-
   readonly git: GitService;
   readonly github: GitHubService;
   readonly repositoryLocator: RepositoryLocator;
@@ -65,23 +52,18 @@ export class AppService {
   #trees: Project[] = [];
   readonly #onSnapshotUpdate: (snapshot: AppSnapshot) => void;
   readonly #now: () => number;
-  readonly #onBackgroundError: (message: string, error: unknown) => void;
   readonly #homeDirectory: string;
   readonly #systemLocale: string;
   readonly #pullRequestLookups = new Map<string, Promise<PullRequest | undefined>>();
-  readonly #backgroundPullRequestLookupsLimit = pLimit(
-    AppService.maximumConcurrentBackgroundPullRequestLookups,
-  );
-  readonly #projectRefreshLimit = pLimit(AppService.maximumConcurrentProjectRefreshes);
-  readonly #projectOperationLimitById = new Map<string, ReturnType<typeof pLimit>>();
   readonly #pullRequestRefreshedAt = new Map<string, number>();
   readonly #projectRefreshVersions = new Map<string, number>();
 
   constructor(
     readonly store: StateStore,
-    readonly runner: CommandRunner,
+    readonly runtime: ApplicationRuntime,
     options: AppServiceOptions = {},
   ) {
+    const runner = runtime.commandRunner;
     this.git = new GitService(runner);
     this.github = new GitHubService(runner);
     this.repositoryLocator = new RepositoryLocator(runner);
@@ -91,8 +73,10 @@ export class AppService {
       options.systemLocale ?? Intl.DateTimeFormat().resolvedOptions().locale;
     this.#onSnapshotUpdate = options.onSnapshotUpdate ?? (() => undefined);
     this.#now = options.now ?? Date.now;
-    this.#onBackgroundError =
-      options.onBackgroundError ?? ((message, error) => console.error(message, error));
+  }
+
+  get runner() {
+    return this.runtime.commandRunner;
   }
 
   async initialize(): Promise<void> {
@@ -181,7 +165,7 @@ export class AppService {
     await Promise.all(
       this.store.state.projects.map((project) =>
         this.#runProjectOperationSerialized(project.id, () =>
-          this.#projectRefreshLimit(() => this.#refreshProject(project, true)),
+          this.runtime.runRepositoryRefresh(() => this.#refreshProject(project, true)),
         ),
       ),
     );
@@ -462,16 +446,28 @@ export class AppService {
     projectId: string,
     operation: () => Promise<T>,
   ): Promise<T> {
-    let limit = this.#projectOperationLimitById.get(projectId);
-    if (!limit) {
-      limit = pLimit(1);
-      this.#projectOperationLimitById.set(projectId, limit);
-    }
-    return limit(operation);
+    return this.runtime.runRepositoryMutation(
+      this.#repositoryRuntimeKey(projectId),
+      operation,
+    );
   }
 
   #startBackgroundTask(task: Promise<unknown>, message: string): void {
-    void task.catch((error: unknown) => this.#onBackgroundError(message, error));
+    this.runtime.observeBackgroundTask(() => task, message);
+  }
+
+  #repositoryRuntimeKey(projectId: string): string {
+    const persisted = this.store.state;
+    const repository = persisted.recentRepositories.find(
+      (candidate) => candidate.repositoryId === projectId,
+    );
+    if (repository?.commonDirectoryPath) return repository.commonDirectoryPath;
+    const project = persisted.projects.find((candidate) => candidate.id === projectId);
+    if (!project) throw new Error('Project not found.');
+    // Legacy projects predate canonical common-directory persistence. Their canonicalized
+    // main-worktree path is the compatibility key until work unit 6 opens a scoped service
+    // from a RepositoryLocation and always supplies the common directory.
+    return project.path;
   }
 
   async #refreshProject(
@@ -559,7 +555,7 @@ export class AppService {
     const startLookup = (): Promise<PullRequest | undefined> =>
       this.github.pullRequest(worktree);
     const lookup = (
-      background ? this.#backgroundPullRequestLookupsLimit(startLookup) : startLookup()
+      background ? this.runtime.runBackgroundCommand(startLookup) : startLookup()
     )
       .then((pullRequest) => {
         this.#pullRequestRefreshedAt.set(lookupKey, this.#now());

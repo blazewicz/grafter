@@ -11,7 +11,7 @@ import type {
 } from '../shared/contracts';
 import { ipc } from '../shared/ipc';
 import { AppService } from './services/app-service';
-import { CommandRunner } from './commands';
+import { ApplicationRuntime } from './application-runtime';
 import { editorFileUrl, launchEditor } from './editors';
 import { StateStore } from './store';
 
@@ -170,8 +170,9 @@ function registerIpc(): void {
 }
 
 async function startApplication(): Promise<void> {
-  const runner = new CommandRunner(broadcastCommand);
-  service = new AppService(new StateStore(app.getPath('userData')), runner, {
+  const runtime = new ApplicationRuntime();
+  runtime.subscribeToCommandUpdates(broadcastCommand);
+  service = new AppService(new StateStore(app.getPath('userData')), runtime, {
     homeDirectory: app.getPath('home'),
     systemLocale: app.getSystemLocale(),
     onSnapshotUpdate: broadcastSnapshot,
