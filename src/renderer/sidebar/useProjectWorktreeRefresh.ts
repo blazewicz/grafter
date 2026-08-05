@@ -5,12 +5,12 @@ import { api, friendlyError } from '../grafter-api';
 const projectWorktreeRefreshMs = 15_000;
 
 export function useProjectWorktreeRefresh(
-  projectId: string | undefined,
+  repositoryOpen: boolean,
   onRefresh: (snapshot: AppSnapshot) => void,
   onError: (message: string) => void,
 ): void {
   useEffect(() => {
-    if (!projectId) return;
+    if (!repositoryOpen) return;
 
     let active = true;
     let refreshInFlight = false;
@@ -35,7 +35,7 @@ export function useProjectWorktreeRefresh(
       if (!active || refreshInFlight || document.visibilityState !== 'visible') return;
       refreshInFlight = true;
       try {
-        const snapshot = await api.refreshProject(projectId);
+        const snapshot = await api.refresh();
         if (active) onRefresh(snapshot);
       } catch (caught) {
         if (active && !reportedError) {
@@ -61,5 +61,5 @@ export function useProjectWorktreeRefresh(
       clearScheduledRefresh();
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, [onError, onRefresh, projectId]);
+  }, [onError, onRefresh, repositoryOpen]);
 }

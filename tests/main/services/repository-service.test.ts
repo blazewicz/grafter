@@ -45,6 +45,20 @@ describe('RepositoryService scope', () => {
     await expect(first.worktreeStatus(foreignWorktreeId)).rejects.toThrow(
       'Worktree not found.',
     );
+    await expect(
+      first.createWorktree({
+        projectId: secondProject.id,
+        branch: 'feature/crafted',
+        path: '/second.worktrees/crafted',
+      }),
+    ).rejects.toThrow('Invalid create worktree request.');
+    await expect(
+      first.openBranchDiff({
+        projectId: secondProject.id,
+        sourceBranch: 'feature/crafted',
+        targetBranch: 'main',
+      }),
+    ).rejects.toThrow('Invalid branch comparison request.');
     expect(runner.commands).toHaveLength(2);
   });
 
@@ -265,7 +279,6 @@ describe('RepositoryService scope', () => {
     expect(secondPullRequest?.title).toBe('Second PR');
 
     const session = await first.openBranchDiff({
-      projectId: firstProject.id,
       sourceBranch: 'feature',
       targetBranch: 'main',
     });

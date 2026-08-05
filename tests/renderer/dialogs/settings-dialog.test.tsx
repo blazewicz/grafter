@@ -14,7 +14,7 @@ function renderSettingsDialog(
   nextProject: Project = project,
   onClose: () => void = () => undefined,
   onSave: (nextSettings: Settings) => void = () => undefined,
-  onProjectSetup: (projectId: string, script: string) => void = () => undefined,
+  onRepositorySetup: (script: string) => void = () => undefined,
 ): void {
   render(
     <SettingsDialog
@@ -22,7 +22,7 @@ function renderSettingsDialog(
       repository={nextProject}
       onClose={onClose}
       onSave={onSave}
-      onProjectSetup={onProjectSetup}
+      onRepositorySetup={onRepositorySetup}
     />,
   );
 }
@@ -127,7 +127,7 @@ describe('SettingsDialog', () => {
     await user.click(saveSetupButton);
 
     expect(onProjectSetup).toHaveBeenCalledOnce();
-    expect(onProjectSetup).toHaveBeenCalledWith(project.id, nextSetupScript);
+    expect(onProjectSetup).toHaveBeenCalledWith(nextSetupScript);
     expect(onSave).not.toHaveBeenCalled();
   });
 });

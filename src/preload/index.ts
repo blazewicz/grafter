@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type {
   AppSnapshot,
-  CommandContext,
+  CommandLogScope,
   CommandRecord,
   CreateWorktreeRequest,
   DiffFileRequest,
@@ -18,16 +18,13 @@ import { ipc } from '../shared/ipc';
 
 const api: GrafterApi = {
   getSnapshot: () => ipcRenderer.invoke(ipc.snapshot),
-  getCommandLog: (context: CommandContext) => ipcRenderer.invoke(ipc.commandLog, context),
-  chooseProject: () => ipcRenderer.invoke(ipc.chooseProject),
+  getCommandLog: (scope: CommandLogScope) => ipcRenderer.invoke(ipc.commandLog, scope),
+  chooseRepository: () => ipcRenderer.invoke(ipc.chooseRepository),
   openRecentRepository: (repositoryId) =>
     ipcRenderer.invoke(ipc.openRecentRepository, repositoryId),
-  removeProject: (projectId) => ipcRenderer.invoke(ipc.removeProject, projectId),
   refresh: () => ipcRenderer.invoke(ipc.refresh),
-  refreshProject: (projectId) => ipcRenderer.invoke(ipc.refreshProject, projectId),
-  listBranches: (projectId) => ipcRenderer.invoke(ipc.listBranches, projectId),
-  suggestWorktreePath: (projectId, branch) =>
-    ipcRenderer.invoke(ipc.suggestWorktreePath, projectId, branch),
+  listBranches: () => ipcRenderer.invoke(ipc.listBranches),
+  suggestWorktreePath: (branch) => ipcRenderer.invoke(ipc.suggestWorktreePath, branch),
   createWorktree: (request: CreateWorktreeRequest) =>
     ipcRenderer.invoke(ipc.createWorktree, request),
   switchBranch: (request: SwitchBranchRequest) =>
@@ -53,8 +50,8 @@ const api: GrafterApi = {
   getWorktreeStatus: (worktreeId) => ipcRenderer.invoke(ipc.worktreeStatus, worktreeId),
   updateSettings: (settings: Settings) =>
     ipcRenderer.invoke(ipc.updateSettings, settings),
-  updateProjectSetup: (projectId, script) =>
-    ipcRenderer.invoke(ipc.updateProjectSetup, projectId, script),
+  updateRepositorySetup: (script) =>
+    ipcRenderer.invoke(ipc.updateRepositorySetup, script),
   openWorktreeDirectory: (worktreeId) =>
     ipcRenderer.invoke(ipc.openWorktreeDirectory, worktreeId),
   openWorktreeInEditor: (worktreeId, editor) =>

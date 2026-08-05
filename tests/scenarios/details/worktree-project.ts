@@ -1,14 +1,14 @@
 import type { DeepPartial } from 'fishery';
 import type {
-  AppSnapshot,
   Project,
   ProjectConfig,
+  RepositoryWindowSnapshot,
   PullRequest,
   Worktree,
   WorktreeDetails,
 } from '../../../src/shared/contracts';
 import {
-  appSnapshotFactory,
+  repositorySnapshotFactory,
   mainWorktreeFactory,
   projectConfigFactory,
   projectFactory,
@@ -21,14 +21,14 @@ interface WorktreeProjectScenarioOptions {
   project?: DeepPartial<ProjectConfig>;
   mainWorktree?: DeepPartial<Worktree>;
   details?: DeepPartial<WorktreeDetails>;
-  snapshot?: DeepPartial<Omit<AppSnapshot, 'projects'>>;
+  snapshot?: DeepPartial<Omit<RepositoryWindowSnapshot, 'repository'>>;
 }
 
 export interface WorktreeProjectScenario {
   mainWorktree: Worktree;
   details: WorktreeDetails;
   project: Project;
-  snapshot: AppSnapshot;
+  snapshot: RepositoryWindowSnapshot;
 }
 
 export function buildWorktreeProjectScenario(
@@ -59,8 +59,8 @@ export function buildWorktreeProjectScenario(
   const project = projectFactory.build(projectConfig, {
     associations: { worktrees: [mainWorktree, details] },
   });
-  const snapshot = appSnapshotFactory.build(options.snapshot, {
-    associations: { projects: [project] },
+  const snapshot = repositorySnapshotFactory.build(options.snapshot, {
+    associations: { repository: project },
   });
 
   return { mainWorktree, details, project, snapshot };
@@ -90,9 +90,7 @@ export function replaceScenarioDetails(
   };
   const snapshot = {
     ...scenario.snapshot,
-    projects: scenario.snapshot.projects.map((candidate) =>
-      candidate.id === project.id ? project : candidate,
-    ),
+    repository: project,
   };
 
   return {

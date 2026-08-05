@@ -1,6 +1,10 @@
-import type { AppSnapshot, Project, Worktree } from '../../../src/shared/contracts';
+import type {
+  Project,
+  RepositoryWindowSnapshot,
+  Worktree,
+} from '../../../src/shared/contracts';
 import {
-  appSnapshotFactory,
+  repositorySnapshotFactory,
   mainWorktreeFactory,
   projectConfigFactory,
   projectFactory,
@@ -9,7 +13,7 @@ import {
 import { fakeSlug } from '../../factories/faker';
 
 export interface RepositoryWindowScenario {
-  snapshot: AppSnapshot;
+  snapshot: RepositoryWindowSnapshot;
   repository: Project;
   secondRepository: Project;
   mainWorktree: Worktree;
@@ -34,9 +38,9 @@ export function buildRepositoryWindowScenario(): RepositoryWindowScenario {
     associations: { worktrees: [linkedWorktree, mainWorktree] },
   });
   const secondRepository = projectFactory.build();
-  const snapshot = appSnapshotFactory.build(
+  const snapshot = repositorySnapshotFactory.build(
     { selectedWorktreeId: linkedWorktree.id },
-    { associations: { projects: [repository, secondRepository] } },
+    { associations: { repository } },
   );
 
   return {

@@ -122,7 +122,7 @@ describe('ProjectTree', () => {
     expect(onExpandProject).toHaveBeenCalledOnce();
     expect(onExpandProject).toHaveBeenCalledWith(scenario.secondProject.id);
     expect(listBranches).toHaveBeenCalledOnce();
-    expect(listBranches).toHaveBeenCalledWith(scenario.secondProject.id);
+    expect(listBranches).toHaveBeenCalledWith();
     expect(await screen.findByRole('textbox', { name: 'Filter branches' })).toBeVisible();
 
     await user.click(screen.getByRole('button', { name: 'Cancel' }));

@@ -6,7 +6,7 @@ import {
 } from '../../src/main/ipc-handlers';
 import { ipc } from '../../src/shared/ipc';
 import type { WindowSessionRegistry } from '../../src/main/window-sessions';
-import { appSnapshotFactory } from '../factories';
+import { repositorySnapshotFactory } from '../factories';
 
 type Handler = (event: IpcMainInvokeEvent, ...args: unknown[]) => unknown;
 type Sessions = WindowSessionRegistry<WebContents, BrowserWindow, WindowSessionService>;
@@ -21,7 +21,6 @@ interface Harness {
   launchEditor: ReturnType<typeof vi.fn>;
   openRepository: ReturnType<typeof vi.fn>;
   openRecentRepository: ReturnType<typeof vi.fn>;
-  removeRepository: ReturnType<typeof vi.fn>;
 }
 
 function createHarness(
@@ -43,12 +42,11 @@ function createHarness(
   const launchEditor = vi.fn().mockResolvedValue(undefined);
   const openRepository = vi.fn().mockResolvedValue(undefined);
   const openRecentRepository = vi.fn().mockResolvedValue(undefined);
-  const removeRepository = vi.fn().mockResolvedValue(undefined);
 
   registerIpcHandlers({
     ipcMain: { handle },
     sessions: { resolve } as unknown as Sessions,
-    windowManager: { openRepository, openRecentRepository, removeRepository },
+    windowManager: { openRepository, openRecentRepository },
     dialog: { showOpenDialog },
     shell: { openPath, openExternal },
     clipboard: { writeText },
@@ -65,7 +63,6 @@ function createHarness(
     launchEditor,
     openRepository,
     openRecentRepository,
-    removeRepository,
   };
 }
 
@@ -115,8 +112,8 @@ describe('registerIpcHandlers', () => {
   it('keeps service authority scoped to the invoking sender', () => {
     const firstSender = {} as WebContents;
     const secondSender = {} as WebContents;
-    const firstSnapshot = appSnapshotFactory.build({ homeDirectory: '/first' });
-    const secondSnapshot = appSnapshotFactory.build({ homeDirectory: '/second' });
+    const firstSnapshot = repositorySnapshotFactory.build({ homeDirectory: '/first' });
+    const secondSnapshot = repositorySnapshotFactory.build({ homeDirectory: '/second' });
     const firstSnapshotMethod = vi.fn(() => firstSnapshot);
     const secondSnapshotMethod = vi.fn(() => secondSnapshot);
     const firstService = serviceStub({ snapshot: firstSnapshotMethod });
@@ -147,7 +144,7 @@ describe('registerIpcHandlers', () => {
       filePaths: ['/repository'],
     });
 
-    await invoke(harness, ipc.chooseProject, sender);
+    await invoke(harness, ipc.chooseRepository, sender);
 
     expect(harness.showOpenDialog).toHaveBeenCalledWith(window, {
       title: 'Open a Git repository or worktree',

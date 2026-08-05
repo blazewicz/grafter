@@ -157,11 +157,14 @@ export class RepositoryService {
     return worktreePathForBranch(root, branch || 'new-worktree');
   }
 
-  async createWorktree(request: CreateWorktreeRequest): Promise<{
+  async createWorktree(value: unknown): Promise<{
     project: Project;
     setupApproval?: ApprovalRequest;
   }> {
-    this.#assertProjectId(request.projectId);
+    if (!isCreateWorktreeRequest(value)) {
+      throw new Error('Invalid create worktree request.');
+    }
+    const request = value;
     if (!request.branch.trim()) throw new Error('Choose a branch first.');
     if (!path.isAbsolute(request.path)) {
       throw new Error('The worktree path must be absolute.');
@@ -307,7 +310,6 @@ export class RepositoryService {
     if (!isOpenBranchDiffRequest(request)) {
       throw new Error('Invalid branch comparison request.');
     }
-    this.#assertProjectId(request.projectId);
     const sourceBranch = request.sourceBranch.trim();
     const targetBranch = request.targetBranch.trim();
     if (!sourceBranch || !targetBranch) {
@@ -328,7 +330,6 @@ export class RepositoryService {
     if (!isOpenCommitDiffRequest(request)) {
       throw new Error('Invalid commit changes request.');
     }
-    this.#assertProjectId(request.projectId);
     return this.git.openCommitDiff(this.#persistedProject(), request.commitHash);
   }
 
@@ -525,11 +526,6 @@ export class RepositoryService {
     return project;
   }
 
-  #assertProjectId(projectId: string): void {
-    this.#assertActive();
-    if (projectId !== this.repositoryId) throw new Error('Project not found.');
-  }
-
   #runMutation<T>(operation: () => Promise<T>): Promise<T> {
     return this.#runtime.runRepositoryMutation(this.canonicalRepositoryKey, async () => {
       this.#assertActive();
@@ -572,13 +568,23 @@ function isDiffFileRequest(value: unknown): value is DiffFileRequest {
   return typeof request.sessionId === 'string' && typeof request.fileId === 'string';
 }
 
+function isCreateWorktreeRequest(value: unknown): value is CreateWorktreeRequest {
+  if (!value || typeof value !== 'object') return false;
+  const request = value as Record<string, unknown>;
+  return (
+    typeof request.branch === 'string' &&
+    typeof request.path === 'string' &&
+    Object.keys(request).every((key) => key === 'branch' || key === 'path')
+  );
+}
+
 function isOpenBranchDiffRequest(value: unknown): value is OpenBranchDiffRequest {
   if (!value || typeof value !== 'object') return false;
   const request = value as Record<string, unknown>;
   return (
-    typeof request.projectId === 'string' &&
     typeof request.sourceBranch === 'string' &&
-    typeof request.targetBranch === 'string'
+    typeof request.targetBranch === 'string' &&
+    Object.keys(request).every((key) => key === 'sourceBranch' || key === 'targetBranch')
   );
 }
 
@@ -612,9 +618,9 @@ function isOpenCommitDiffRequest(value: unknown): value is OpenCommitDiffRequest
   if (!value || typeof value !== 'object') return false;
   const request = value as Record<string, unknown>;
   return (
-    typeof request.projectId === 'string' &&
     typeof request.commitHash === 'string' &&
-    /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/i.test(request.commitHash)
+    /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/i.test(request.commitHash) &&
+    Object.keys(request).every((key) => key === 'commitHash')
   );
 }
 

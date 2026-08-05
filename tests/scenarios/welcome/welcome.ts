@@ -1,13 +1,18 @@
-import type { AppSnapshot, RecentRepository } from '../../../src/shared/contracts';
+import type {
+  RecentRepository,
+  RepositoryWindowSnapshot,
+  WelcomeWindowSnapshot,
+} from '../../../src/shared/contracts';
 import {
-  appSnapshotFactory,
+  repositorySnapshotFactory,
   projectFactory,
   recentRepositoryFactory,
+  welcomeSnapshotFactory,
 } from '../../factories';
 
 export interface WelcomeScenario {
-  emptySnapshot: AppSnapshot;
-  openedSnapshot: AppSnapshot;
+  emptySnapshot: WelcomeWindowSnapshot;
+  openedSnapshot: RepositoryWindowSnapshot;
   recentRepositories: RecentRepository[];
 }
 
@@ -23,19 +28,18 @@ export function buildWelcomeScenario(): WelcomeScenario {
       lastOpenedAt: '2026-08-03T12:00:00.000Z',
     }),
   ];
-  const emptySnapshot = appSnapshotFactory.build(
+  const emptySnapshot = welcomeSnapshotFactory.build(
     {},
-    { associations: { projects: [], recentRepositories } },
+    { associations: { recentRepositories } },
   );
 
   return {
     emptySnapshot,
-    openedSnapshot: appSnapshotFactory.build(
+    openedSnapshot: repositorySnapshotFactory.build(
       {},
       {
         associations: {
-          projects: projectFactory.buildList(1),
-          recentRepositories,
+          repository: projectFactory.build(),
         },
       },
     ),

@@ -152,7 +152,7 @@ export function BranchChangesCard({
     if (!menuOpen) return;
     let active = true;
     void api
-      .listBranches(details.projectId)
+      .listBranches()
       .then((next) => {
         if (active) setBranches(next);
       })
@@ -165,7 +165,7 @@ export function BranchChangesCard({
     return () => {
       active = false;
     };
-  }, [details.projectId, menuOpen, onError]);
+  }, [menuOpen, onError]);
 
   const setComparisonBase = async (target?: string): Promise<void> => {
     setUpdatingComparison(true);

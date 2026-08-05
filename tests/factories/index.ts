@@ -1,5 +1,9 @@
 export { approvalRequestFactory } from './approval-request';
-export { appSnapshotFactory } from './app-snapshot';
+export {
+  loadingSnapshotFactory,
+  repositorySnapshotFactory,
+  welcomeSnapshotFactory,
+} from './app-snapshot';
 export { branchDiffSessionFactory } from './branch-diff-session';
 export { commandRecordFactory } from './command-record';
 export { commitDetailsFactory } from './commit-details';
@@ -19,7 +23,11 @@ export { worktreeComparisonFactory } from './worktree-comparison';
 export { worktreeDetailsFactory } from './worktree-details';
 
 import { approvalRequestFactory } from './approval-request';
-import { appSnapshotFactory } from './app-snapshot';
+import {
+  loadingSnapshotFactory,
+  repositorySnapshotFactory,
+  welcomeSnapshotFactory,
+} from './app-snapshot';
 import { branchDiffSessionFactory } from './branch-diff-session';
 import { commandRecordFactory } from './command-record';
 import { commitDetailsFactory } from './commit-details';
@@ -41,7 +49,9 @@ import { worktreeDetailsFactory } from './worktree-details';
 
 const factories = [
   approvalRequestFactory,
-  appSnapshotFactory,
+  loadingSnapshotFactory,
+  repositorySnapshotFactory,
+  welcomeSnapshotFactory,
   branchDiffSessionFactory,
   commandRecordFactory,
   commitDetailsFactory,

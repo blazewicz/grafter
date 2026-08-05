@@ -1,15 +1,16 @@
 import os from 'node:os';
 import { isCommandContext } from '../../shared/command-context';
 import type {
-  AppSnapshot,
   ApprovalRequest,
   CommandRecord,
   CreateWorktreeRequest,
   DiffFilePatch,
   DiffSession,
   EditorTool,
+  Project,
   ProjectConfig,
   PullRequest,
+  RecentRepository,
   Settings,
   SwitchBranchRequest,
   WorktreeComparison,
@@ -25,10 +26,22 @@ import { GitHubService } from './github-service';
 import { RepositoryLocator } from './repository-locator';
 import { RepositoryService } from './repository-service';
 
+export interface LegacyAppSnapshot {
+  homeDirectory: string;
+  systemLocale: string;
+  projects: Project[];
+  recentRepositories: RecentRepository[];
+  settings: Settings;
+}
+
+interface LegacyCreateWorktreeRequest extends CreateWorktreeRequest {
+  projectId: string;
+}
+
 interface AppServiceOptions {
   homeDirectory?: string;
   systemLocale?: string;
-  onSnapshotUpdate?: (snapshot: AppSnapshot) => void;
+  onSnapshotUpdate?: (snapshot: LegacyAppSnapshot) => void;
   now?: () => number;
 }
 
@@ -46,7 +59,7 @@ export class AppService {
   readonly #worktreeOwners = new Map<string, RepositoryService>();
   readonly #approvalOwners = new Map<string, RepositoryService>();
   readonly #diffSessionOwners = new Map<string, RepositoryService>();
-  readonly #snapshotUpdateSubscribers = new Set<(snapshot: AppSnapshot) => void>();
+  readonly #snapshotUpdateSubscribers = new Set<(snapshot: LegacyAppSnapshot) => void>();
   readonly #homeDirectory: string;
   readonly #systemLocale: string;
   readonly #now: () => number;
@@ -102,7 +115,7 @@ export class AppService {
     await this.refresh();
   }
 
-  snapshot(): AppSnapshot {
+  snapshot(): LegacyAppSnapshot {
     this.#assertActive();
     this.#reconcileRepositoryServices();
     const persisted = this.store.state;
@@ -121,7 +134,9 @@ export class AppService {
     };
   }
 
-  subscribeToSnapshotUpdates(subscriber: (snapshot: AppSnapshot) => void): () => void {
+  subscribeToSnapshotUpdates(
+    subscriber: (snapshot: LegacyAppSnapshot) => void,
+  ): () => void {
     this.#assertActive();
     this.#snapshotUpdateSubscribers.add(subscriber);
     let subscribed = true;
@@ -138,7 +153,7 @@ export class AppService {
     return this.runner.recordsFor(context);
   }
 
-  async addProject(selectedPath: string): Promise<AppSnapshot> {
+  async addProject(selectedPath: string): Promise<LegacyAppSnapshot> {
     this.#assertActive();
     const location = await this.repositoryLocator.locate(selectedPath);
     const details: Omit<ProjectConfig, 'id'> = {
@@ -177,7 +192,7 @@ export class AppService {
     return this.snapshot();
   }
 
-  async openRecentRepository(repositoryId: string): Promise<AppSnapshot> {
+  async openRecentRepository(repositoryId: string): Promise<LegacyAppSnapshot> {
     const repository = this.store.state.recentRepositories.find(
       (candidate) => candidate.repositoryId === repositoryId,
     );
@@ -185,7 +200,7 @@ export class AppService {
     return this.addProject(repository.lastOpenedPath);
   }
 
-  async removeProject(projectId: string): Promise<AppSnapshot> {
+  async removeProject(projectId: string): Promise<LegacyAppSnapshot> {
     this.#serviceForProject(projectId);
     await this.store.removeRepository(projectId);
     this.#removeRepositoryService(projectId);
@@ -193,7 +208,7 @@ export class AppService {
     return this.snapshot();
   }
 
-  async refresh(): Promise<AppSnapshot> {
+  async refresh(): Promise<LegacyAppSnapshot> {
     this.#assertActive();
     this.#reconcileRepositoryServices();
     const services = this.#orderedRepositoryServices();
@@ -210,7 +225,7 @@ export class AppService {
     return this.snapshot();
   }
 
-  async refreshProject(projectId: string): Promise<AppSnapshot> {
+  async refreshProject(projectId: string): Promise<LegacyAppSnapshot> {
     await this.#serviceForProject(projectId).refresh();
     this.#rebuildWorktreeOwners();
     return this.snapshot();
@@ -227,12 +242,15 @@ export class AppService {
     );
   }
 
-  async createWorktree(request: CreateWorktreeRequest): Promise<{
-    snapshot: AppSnapshot;
+  async createWorktree(request: LegacyCreateWorktreeRequest): Promise<{
+    snapshot: LegacyAppSnapshot;
     setupApproval?: ApprovalRequest;
   }> {
     const service = this.#serviceForProject(request.projectId);
-    const result = await service.createWorktree(request);
+    const result = await service.createWorktree({
+      branch: request.branch,
+      path: request.path,
+    });
     this.#rebuildWorktreeOwners();
     if (result.setupApproval) {
       this.#approvalOwners.set(result.setupApproval.approvalId, service);
@@ -243,7 +261,7 @@ export class AppService {
     };
   }
 
-  async switchBranch(request: SwitchBranchRequest): Promise<AppSnapshot> {
+  async switchBranch(request: SwitchBranchRequest): Promise<LegacyAppSnapshot> {
     await this.#serviceForWorktree(request.worktreeId).switchBranch(request);
     this.#rebuildWorktreeOwners();
     return this.snapshot();
@@ -256,14 +274,14 @@ export class AppService {
     return approval;
   }
 
-  async approve(approvalId: string): Promise<AppSnapshot> {
+  async approve(approvalId: string): Promise<LegacyAppSnapshot> {
     const service = this.#takeApprovalOwner(approvalId);
     await service.approve(approvalId);
     this.#rebuildWorktreeOwners();
     return this.snapshot();
   }
 
-  reject(approvalId: string): AppSnapshot {
+  reject(approvalId: string): LegacyAppSnapshot {
     this.#takeApprovalOwner(approvalId).reject(approvalId);
     return this.snapshot();
   }
@@ -298,7 +316,10 @@ export class AppService {
       throw new Error('Invalid branch comparison request.');
     }
     const service = this.#serviceForProject(projectIdFrom(request));
-    const session = await service.openBranchDiff(request);
+    const session = await service.openBranchDiff({
+      sourceBranch: stringField(request, 'sourceBranch'),
+      targetBranch: stringField(request, 'targetBranch'),
+    });
     this.#diffSessionOwners.set(session.id, service);
     return session;
   }
@@ -308,7 +329,9 @@ export class AppService {
       throw new Error('Invalid commit changes request.');
     }
     const service = this.#serviceForProject(projectIdFrom(request));
-    const session = await service.openCommitDiff(request);
+    const session = await service.openCommitDiff({
+      commitHash: stringField(request, 'commitHash'),
+    });
     this.#diffSessionOwners.set(session.id, service);
     return session;
   }
@@ -352,7 +375,7 @@ export class AppService {
     return this.#serviceForWorktree(worktreeId).worktreePath(worktreeId);
   }
 
-  async updateSettings(settings: Settings): Promise<AppSnapshot> {
+  async updateSettings(settings: Settings): Promise<LegacyAppSnapshot> {
     if (!isSettings(settings)) throw new Error('Invalid settings.');
     if (!settings.defaultWorktreePath.trim()) {
       throw new Error('The default path cannot be empty.');
@@ -366,7 +389,10 @@ export class AppService {
     return this.snapshot();
   }
 
-  async updateProjectSetup(projectId: string, script: string): Promise<AppSnapshot> {
+  async updateProjectSetup(
+    projectId: string,
+    script: string,
+  ): Promise<LegacyAppSnapshot> {
     await this.#serviceForProject(projectId).updateSetup(script);
     return this.snapshot();
   }
@@ -528,6 +554,12 @@ function worktreeIdFrom(value: unknown): string {
 function sessionIdFrom(value: unknown): string {
   if (!value || typeof value !== 'object' || !('sessionId' in value)) return '';
   return typeof value.sessionId === 'string' ? value.sessionId : '';
+}
+
+function stringField(value: unknown, key: string): string {
+  if (!value || typeof value !== 'object' || !(key in value)) return '';
+  const field = value[key as keyof typeof value];
+  return typeof field === 'string' ? field : '';
 }
 
 function isOpenBranchDiffRequest(value: unknown): boolean {

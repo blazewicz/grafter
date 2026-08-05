@@ -1,17 +1,17 @@
 // @vitest-environment happy-dom
 
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../../src/renderer/App';
 import { api } from '../../src/renderer/grafter-api';
-import type { AppSnapshot } from '../../src/shared/contracts';
+import type { AppSnapshot, RepositoryWindowSnapshot } from '../../src/shared/contracts';
 import { buildWelcomeScenario } from '../scenarios/welcome/welcome';
 import { buildNewWorktreeScenario } from '../scenarios/sidebar/new-worktree';
 import { buildRepositoryWindowScenario } from '../scenarios/sidebar/repository-window';
 import { deferred } from '../support/deferred';
 import {
-  appSnapshotFactory,
+  repositorySnapshotFactory,
   approvalRequestFactory,
   projectFactory,
   worktreeDetailsFactory,
@@ -28,26 +28,23 @@ function renderApp(snapshot: Promise<AppSnapshot>): void {
   render(<App />);
 }
 
-function stubRepositoryWindowApis(snapshot: AppSnapshot) {
-  const refreshProject = vi.spyOn(api, 'refreshProject').mockResolvedValue(snapshot);
+function stubRepositoryWindowApis(snapshot: RepositoryWindowSnapshot) {
+  const refresh = vi.spyOn(api, 'refresh').mockResolvedValue(snapshot);
   vi.spyOn(api, 'getCommandLog').mockResolvedValue([]);
   vi.spyOn(api, 'getWorktreeStatus').mockResolvedValue('clean');
   const getWorktreeDetails = vi
     .spyOn(api, 'getWorktreeDetails')
     .mockImplementation((worktreeId) => {
-      for (const project of snapshot.projects) {
-        const worktree = project.worktrees.find(
-          (candidate) => candidate.id === worktreeId,
+      const project = snapshot.repository;
+      const worktree = project.worktrees.find((candidate) => candidate.id === worktreeId);
+      if (worktree) {
+        return Promise.resolve(
+          worktreeDetailsFactory.build({}, { transient: { project, worktree } }),
         );
-        if (worktree) {
-          return Promise.resolve(
-            worktreeDetailsFactory.build({}, { transient: { project, worktree } }),
-          );
-        }
       }
       return Promise.reject(new Error('Worktree not found.'));
     });
-  return { refreshProject, getWorktreeDetails };
+  return { refresh, getWorktreeDetails };
 }
 
 describe('App welcome state', () => {
@@ -131,12 +128,12 @@ describe('App welcome state', () => {
       displayName: 'selected-feature',
     });
     const repository = { ...project, worktrees: [...project.worktrees, linkedWorktree] };
-    const selectedSnapshot = appSnapshotFactory.build(
+    const selectedSnapshot = repositorySnapshotFactory.build(
       {
         selectedWorktreeId: linkedWorktree.id,
         worktreeSelectionRequestId: 1,
       },
-      { associations: { projects: [repository] } },
+      { associations: { repository } },
     );
     const getWorktreeDetails = vi
       .spyOn(api, 'getWorktreeDetails')
@@ -152,7 +149,7 @@ describe('App welcome state', () => {
   });
 
   it('renders only the owning repository and refreshes only its worktrees', async () => {
-    const { refreshProject } = stubRepositoryWindowApis(repositoryScenario.snapshot);
+    const { refresh } = stubRepositoryWindowApis(repositoryScenario.snapshot);
     renderApp(Promise.resolve(repositoryScenario.snapshot));
 
     const worktreeList = await screen.findByLabelText(
@@ -187,11 +184,8 @@ describe('App welcome state', () => {
       }),
     ).toBeNull();
     await waitFor(() => {
-      expect(refreshProject).toHaveBeenCalledWith(repositoryScenario.repository.id);
+      expect(refresh).toHaveBeenCalledWith();
     });
-    expect(refreshProject).not.toHaveBeenCalledWith(
-      repositoryScenario.secondRepository.id,
-    );
   });
 
   it('navigates between worktree and repository details with back and forward', async () => {
@@ -225,15 +219,73 @@ describe('App welcome state', () => {
     expect(await screen.findByRole('region', { name: 'Worktrees' })).toBeVisible();
   });
 
+  it('reconciles selection when the repository snapshot identity changes', async () => {
+    const first = repositoryScenario.snapshot;
+    const secondRepository = projectFactory.build();
+    const second = repositorySnapshotFactory.build(
+      {},
+      { associations: { repository: secondRepository } },
+    );
+    let publishSnapshot: ((snapshot: AppSnapshot) => void) | undefined;
+    vi.spyOn(api, 'getSnapshot').mockResolvedValue(first);
+    vi.spyOn(api, 'onSnapshotUpdate').mockImplementation((listener) => {
+      publishSnapshot = listener;
+      return () => undefined;
+    });
+    vi.spyOn(api, 'refresh').mockResolvedValue(first);
+    vi.spyOn(api, 'getCommandLog').mockResolvedValue([]);
+    vi.spyOn(api, 'getWorktreeStatus').mockResolvedValue('clean');
+    const getWorktreeDetails = vi
+      .spyOn(api, 'getWorktreeDetails')
+      .mockImplementation((worktreeId) => {
+        const project = worktreeId.startsWith(`${first.repository.id}:`)
+          ? first.repository
+          : second.repository;
+        const worktree = project.worktrees.find(
+          (candidate) => candidate.id === worktreeId,
+        );
+        if (!worktree) return Promise.reject(new Error('Worktree not found.'));
+        return Promise.resolve(
+          worktreeDetailsFactory.build({}, { transient: { project, worktree } }),
+        );
+      });
+    render(<App />);
+
+    expect(
+      await screen.findByRole('button', {
+        name: `${first.repository.name} repository details`,
+      }),
+    ).toBeVisible();
+    if (!publishSnapshot) throw new Error('Expected a snapshot subscription.');
+    const publish = publishSnapshot;
+    act(() => publish(second));
+
+    expect(
+      await screen.findByRole('button', {
+        name: `${second.repository.name} repository details`,
+      }),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole('button', {
+        name: `${first.repository.name} repository details`,
+      }),
+    ).toBeNull();
+    await waitFor(() => {
+      expect(getWorktreeDetails).toHaveBeenLastCalledWith(
+        second.repository.worktrees[0]?.id,
+      );
+    });
+  });
+
   it('opens another repository through the window manager without changing this window', async () => {
     const user = userEvent.setup();
     stubRepositoryWindowApis(repositoryScenario.snapshot);
-    const chooseProject = vi.spyOn(api, 'chooseProject').mockResolvedValue(null);
+    const chooseRepository = vi.spyOn(api, 'chooseRepository').mockResolvedValue(null);
     renderApp(Promise.resolve(repositoryScenario.snapshot));
 
     await user.click(await screen.findByRole('button', { name: 'Open Repository...' }));
 
-    expect(chooseProject).toHaveBeenCalledOnce();
+    expect(chooseRepository).toHaveBeenCalledOnce();
     expect(
       screen.getByRole('button', {
         name: `${repositoryScenario.repository.name} repository details`,
@@ -254,17 +306,17 @@ describe('App welcome state', () => {
       ...project,
       worktrees: [...project.worktrees, createdWorktree],
     };
-    const openedSnapshot = appSnapshotFactory.build(
+    const openedSnapshot = repositorySnapshotFactory.build(
       {},
-      { associations: { projects: [openedProject] } },
+      { associations: { repository: openedProject } },
     );
-    const initialSnapshot = appSnapshotFactory.build(
+    const initialSnapshot = repositorySnapshotFactory.build(
       {},
-      { associations: { projects: [project] } },
+      { associations: { repository: project } },
     );
     const approval = approvalRequestFactory.build();
-    const { refreshProject } = stubRepositoryWindowApis(openedSnapshot);
-    refreshProject.mockResolvedValue(initialSnapshot);
+    const { refresh } = stubRepositoryWindowApis(openedSnapshot);
+    refresh.mockResolvedValue(initialSnapshot);
     vi.spyOn(api, 'listBranches').mockResolvedValue(newWorktreeScenario.branches);
     vi.spyOn(api, 'suggestWorktreePath').mockResolvedValue(
       newWorktreeScenario.suggestedPath,
@@ -292,7 +344,6 @@ describe('App welcome state', () => {
       expect(createWorktree).toHaveBeenCalledOnce();
     });
     expect(createWorktree).toHaveBeenCalledWith({
-      projectId: project.id,
       branch: newWorktreeScenario.availableBranch,
       path: newWorktreeScenario.suggestedPath,
     });

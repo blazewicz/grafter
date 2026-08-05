@@ -56,21 +56,17 @@ describe('useDiffViewer', () => {
     expect(onError).not.toHaveBeenCalled();
   });
 
-  it('opens a commit diff with the selected project and commit', async () => {
+  it('opens a commit diff with the selected commit', async () => {
     const api = createApi();
     const onError = vi.fn<(message: string) => void>();
     const { result } = renderHook(() => useDiffViewer(api, onError));
 
     act(() => {
-      result.current.openCommitDiff(
-        scenario.projectId,
-        scenario.commitSession.commit.hash,
-      );
+      result.current.openCommitDiff(scenario.commitSession.commit.hash);
     });
 
     expect(api.openCommitDiff).toHaveBeenCalledOnce();
     expect(api.openCommitDiff).toHaveBeenCalledWith({
-      projectId: scenario.projectId,
       commitHash: scenario.commitSession.commit.hash,
     });
 

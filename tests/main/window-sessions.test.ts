@@ -7,7 +7,7 @@ import {
   type WindowSessionSender,
   type WindowSessionWindow,
 } from '../../src/main/window-sessions';
-import { appSnapshotFactory, commandRecordFactory } from '../factories';
+import { repositorySnapshotFactory, commandRecordFactory } from '../factories';
 
 class FakeSender extends EventEmitter implements WindowSessionSender {
   destroyed = false;
@@ -126,7 +126,7 @@ describe('WindowSessionRegistry', () => {
     const second = registration('second');
     register(registry, first);
     register(registry, second);
-    const snapshot = appSnapshotFactory.build();
+    const snapshot = repositorySnapshotFactory.build();
     const command = commandRecordFactory.build();
 
     first.snapshots.publish(snapshot);
@@ -186,7 +186,7 @@ describe('WindowSessionRegistry', () => {
     const dispose = register(registry, value);
     const lateSnapshotSubscriber = value.snapshots.captured[0];
     const lateCommandSubscriber = value.commands.captured[0];
-    const snapshot = appSnapshotFactory.build();
+    const snapshot = repositorySnapshotFactory.build();
     const command = commandRecordFactory.build();
 
     dispose();

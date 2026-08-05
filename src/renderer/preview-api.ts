@@ -1,10 +1,13 @@
 import type {
   AppSnapshot,
-  CommandContext,
+  CommandLogScope,
   CommandRecord,
   DiffFilePatch,
   DiffSession,
   GrafterApi,
+  Project,
+  RepositoryWindowSnapshot,
+  Settings,
   WorktreeDetails,
 } from '../shared/contracts';
 import { commandContextKey } from '../shared/command-context';
@@ -12,7 +15,7 @@ import { commandContextKey } from '../shared/command-context';
 const now = new Date().toISOString();
 const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString();
 const fourMinutesAgo = new Date(Date.now() - 4 * 60 * 1000).toISOString();
-const previewOverflowWorktrees: AppSnapshot['projects'][number]['worktrees'] = [
+const previewOverflowWorktrees: Project['worktrees'] = [
   {
     id: 'grafter:duplicate-a',
     projectId: 'grafter',
@@ -44,7 +47,7 @@ const previewOverflowWorktrees: AppSnapshot['projects'][number]['worktrees'] = [
     locked: false,
   })),
 ];
-const gardenPreviewProject: AppSnapshot['projects'][number] = {
+const gardenPreviewProject: Project = {
   id: 'garden',
   name: 'garden-api',
   path: '/Users/kasia/Code/garden-api',
@@ -106,112 +109,124 @@ const previewCommits = [
   },
 ];
 
+const previewSettings: Settings = {
+  defaultWorktreePath: '../<repo_name>.worktrees',
+  dateFormat: 'system',
+  timeFormat: 'system',
+};
+const previewRecentRepositories = [
+  {
+    repositoryId: 'grafter',
+    name: 'grafter',
+    commonDirectoryPath: '/Users/kasia/Code/grafter/.git',
+    mainWorktreePath: '/Users/kasia/Code/grafter',
+    lastOpenedPath: '/Users/kasia/Code/grafter.worktrees/feature-glass-sidebar',
+    lastOpenedAt: now,
+  },
+  {
+    repositoryId: 'garden',
+    name: 'garden-api',
+    commonDirectoryPath: '/Users/kasia/Code/garden-api/.git',
+    mainWorktreePath: '/Users/kasia/Code/garden-api',
+    lastOpenedPath: '/Users/kasia/Code/garden-api',
+    lastOpenedAt: twoMinutesAgo,
+  },
+];
+
 let snapshot: AppSnapshot = {
+  kind: 'repository',
   homeDirectory: '/Users/kasia',
   systemLocale: 'en-GB',
-  settings: {
-    defaultWorktreePath: '../<repo_name>.worktrees',
-    dateFormat: 'system',
-    timeFormat: 'system',
+  settings: previewSettings,
+  repository: {
+    id: 'grafter',
+    name: 'grafter-repository-scoped-windows-migration',
+    path: '/Users/kasia/Code/grafter',
+    setupScript: 'npm install',
+    worktrees: [
+      {
+        id: 'grafter:main',
+        projectId: 'grafter',
+        displayName: 'main',
+        path: '/Users/kasia/Code/grafter',
+        branch: 'main',
+        head: '3e7cb81',
+        isMain: true,
+        locked: false,
+      },
+      {
+        id: 'grafter:glass',
+        projectId: 'grafter',
+        displayName: 'feature-glass-sidebar',
+        path: '/Users/kasia/Code/grafter.worktrees/feature-glass-sidebar',
+        branch: 'feature/glass-sidebar',
+        pullRequest: {
+          number: 42,
+          title: 'Build translucent sidebar',
+          url: 'https://github.com/example/grafter/pull/42',
+          state: 'DRAFT',
+          baseBranch: 'main',
+        },
+        head: 'cf91e24',
+        isMain: false,
+        locked: false,
+      },
+      {
+        id: 'grafter:audit',
+        projectId: 'grafter',
+        displayName: 'audit-console',
+        path: '/Users/kasia/Code/grafter.worktrees/audit-console',
+        branch: 'audit-console',
+        pullRequest: {
+          number: 47,
+          title: 'Add the audit console',
+          url: 'https://github.com/example/grafter/pull/47',
+          state: 'OPEN',
+          baseBranch: 'feature/merged-base',
+        },
+        head: '81ca492',
+        isMain: false,
+        locked: false,
+      },
+      {
+        id: 'grafter:comparison-preview',
+        projectId: 'grafter',
+        displayName: 'comparison-preview',
+        path: '/Users/kasia/Code/grafter.worktrees/comparison-preview',
+        branch: 'feature/comparison-preview',
+        pullRequest: {
+          number: 51,
+          title: 'Refine comparison controls',
+          url: 'https://github.com/example/grafter/pull/51',
+          state: 'OPEN',
+          baseBranch: 'main',
+        },
+        head: 'b91d6a8',
+        isMain: false,
+        locked: false,
+      },
+      ...previewOverflowWorktrees,
+    ],
   },
-  recentRepositories: [
-    {
-      repositoryId: 'grafter',
-      name: 'grafter',
-      commonDirectoryPath: '/Users/kasia/Code/grafter/.git',
-      mainWorktreePath: '/Users/kasia/Code/grafter',
-      lastOpenedPath: '/Users/kasia/Code/grafter.worktrees/feature-glass-sidebar',
-      lastOpenedAt: now,
-    },
-    {
-      repositoryId: 'garden',
-      name: 'garden-api',
-      commonDirectoryPath: '/Users/kasia/Code/garden-api/.git',
-      mainWorktreePath: '/Users/kasia/Code/garden-api',
-      lastOpenedPath: '/Users/kasia/Code/garden-api',
-      lastOpenedAt: twoMinutesAgo,
-    },
-  ],
-  projects: [
-    {
-      id: 'grafter',
-      name: 'grafter-repository-scoped-windows-migration',
-      path: '/Users/kasia/Code/grafter',
-      setupScript: 'npm install',
-      worktrees: [
-        {
-          id: 'grafter:main',
-          projectId: 'grafter',
-          displayName: 'main',
-          path: '/Users/kasia/Code/grafter',
-          branch: 'main',
-          head: '3e7cb81',
-          isMain: true,
-          locked: false,
-        },
-        {
-          id: 'grafter:glass',
-          projectId: 'grafter',
-          displayName: 'feature-glass-sidebar',
-          path: '/Users/kasia/Code/grafter.worktrees/feature-glass-sidebar',
-          branch: 'feature/glass-sidebar',
-          pullRequest: {
-            number: 42,
-            title: 'Build translucent sidebar',
-            url: 'https://github.com/example/grafter/pull/42',
-            state: 'DRAFT',
-            baseBranch: 'main',
-          },
-          head: 'cf91e24',
-          isMain: false,
-          locked: false,
-        },
-        {
-          id: 'grafter:audit',
-          projectId: 'grafter',
-          displayName: 'audit-console',
-          path: '/Users/kasia/Code/grafter.worktrees/audit-console',
-          branch: 'audit-console',
-          pullRequest: {
-            number: 47,
-            title: 'Add the audit console',
-            url: 'https://github.com/example/grafter/pull/47',
-            state: 'OPEN',
-            baseBranch: 'feature/merged-base',
-          },
-          head: '81ca492',
-          isMain: false,
-          locked: false,
-        },
-        {
-          id: 'grafter:comparison-preview',
-          projectId: 'grafter',
-          displayName: 'comparison-preview',
-          path: '/Users/kasia/Code/grafter.worktrees/comparison-preview',
-          branch: 'feature/comparison-preview',
-          pullRequest: {
-            number: 51,
-            title: 'Refine comparison controls',
-            url: 'https://github.com/example/grafter/pull/51',
-            state: 'OPEN',
-            baseBranch: 'main',
-          },
-          head: 'b91d6a8',
-          isMain: false,
-          locked: false,
-        },
-        ...previewOverflowWorktrees,
-      ],
-    },
-  ],
 };
 
-const previewProjects = structuredClone([...snapshot.projects, gardenPreviewProject]);
-if (
-  typeof window !== 'undefined' &&
-  new URLSearchParams(window.location.search).get('state') === 'welcome'
-) {
-  snapshot = { ...snapshot, projects: [] };
+const previewProjects = structuredClone([
+  repositorySnapshot().repository,
+  gardenPreviewProject,
+]);
+if (typeof window !== 'undefined') {
+  const requestedState = new URLSearchParams(window.location.search).get('state');
+  if (requestedState === 'welcome') {
+    snapshot = {
+      kind: 'welcome',
+      homeDirectory: '/Users/kasia',
+      systemLocale: 'en-GB',
+      settings: previewSettings,
+      recentRepositories: previewRecentRepositories,
+    };
+  } else if (requestedState === 'loading') {
+    snapshot = { kind: 'loading' };
+  }
 }
 
 let commands: CommandRecord[] = [
@@ -760,33 +775,38 @@ async function copyPreviewText(text: string): Promise<void> {
 
 export const previewApi: GrafterApi = {
   getSnapshot: () => Promise.resolve(structuredClone(snapshot)),
-  getCommandLog: (context: CommandContext) =>
-    Promise.resolve(
+  getCommandLog: (scope: CommandLogScope) => {
+    const repositoryId = repositorySnapshot().repository.id;
+    const context =
+      scope.kind === 'repository'
+        ? { kind: 'project' as const, projectId: repositoryId }
+        : {
+            kind: 'worktree' as const,
+            projectId: repositoryId,
+            worktreeId: scope.worktreeId,
+          };
+    return Promise.resolve(
       structuredClone(
         commands.filter(
           (command) => commandContextKey(command.context) === commandContextKey(context),
         ),
       ),
-    ),
-  chooseProject: () => Promise.resolve(null),
+    );
+  },
+  chooseRepository: () => Promise.resolve(null),
   openRecentRepository: (repositoryId) => {
     const project = previewProjects.find((candidate) => candidate.id === repositoryId);
     if (!project) return Promise.reject(new Error('Recent repository not found.'));
-    snapshot = { ...snapshot, projects: [structuredClone(project)] };
-    return Promise.resolve(structuredClone(snapshot));
-  },
-  removeProject: (projectId) => {
     snapshot = {
-      ...snapshot,
-      projects: snapshot.projects.filter((project) => project.id !== projectId),
-      recentRepositories: snapshot.recentRepositories.filter(
-        (repository) => repository.repositoryId !== projectId,
-      ),
+      kind: 'repository',
+      homeDirectory: '/Users/kasia',
+      systemLocale: 'en-GB',
+      settings: previewSettings,
+      repository: structuredClone(project),
     };
     return Promise.resolve(structuredClone(snapshot));
   },
   refresh: () => Promise.resolve(structuredClone(snapshot)),
-  refreshProject: () => Promise.resolve(structuredClone(snapshot)),
   listBranches: () =>
     Promise.resolve([
       'audit-console',
@@ -797,15 +817,14 @@ export const previewApi: GrafterApi = {
       'main',
       'release/0.1',
     ]),
-  suggestWorktreePath: (_projectId, branch) =>
+  suggestWorktreePath: (branch) =>
     Promise.resolve(`/Users/kasia/Code/grafter.worktrees/${branch.replaceAll('/', '-')}`),
   createWorktree: () => Promise.resolve({ snapshot: structuredClone(snapshot) }),
   switchBranch: ({ worktreeId, branch }) => {
-    const project = snapshot.projects.find((item) =>
-      item.worktrees.some((worktree) => worktree.id === worktreeId),
-    );
-    const worktree = project?.worktrees.find((item) => item.id === worktreeId);
-    if (!project || !worktree) return Promise.reject(new Error('Worktree not found.'));
+    const current = repositorySnapshot();
+    const project = current.repository;
+    const worktree = project.worktrees.find((item) => item.id === worktreeId);
+    if (!worktree) return Promise.reject(new Error('Worktree not found.'));
     if (worktreeId === 'grafter:audit') {
       return Promise.reject(
         new Error('Your local changes would be overwritten by checkout.'),
@@ -815,17 +834,13 @@ export const previewApi: GrafterApi = {
     const switched = { ...worktree, branch };
     delete switched.pullRequest;
     snapshot = {
-      ...snapshot,
-      projects: snapshot.projects.map((item) =>
-        item.id === project.id
-          ? {
-              ...item,
-              worktrees: item.worktrees.map((candidate) =>
-                candidate.id === worktreeId ? switched : candidate,
-              ),
-            }
-          : item,
-      ),
+      ...current,
+      repository: {
+        ...project,
+        worktrees: project.worktrees.map((candidate) =>
+          candidate.id === worktreeId ? switched : candidate,
+        ),
+      },
     };
     details[worktreeId] = {
       ...switched,
@@ -840,9 +855,8 @@ export const previewApi: GrafterApi = {
     return Promise.resolve(structuredClone(snapshot));
   },
   prepareRemoveWorktree: (worktreeId) => {
-    const worktree = snapshot.projects
-      .flatMap((project) => project.worktrees)
-      .find((item) => item.id === worktreeId);
+    const current = repositorySnapshot();
+    const worktree = current.repository.worktrees.find((item) => item.id === worktreeId);
     const command: CommandRecord = {
       id: 'preview-remove',
       context: worktree
@@ -854,7 +868,7 @@ export const previewApi: GrafterApi = {
       tool: 'git',
       executable: 'git',
       args: ['worktree', 'remove', worktree?.path ?? '/path/to/worktree'],
-      cwd: snapshot.projects[0]?.path ?? '/path/to/main-clone',
+      cwd: current.repository.path,
       displayCommand: `git worktree remove '${worktree?.path ?? '/path/to/worktree'}'`,
       purpose: `Remove the ${worktree?.branch ?? 'selected'} worktree`,
       isReadOnly: false,
@@ -879,9 +893,8 @@ export const previewApi: GrafterApi = {
     if (!worktreeDetails) return Promise.reject(new Error('Worktree not found.'));
     const automaticTarget =
       worktreeDetails.pullRequest?.baseBranch ??
-      snapshot.projects
-        .find((project) => project.id === worktreeDetails.projectId)
-        ?.worktrees.find((worktree) => worktree.isMain)?.branch;
+      repositorySnapshot().repository.worktrees.find((worktree) => worktree.isMain)
+        ?.branch;
     const automaticBaseBranchUnavailable =
       targetBranch === undefined &&
       worktreeDetails.automaticBaseBranchUnavailable === true;
@@ -944,15 +957,16 @@ export const previewApi: GrafterApi = {
       }),
     );
   },
-  openBranchDiff: ({ projectId, sourceBranch, targetBranch }) => {
-    const sourceWorktree = snapshot.projects
-      .find((project) => project.id === projectId)
-      ?.worktrees.find((worktree) => worktree.branch === sourceBranch);
+  openBranchDiff: ({ sourceBranch, targetBranch }) => {
+    const project = repositorySnapshot().repository;
+    const sourceWorktree = project.worktrees.find(
+      (worktree) => worktree.branch === sourceBranch,
+    );
     return Promise.resolve(
       structuredClone({
         kind: 'branch' as const,
         id: `preview-diff-${sourceBranch}-${targetBranch}`,
-        projectId,
+        projectId: project.id,
         ...(sourceWorktree ? { sourceWorktreeId: sourceWorktree.id } : {}),
         branch: sourceBranch,
         targetBranch,
@@ -964,7 +978,8 @@ export const previewApi: GrafterApi = {
       }),
     );
   },
-  openCommitDiff: ({ projectId, commitHash }) => {
+  openCommitDiff: ({ commitHash }) => {
+    const projectId = repositorySnapshot().repository.id;
     const commit = previewCommits.find((item) => item.hash === commitHash);
     if (!commit) {
       return Promise.reject(new Error('Commit not found.'));
@@ -1002,15 +1017,15 @@ export const previewApi: GrafterApi = {
   },
   closeDiff: () => Promise.resolve(),
   refreshPullRequest: (worktreeId) => {
-    const pullRequest = snapshot.projects
-      .flatMap((project) => project.worktrees)
-      .find((worktree) => worktree.id === worktreeId)?.pullRequest;
+    const pullRequest = repositorySnapshot().repository.worktrees.find(
+      (worktree) => worktree.id === worktreeId,
+    )?.pullRequest;
     return Promise.resolve(pullRequest ? structuredClone(pullRequest) : undefined);
   },
   getWorktreeStatus: (worktreeId) => {
-    const worktree = snapshot.projects
-      .flatMap((project) => project.worktrees)
-      .find((item) => item.id === worktreeId);
+    const worktree = repositorySnapshot().repository.worktrees.find(
+      (item) => item.id === worktreeId,
+    );
     if (!worktree) return Promise.reject(new Error('Worktree not found.'));
 
     previewCommandSequence += 1;
@@ -1051,15 +1066,15 @@ export const previewApi: GrafterApi = {
     });
   },
   updateSettings: (settings) => {
+    if (snapshot.kind === 'loading') return Promise.resolve(snapshot);
     snapshot = { ...snapshot, settings };
     return Promise.resolve(structuredClone(snapshot));
   },
-  updateProjectSetup: (projectId, script) => {
+  updateRepositorySetup: (script) => {
+    const current = repositorySnapshot();
     snapshot = {
-      ...snapshot,
-      projects: snapshot.projects.map((project) =>
-        project.id === projectId ? { ...project, setupScript: script } : project,
-      ),
+      ...current,
+      repository: { ...current.repository, setupScript: script },
     };
     return Promise.resolve(structuredClone(snapshot));
   },
@@ -1074,3 +1089,10 @@ export const previewApi: GrafterApi = {
     return () => commandListeners.delete(listener);
   },
 };
+
+function repositorySnapshot(): RepositoryWindowSnapshot {
+  if (snapshot.kind !== 'repository') {
+    throw new Error('This preview operation requires an open repository.');
+  }
+  return snapshot;
+}
