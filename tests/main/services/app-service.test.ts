@@ -650,6 +650,104 @@ branch refs/heads/main
 });
 
 describe('AppService targeted project updates', () => {
+  it('exposes ordered recent metadata without inspecting repositories', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-app-service-'));
+    const store = new StateStore(directory);
+    await store.load();
+    await store.update((state) => {
+      state.recentRepositories = [
+        {
+          repositoryId: 'older',
+          name: 'older-repository',
+          mainWorktreePath: '/older',
+          lastOpenedPath: '/older.worktrees/feature',
+          lastOpenedAt: '2026-08-03T12:00:00.000Z',
+        },
+        {
+          repositoryId: 'newer',
+          name: 'newer-repository',
+          mainWorktreePath: '/newer',
+          lastOpenedPath: '/newer',
+          lastOpenedAt: '2026-08-04T12:00:00.000Z',
+        },
+      ];
+    });
+    const runner = new StubCommandRunner((spec) => {
+      throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
+    });
+    const service = new AppService(store, runner);
+
+    const snapshot = service.snapshot();
+
+    expect(snapshot.projects).toEqual([]);
+    expect(
+      snapshot.recentRepositories.map((repository) => repository.repositoryId),
+    ).toEqual(['newer', 'older']);
+    expect(runner.commands).toHaveLength(0);
+  });
+
+  it('validates and adds a recent repository only when its ID is opened', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-app-service-'));
+    const store = new StateStore(directory);
+    await store.load();
+    await store.update((state) => {
+      state.recentRepositories = [
+        {
+          repositoryId: 'recent',
+          name: 'recent-repository',
+          mainWorktreePath: '/recent',
+          lastOpenedPath: '/recent.worktrees/feature',
+          lastOpenedAt: '2026-08-04T12:00:00.000Z',
+        },
+      ];
+    });
+    const runner = new StubCommandRunner((spec) => {
+      if (spec.tool === 'git' && spec.args[0] === 'worktree') {
+        return {
+          stdout: 'worktree /recent\nHEAD 1111111\nbranch refs/heads/main\n',
+        };
+      }
+      if (spec.tool === 'github') return { exitCode: 1 };
+      throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
+    });
+    const service = new AppService(store, runner);
+    const locate = vi.spyOn(service.repositoryLocator, 'locate').mockResolvedValue({
+      commonDirectoryPath: '/recent/.git',
+      mainWorktreePath: '/recent',
+      selectedWorktreePath: '/recent.worktrees/feature',
+      name: 'recent-repository',
+    });
+
+    expect(runner.commands).toHaveLength(0);
+    const opened = await service.openRecentRepository('recent');
+
+    expect(locate).toHaveBeenCalledOnce();
+    expect(locate).toHaveBeenCalledWith('/recent.worktrees/feature');
+    expect(opened.projects).toHaveLength(1);
+    expect(opened.projects[0]).toMatchObject({
+      name: 'recent-repository',
+      path: '/recent',
+      worktrees: [{ path: '/recent', isMain: true }],
+    });
+  });
+
+  it('rejects a missing recent ID without attempting repository validation', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-app-service-'));
+    const store = new StateStore(directory);
+    await store.load();
+    const runner = new StubCommandRunner((spec) => {
+      throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
+    });
+    const service = new AppService(store, runner);
+    const locate = vi.spyOn(service.repositoryLocator, 'locate');
+
+    await expect(service.openRecentRepository('missing')).rejects.toThrow(
+      'Recent repository not found.',
+    );
+    expect(locate).not.toHaveBeenCalled();
+    expect(runner.commands).toHaveLength(0);
+  });
+
   it('adds one project rooted at the main worktree when opened through a linked worktree', async () => {
     const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-app-service-'));
     const unresolvedMain = path.join(directory, 'repository');

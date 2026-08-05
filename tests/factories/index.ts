@@ -12,6 +12,7 @@ export { diffStatsFactory } from './diff-stats';
 export { pullRequestFactory } from './pull-request';
 export { projectConfigFactory } from './project-config';
 export { projectFactory } from './project';
+export { recentRepositoryFactory } from './recent-repository';
 export { settingsFactory } from './settings';
 export { mainWorktreeFactory, worktreeFactory } from './worktree';
 export { worktreeComparisonFactory } from './worktree-comparison';
@@ -32,6 +33,7 @@ import { resetTestFaker } from './faker';
 import { pullRequestFactory } from './pull-request';
 import { projectConfigFactory } from './project-config';
 import { projectFactory } from './project';
+import { recentRepositoryFactory } from './recent-repository';
 import { settingsFactory } from './settings';
 import { mainWorktreeFactory, worktreeFactory } from './worktree';
 import { worktreeComparisonFactory } from './worktree-comparison';
@@ -52,6 +54,7 @@ const factories = [
   pullRequestFactory,
   projectConfigFactory,
   projectFactory,
+  recentRepositoryFactory,
   settingsFactory,
   worktreeFactory,
   mainWorktreeFactory,

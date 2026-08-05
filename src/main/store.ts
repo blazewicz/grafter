@@ -1,7 +1,7 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import pLimit from 'p-limit';
-import type { ProjectConfig, Settings } from '../shared/contracts';
+import type { ProjectConfig, RecentRepository, Settings } from '../shared/contracts';
 import { defaultSettings, normalizeSettings } from '../shared/settings';
 
 export const currentStateSchemaVersion = 1;
@@ -9,16 +9,6 @@ export const currentStateSchemaVersion = 1;
 export interface ComparisonBaseOverride {
   sourceBranch: string;
   targetBranch: string;
-}
-
-export interface RecentRepository {
-  repositoryId: string;
-  name: string;
-  /** Canonical runtime key when it has been discovered by RepositoryLocator. */
-  commonDirectoryPath?: string;
-  mainWorktreePath: string;
-  lastOpenedPath: string;
-  lastOpenedAt: string;
 }
 
 export interface RepositoryPreferences {

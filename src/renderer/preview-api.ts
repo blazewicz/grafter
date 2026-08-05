@@ -65,6 +65,24 @@ let snapshot: AppSnapshot = {
     dateFormat: 'system',
     timeFormat: 'system',
   },
+  recentRepositories: [
+    {
+      repositoryId: 'grafter',
+      name: 'grafter',
+      commonDirectoryPath: '/Users/kasia/Code/grafter/.git',
+      mainWorktreePath: '/Users/kasia/Code/grafter',
+      lastOpenedPath: '/Users/kasia/Code/grafter.worktrees/feature-glass-sidebar',
+      lastOpenedAt: now,
+    },
+    {
+      repositoryId: 'garden',
+      name: 'garden-api',
+      commonDirectoryPath: '/Users/kasia/Code/garden-api/.git',
+      mainWorktreePath: '/Users/kasia/Code/garden-api',
+      lastOpenedPath: '/Users/kasia/Code/garden-api',
+      lastOpenedAt: twoMinutesAgo,
+    },
+  ],
   projects: [
     {
       id: 'grafter',
@@ -154,6 +172,14 @@ let snapshot: AppSnapshot = {
     },
   ],
 };
+
+const previewProjects = structuredClone(snapshot.projects);
+if (
+  typeof window !== 'undefined' &&
+  new URLSearchParams(window.location.search).get('state') === 'welcome'
+) {
+  snapshot = { ...snapshot, projects: [] };
+}
 
 let commands: CommandRecord[] = [
   {
@@ -299,11 +325,11 @@ let previewCommandSequence = 0;
 
 const details: Record<string, WorktreeDetails> = {
   'grafter:main': {
-    ...snapshot.projects[0]!.worktrees[0]!,
+    ...previewProjects[0]!.worktrees[0]!,
     projectName: 'grafter',
   },
   'grafter:glass': {
-    ...snapshot.projects[0]!.worktrees[1]!,
+    ...previewProjects[0]!.worktrees[1]!,
     projectName: 'grafter',
     automaticBaseBranch: 'main',
     targetBranch: 'release/next',
@@ -311,7 +337,7 @@ const details: Record<string, WorktreeDetails> = {
     comparisonBaseOverrideUnavailable: true,
   },
   'grafter:audit': {
-    ...snapshot.projects[0]!.worktrees[2]!,
+    ...previewProjects[0]!.worktrees[2]!,
     projectName: 'grafter',
     automaticBaseBranch: 'feature/merged-base',
     automaticBaseBranchUnavailable: true,
@@ -319,14 +345,14 @@ const details: Record<string, WorktreeDetails> = {
     diffStats: { files: 3, additions: 121, deletions: 9 },
   },
   'grafter:comparison-preview': {
-    ...snapshot.projects[0]!.worktrees[3]!,
+    ...previewProjects[0]!.worktrees[3]!,
     projectName: 'grafter',
     automaticBaseBranch: 'main',
     targetBranch: 'main',
     diffStats: { files: 4, additions: 86, deletions: 12 },
   },
   'garden:main': {
-    ...snapshot.projects[1]!.worktrees[0]!,
+    ...previewProjects[1]!.worktrees[0]!,
     projectName: 'garden-api',
   },
 };
@@ -701,10 +727,19 @@ export const previewApi: GrafterApi = {
       ),
     ),
   chooseProject: () => Promise.resolve(null),
+  openRecentRepository: (repositoryId) => {
+    const project = previewProjects.find((candidate) => candidate.id === repositoryId);
+    if (!project) return Promise.reject(new Error('Recent repository not found.'));
+    snapshot = { ...snapshot, projects: [structuredClone(project)] };
+    return Promise.resolve(structuredClone(snapshot));
+  },
   removeProject: (projectId) => {
     snapshot = {
       ...snapshot,
       projects: snapshot.projects.filter((project) => project.id !== projectId),
+      recentRepositories: snapshot.recentRepositories.filter(
+        (repository) => repository.repositoryId !== projectId,
+      ),
     };
     return Promise.resolve(structuredClone(snapshot));
   },

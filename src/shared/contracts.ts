@@ -224,10 +224,21 @@ export interface Project extends ProjectConfig {
   worktrees: Worktree[];
 }
 
+export interface RecentRepository {
+  repositoryId: string;
+  name: string;
+  /** Canonical runtime key when it has been discovered by the main process. */
+  commonDirectoryPath?: string;
+  mainWorktreePath: string;
+  lastOpenedPath: string;
+  lastOpenedAt: string;
+}
+
 export interface AppSnapshot {
   homeDirectory: string;
   systemLocale: string;
   projects: Project[];
+  recentRepositories: RecentRepository[];
   settings: Settings;
 }
 
@@ -252,6 +263,7 @@ export interface GrafterApi {
   getSnapshot(): Promise<AppSnapshot>;
   getCommandLog(context: CommandContext): Promise<CommandRecord[]>;
   chooseProject(): Promise<AppSnapshot | null>;
+  openRecentRepository(repositoryId: string): Promise<AppSnapshot>;
   removeProject(projectId: string): Promise<AppSnapshot>;
   refresh(): Promise<AppSnapshot>;
   refreshProject(projectId: string): Promise<AppSnapshot>;
