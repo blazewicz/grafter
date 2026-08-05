@@ -18,6 +18,7 @@ import { defaultSidebarWidth, Sidebar } from './sidebar/Sidebar';
 import { useProjectWorktreeRefresh } from './sidebar/useProjectWorktreeRefresh';
 import { useDiffViewer } from './diff/useDiffViewer';
 import { api, friendlyError } from './grafter-api';
+import { Welcome } from './welcome/Welcome';
 import styles from './App.module.css';
 
 type DialogName = 'settings' | null;
@@ -160,6 +161,10 @@ export function App(): React.JSX.Element {
     );
   };
 
+  const openRecentRepository = (repositoryId: string): void => {
+    void run(() => api.openRecentRepository(repositoryId), applySnapshot);
+  };
+
   const {
     diffSession,
     diffOpening,
@@ -182,6 +187,21 @@ export function App(): React.JSX.Element {
   };
 
   if (!snapshot) return <Splash />;
+
+  if (!snapshot.projects.length) {
+    return (
+      <>
+        <Welcome
+          homeDirectory={snapshot.homeDirectory}
+          recentRepositories={snapshot.recentRepositories}
+          busy={busy}
+          onOpenRepository={chooseProject}
+          onOpenRecentRepository={openRecentRepository}
+        />
+        {error && <ErrorToast message={error} onDismiss={() => setError(undefined)} />}
+      </>
+    );
+  }
 
   return (
     <div className={styles.appShell} style={appShellStyle}>

@@ -8,4 +8,5 @@ export const appSnapshotFactory = Factory.define<AppSnapshot>(({ associations })
   systemLocale: 'en-GB',
   settings: settingsFactory.build(),
   projects: associations.projects ?? projectFactory.buildList(1),
+  recentRepositories: associations.recentRepositories ?? [],
 }));

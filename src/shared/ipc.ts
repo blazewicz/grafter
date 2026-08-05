@@ -3,6 +3,7 @@ export const ipc = {
   snapshotUpdate: 'grafter:snapshot-update',
   commandLog: 'grafter:command-log',
   chooseProject: 'grafter:choose-project',
+  openRecentRepository: 'grafter:open-recent-repository',
   removeProject: 'grafter:remove-project',
   refresh: 'grafter:refresh',
   refreshProject: 'grafter:refresh-project',

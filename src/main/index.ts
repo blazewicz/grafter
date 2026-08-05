@@ -74,12 +74,15 @@ function registerIpc(): void {
   ipcMain.handle(ipc.chooseProject, async () => {
     const result = await dialog.showOpenDialog(mainWindow!, {
       title: 'Choose a Git repository or worktree',
-      buttonLabel: 'Add project',
+      buttonLabel: 'Open repository',
       properties: ['openDirectory'],
     });
     const selected = result.filePaths[0];
     return result.canceled || !selected ? null : service.addProject(selected);
   });
+  ipcMain.handle(ipc.openRecentRepository, (_event, repositoryId: string) =>
+    service.openRecentRepository(repositoryId),
+  );
   ipcMain.handle(ipc.removeProject, (_event, projectId: string) =>
     service.removeProject(projectId),
   );

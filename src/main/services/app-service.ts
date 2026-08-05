@@ -101,11 +101,13 @@ export class AppService {
   }
 
   snapshot(): AppSnapshot {
+    const persisted = this.store.state;
     return {
       homeDirectory: this.#homeDirectory,
       systemLocale: this.#systemLocale,
       projects: structuredClone(this.#trees),
-      settings: this.store.state.settings,
+      recentRepositories: persisted.recentRepositories,
+      settings: persisted.settings,
     };
   }
 
@@ -156,6 +158,14 @@ export class AppService {
       'Background pull-request hydration failed.',
     );
     return this.snapshot();
+  }
+
+  async openRecentRepository(repositoryId: string): Promise<AppSnapshot> {
+    const repository = this.store.state.recentRepositories.find(
+      (candidate) => candidate.repositoryId === repositoryId,
+    );
+    if (!repository) throw new Error('Recent repository not found.');
+    return this.addProject(repository.lastOpenedPath);
   }
 
   async removeProject(projectId: string): Promise<AppSnapshot> {

@@ -20,6 +20,8 @@ const api: GrafterApi = {
   getSnapshot: () => ipcRenderer.invoke(ipc.snapshot),
   getCommandLog: (context: CommandContext) => ipcRenderer.invoke(ipc.commandLog, context),
   chooseProject: () => ipcRenderer.invoke(ipc.chooseProject),
+  openRecentRepository: (repositoryId) =>
+    ipcRenderer.invoke(ipc.openRecentRepository, repositoryId),
   removeProject: (projectId) => ipcRenderer.invoke(ipc.removeProject, projectId),
   refresh: () => ipcRenderer.invoke(ipc.refresh),
   refreshProject: (projectId) => ipcRenderer.invoke(ipc.refreshProject, projectId),
