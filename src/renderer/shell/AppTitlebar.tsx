@@ -12,23 +12,23 @@ import type { Worktree } from '../../shared/contracts';
 import styles from './AppTitlebar.module.css';
 
 export function AppTitlebar({
-  projectName,
+  repositoryName,
   worktree,
   canGoBack,
   canGoForward,
   onBack,
   onForward,
-  onSelectProject,
+  onSelectRepository,
   busy,
   onRefresh,
 }: {
-  projectName: string;
+  repositoryName: string;
   worktree: Worktree | undefined;
   canGoBack: boolean;
   canGoForward: boolean;
   onBack: () => void;
   onForward: () => void;
-  onSelectProject: (() => void) | undefined;
+  onSelectRepository: (() => void) | undefined;
   busy: boolean;
   onRefresh: () => void;
 }): React.JSX.Element {
@@ -58,16 +58,16 @@ export function AppTitlebar({
         </div>
         <div className={styles.titleBreadcrumb}>
           <FolderOpen size={14} />
-          {onSelectProject ? (
+          {onSelectRepository ? (
             <button
               className={`${styles.titleProject} ${styles.titleProjectButton}`}
-              title={`Open ${projectName} project details`}
-              onClick={onSelectProject}
+              title={`Open ${repositoryName} repository details`}
+              onClick={onSelectRepository}
             >
-              {projectName}
+              {repositoryName}
             </button>
           ) : (
-            <span className={styles.titleProject}>{projectName}</span>
+            <span className={styles.titleProject}>{repositoryName}</span>
           )}
           {worktree && (
             <>
@@ -82,7 +82,7 @@ export function AppTitlebar({
         {busy && <LoaderCircle className="spin" size={14} />}
         <button
           className={controls.iconButton}
-          aria-label="Refresh repositories"
+          aria-label="Refresh repository"
           onClick={onRefresh}
         >
           <RefreshCw size={15} />

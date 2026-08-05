@@ -12,6 +12,55 @@ import { commandContextKey } from '../shared/command-context';
 const now = new Date().toISOString();
 const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString();
 const fourMinutesAgo = new Date(Date.now() - 4 * 60 * 1000).toISOString();
+const previewOverflowWorktrees: AppSnapshot['projects'][number]['worktrees'] = [
+  {
+    id: 'grafter:duplicate-a',
+    projectId: 'grafter',
+    displayName: 'review',
+    path: '/Users/kasia/Code/grafter.worktrees/team-a/review',
+    branch: 'feature/duplicate-display-name-from-team-a',
+    head: 'a61e110',
+    isMain: false,
+    locked: false,
+  },
+  {
+    id: 'grafter:duplicate-b',
+    projectId: 'grafter',
+    displayName: 'review',
+    path: '/Users/kasia/Code/grafter.worktrees/team-b/review',
+    branch: 'feature/duplicate-display-name-from-team-b',
+    head: 'b72f221',
+    isMain: false,
+    locked: false,
+  },
+  ...Array.from({ length: 9 }, (_, index) => ({
+    id: `grafter:overflow-${index + 1}`,
+    projectId: 'grafter',
+    displayName: `migration-check-${String(index + 1).padStart(2, '0')}`,
+    path: `/Users/kasia/Code/grafter.worktrees/migration-check-${index + 1}`,
+    branch: `feature/repository-window-sidebar-validation-${index + 1}`,
+    head: `${index + 1}`.repeat(7).slice(0, 7),
+    isMain: false,
+    locked: false,
+  })),
+];
+const gardenPreviewProject: AppSnapshot['projects'][number] = {
+  id: 'garden',
+  name: 'garden-api',
+  path: '/Users/kasia/Code/garden-api',
+  worktrees: [
+    {
+      id: 'garden:main',
+      projectId: 'garden',
+      displayName: 'main',
+      path: '/Users/kasia/Code/garden-api',
+      branch: 'main',
+      head: '051dce3',
+      isMain: true,
+      locked: false,
+    },
+  ],
+};
 const previewCommits = [
   {
     hash: 'b91d6a818eb0d8c9c7a1e228b3716e95ac7434d2',
@@ -86,7 +135,7 @@ let snapshot: AppSnapshot = {
   projects: [
     {
       id: 'grafter',
-      name: 'grafter',
+      name: 'grafter-repository-scoped-windows-migration',
       path: '/Users/kasia/Code/grafter',
       setupScript: 'npm install',
       worktrees: [
@@ -151,29 +200,13 @@ let snapshot: AppSnapshot = {
           isMain: false,
           locked: false,
         },
-      ],
-    },
-    {
-      id: 'garden',
-      name: 'garden-api',
-      path: '/Users/kasia/Code/garden-api',
-      worktrees: [
-        {
-          id: 'garden:main',
-          projectId: 'garden',
-          displayName: 'main',
-          path: '/Users/kasia/Code/garden-api',
-          branch: 'main',
-          head: '051dce3',
-          isMain: true,
-          locked: false,
-        },
+        ...previewOverflowWorktrees,
       ],
     },
   ],
 };
 
-const previewProjects = structuredClone(snapshot.projects);
+const previewProjects = structuredClone([...snapshot.projects, gardenPreviewProject]);
 if (
   typeof window !== 'undefined' &&
   new URLSearchParams(window.location.search).get('state') === 'welcome'
@@ -326,11 +359,11 @@ let previewCommandSequence = 0;
 const details: Record<string, WorktreeDetails> = {
   'grafter:main': {
     ...previewProjects[0]!.worktrees[0]!,
-    projectName: 'grafter',
+    projectName: 'grafter-repository-scoped-windows-migration',
   },
   'grafter:glass': {
     ...previewProjects[0]!.worktrees[1]!,
-    projectName: 'grafter',
+    projectName: 'grafter-repository-scoped-windows-migration',
     automaticBaseBranch: 'main',
     targetBranch: 'release/next',
     comparisonBaseOverride: 'release/next',
@@ -338,7 +371,7 @@ const details: Record<string, WorktreeDetails> = {
   },
   'grafter:audit': {
     ...previewProjects[0]!.worktrees[2]!,
-    projectName: 'grafter',
+    projectName: 'grafter-repository-scoped-windows-migration',
     automaticBaseBranch: 'feature/merged-base',
     automaticBaseBranchUnavailable: true,
     targetBranch: 'main',
@@ -346,7 +379,7 @@ const details: Record<string, WorktreeDetails> = {
   },
   'grafter:comparison-preview': {
     ...previewProjects[0]!.worktrees[3]!,
-    projectName: 'grafter',
+    projectName: 'grafter-repository-scoped-windows-migration',
     automaticBaseBranch: 'main',
     targetBranch: 'main',
     diffStats: { files: 4, additions: 86, deletions: 12 },
@@ -356,6 +389,15 @@ const details: Record<string, WorktreeDetails> = {
     projectName: 'garden-api',
   },
 };
+
+for (const worktree of previewOverflowWorktrees) {
+  details[worktree.id] = {
+    ...worktree,
+    projectName: 'grafter-repository-scoped-windows-migration',
+    automaticBaseBranch: 'main',
+    targetBranch: 'main',
+  };
+}
 
 const previewDiffFiles: DiffSession['files'] = [
   {

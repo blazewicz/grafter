@@ -7,7 +7,6 @@ import { MainView } from './details/MainView';
 import { useWorktreeInspection } from './details/useWorktreeInspection';
 import { DiffViewer } from './diff/DiffViewer';
 import { ApprovalDialog } from './dialogs/ApprovalDialog';
-import { ProjectRemovalDialog } from './dialogs/ProjectRemovalDialog';
 import { SettingsDialog } from './dialogs/SettingsDialog';
 import { useCommandApproval } from './dialogs/useCommandApproval';
 import { ErrorToast } from './feedback/ErrorToast';
@@ -19,6 +18,10 @@ import { useProjectWorktreeRefresh } from './sidebar/useProjectWorktreeRefresh';
 import { useDiffViewer } from './diff/useDiffViewer';
 import { api, friendlyError } from './grafter-api';
 import { Welcome } from './welcome/Welcome';
+import {
+  currentRepository,
+  scopeRepositoryWindowSnapshot,
+} from './repository-window-snapshot';
 import styles from './App.module.css';
 
 type DialogName = 'settings' | null;
@@ -29,8 +32,6 @@ interface AppShellStyle extends CSSProperties {
 
 export function App(): React.JSX.Element {
   const [snapshot, setSnapshot] = useState<AppSnapshot | null>(null);
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const [projectRemovalId, setProjectRemovalId] = useState<string>();
   const [dialog, setDialog] = useState<DialogName>(null);
   const [logsOpen, setLogsOpen] = useState(false);
   const [error, setError] = useState<string>();
@@ -50,17 +51,12 @@ export function App(): React.JSX.Element {
     '--sidebar-width': `${sidebarWidth}px`,
   };
 
-  const selectedProject = snapshot?.projects.find((project) => project.id === selectedId);
-  const projectPendingRemoval = snapshot?.projects.find(
-    (project) => project.id === projectRemovalId,
+  const repository = currentRepository(snapshot);
+  const selectedRepository = repository?.id === selectedId ? repository : undefined;
+  const selectedWorktree = repository?.worktrees.find(
+    (worktree) => worktree.id === selectedId,
   );
-  const selectedWorktree = snapshot?.projects
-    .flatMap((project) => project.worktrees)
-    .find((worktree) => worktree.id === selectedId);
-  const activeProject =
-    selectedProject ??
-    snapshot?.projects.find((project) => project.id === selectedWorktree?.projectId);
-  const selectedProjectId = selectedProject?.id;
+  const selectedRepositoryId = selectedRepository?.id;
   const selectedWorktreeId = selectedWorktree?.id;
   const selectedWorktreeProjectId = selectedWorktree?.projectId;
   const selectedContext = useMemo<CommandContext | undefined>(() => {
@@ -71,9 +67,11 @@ export function App(): React.JSX.Element {
         worktreeId: selectedWorktreeId,
       };
     }
-    if (selectedProjectId) return { kind: 'project', projectId: selectedProjectId };
+    if (selectedRepositoryId) {
+      return { kind: 'project', projectId: selectedRepositoryId };
+    }
     return undefined;
-  }, [selectedProjectId, selectedWorktreeId, selectedWorktreeProjectId]);
+  }, [selectedRepositoryId, selectedWorktreeId, selectedWorktreeProjectId]);
   const {
     commands,
     contextKey: selectedContextKey,
@@ -85,40 +83,35 @@ export function App(): React.JSX.Element {
     selectedWorktree?.head,
     setError,
   );
-  const projectWorktrees = details
-    ? (snapshot?.projects.find((project) => project.id === details.projectId)
-        ?.worktrees ?? [details])
-    : [];
+  const repositoryWorktrees =
+    details && details.projectId === repository?.id ? repository.worktrees : [];
 
   const applySnapshot = useCallback(
     (next: AppSnapshot): void => {
-      setSnapshot(next);
-      setExpanded((current) => {
-        if (current.size) return current;
-        return new Set(next.projects.map((project) => project.id));
-      });
-      const worktrees = next.projects.flatMap((project) => project.worktrees);
+      const scoped = scopeRepositoryWindowSnapshot(next);
+      const nextRepository = currentRepository(scoped);
+      setSnapshot(scoped);
+      const worktrees = nextRepository?.worktrees ?? [];
       reconcileNavigation(
-        [
-          ...next.projects.map((project) => project.id),
-          ...worktrees.map((worktree) => worktree.id),
-        ],
-        next.selectedWorktreeId ?? worktrees[1]?.id ?? worktrees[0]?.id,
+        nextRepository
+          ? [nextRepository.id, ...worktrees.map((worktree) => worktree.id)]
+          : [],
+        scoped.selectedWorktreeId ?? worktrees[1]?.id ?? worktrees[0]?.id,
       );
       if (
-        next.selectedWorktreeId &&
-        next.worktreeSelectionRequestId !== undefined &&
-        `${next.selectedWorktreeId}:${next.worktreeSelectionRequestId}` !==
+        scoped.selectedWorktreeId &&
+        scoped.worktreeSelectionRequestId !== undefined &&
+        `${scoped.selectedWorktreeId}:${scoped.worktreeSelectionRequestId}` !==
           appliedWorktreeSelectionRequest.current
       ) {
-        appliedWorktreeSelectionRequest.current = `${next.selectedWorktreeId}:${next.worktreeSelectionRequestId}`;
-        navigate(next.selectedWorktreeId);
+        appliedWorktreeSelectionRequest.current = `${scoped.selectedWorktreeId}:${scoped.worktreeSelectionRequestId}`;
+        navigate(scoped.selectedWorktreeId);
       }
     },
     [navigate, reconcileNavigation],
   );
 
-  useProjectWorktreeRefresh(activeProject?.id, applySnapshot, setError);
+  useProjectWorktreeRefresh(repository?.id, applySnapshot, setError);
 
   const run = useCallback(
     async <T,>(
@@ -187,18 +180,9 @@ export function App(): React.JSX.Element {
   const { approval, approvalRunning, enqueueApproval, resolveApproval } =
     useCommandApproval(api, run, applySnapshot);
 
-  const toggleProject = (projectId: string): void => {
-    setExpanded((current) => {
-      const next = new Set(current);
-      if (next.has(projectId)) next.delete(projectId);
-      else next.add(projectId);
-      return next;
-    });
-  };
-
   if (!snapshot) return <Splash />;
 
-  if (!snapshot.projects.length) {
+  if (!repository) {
     return (
       <>
         <Welcome
@@ -216,13 +200,13 @@ export function App(): React.JSX.Element {
   return (
     <div className={styles.appShell} style={appShellStyle}>
       <AppTitlebar
-        projectName={activeProject?.name ?? snapshot.projects[0]?.name ?? 'Worktrees'}
+        repositoryName={repository.name}
         worktree={selectedWorktree}
         canGoBack={canGoBack}
         canGoForward={canGoForward}
         onBack={goBack}
         onForward={goForward}
-        onSelectProject={activeProject ? () => navigate(activeProject.id) : undefined}
+        onSelectRepository={() => navigate(repository.id)}
         busy={busy}
         onRefresh={() => void run(() => api.refresh(), applySnapshot)}
       />
@@ -230,25 +214,19 @@ export function App(): React.JSX.Element {
       <div className={styles.workspace}>
         <Sidebar
           homeDirectory={snapshot.homeDirectory}
-          projects={snapshot.projects}
+          repository={repository}
           width={sidebarWidth}
           selectedId={selectedId}
-          expanded={expanded}
           onSelect={navigate}
-          onToggleProject={toggleProject}
-          onExpandProject={(projectId) =>
-            setExpanded((current) => new Set(current).add(projectId))
-          }
           onChooseProject={chooseProject}
-          onCreated={(projectId, next, request) => {
+          onCreated={(next, request) => {
             applySnapshot(next.snapshot);
-            const created = next.snapshot.projects
-              .find((project) => project.id === projectId)
-              ?.worktrees.find((worktree) => worktree.path === request.path);
+            const created = currentRepository(
+              scopeRepositoryWindowSnapshot(next.snapshot),
+            )?.worktrees.find((worktree) => worktree.path === request.path);
             if (created) navigate(created.id);
             if (next.setupApproval) enqueueApproval(next.setupApproval);
           }}
-          onRemoveProject={setProjectRemovalId}
           onRemoveWorktree={(worktree) =>
             void run(() => api.prepareRemoveWorktree(worktree.id), enqueueApproval)
           }
@@ -261,10 +239,10 @@ export function App(): React.JSX.Element {
           homeDirectory={snapshot.homeDirectory}
           settings={snapshot.settings}
           systemLocale={snapshot.systemLocale}
-          selectedProject={selectedProject}
+          selectedProject={selectedRepository}
           selectedWorktree={selectedWorktree}
           details={details}
-          projectWorktrees={projectWorktrees}
+          projectWorktrees={repositoryWorktrees}
           status={worktreeStatus}
           onSnapshot={applySnapshot}
           onAdd={chooseProject}
@@ -296,25 +274,10 @@ export function App(): React.JSX.Element {
           onApprove={() => resolveApproval('approve')}
         />
       )}
-      {projectPendingRemoval && (
-        <ProjectRemovalDialog
-          projectName={projectPendingRemoval.name}
-          busy={busy}
-          onCancel={() => setProjectRemovalId(undefined)}
-          onConfirm={() =>
-            void run(
-              () => api.removeProject(projectPendingRemoval.id),
-              (next) => {
-                applySnapshot(next);
-                setProjectRemovalId(undefined);
-              },
-            )
-          }
-        />
-      )}
       {dialog === 'settings' && (
         <SettingsDialog
-          snapshot={snapshot}
+          settings={snapshot.settings}
+          repository={repository}
           onClose={() => setDialog(null)}
           onSave={(settings) =>
             void run(

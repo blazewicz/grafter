@@ -1,21 +1,53 @@
 // @vitest-environment happy-dom
 
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../../src/renderer/App';
 import { api } from '../../src/renderer/grafter-api';
 import type { AppSnapshot } from '../../src/shared/contracts';
 import { buildWelcomeScenario } from '../scenarios/welcome/welcome';
+import { buildNewWorktreeScenario } from '../scenarios/sidebar/new-worktree';
+import { buildRepositoryWindowScenario } from '../scenarios/sidebar/repository-window';
 import { deferred } from '../support/deferred';
-import { appSnapshotFactory, projectFactory, worktreeFactory } from '../factories';
+import {
+  appSnapshotFactory,
+  approvalRequestFactory,
+  projectFactory,
+  worktreeDetailsFactory,
+  worktreeFactory,
+} from '../factories';
 
 const scenario = buildWelcomeScenario();
+const repositoryScenario = buildRepositoryWindowScenario();
+const newWorktreeScenario = buildNewWorktreeScenario();
 
 function renderApp(snapshot: Promise<AppSnapshot>): void {
   vi.spyOn(api, 'getSnapshot').mockReturnValue(snapshot);
   vi.spyOn(api, 'onSnapshotUpdate').mockReturnValue(() => undefined);
   render(<App />);
+}
+
+function stubRepositoryWindowApis(snapshot: AppSnapshot) {
+  const refreshProject = vi.spyOn(api, 'refreshProject').mockResolvedValue(snapshot);
+  vi.spyOn(api, 'getCommandLog').mockResolvedValue([]);
+  vi.spyOn(api, 'getWorktreeStatus').mockResolvedValue('clean');
+  const getWorktreeDetails = vi
+    .spyOn(api, 'getWorktreeDetails')
+    .mockImplementation((worktreeId) => {
+      for (const project of snapshot.projects) {
+        const worktree = project.worktrees.find(
+          (candidate) => candidate.id === worktreeId,
+        );
+        if (worktree) {
+          return Promise.resolve(
+            worktreeDetailsFactory.build({}, { transient: { project, worktree } }),
+          );
+        }
+      }
+      return Promise.reject(new Error('Worktree not found.'));
+    });
+  return { refreshProject, getWorktreeDetails };
 }
 
 describe('App welcome state', () => {
@@ -117,5 +149,159 @@ describe('App welcome state', () => {
     await waitFor(() => {
       expect(getWorktreeDetails).toHaveBeenCalledWith(linkedWorktree.id);
     });
+  });
+
+  it('renders only the owning repository and refreshes only its worktrees', async () => {
+    const { refreshProject } = stubRepositoryWindowApis(repositoryScenario.snapshot);
+    renderApp(Promise.resolve(repositoryScenario.snapshot));
+
+    const worktreeList = await screen.findByLabelText(
+      `${repositoryScenario.repository.name} worktrees`,
+    );
+    const mainButton = within(worktreeList).getByRole('button', {
+      name: `Main worktree, checked out branch ${repositoryScenario.mainWorktree.branch}`,
+    });
+    const linkedButton = within(worktreeList).getByRole('button', {
+      name: `${repositoryScenario.linkedWorktree.displayName}, checked out branch ${repositoryScenario.linkedWorktree.branch}`,
+    });
+
+    expect(mainButton).toAppearBefore(linkedButton);
+    expect(
+      screen.getByRole('button', {
+        name: `${repositoryScenario.repository.name} repository details`,
+      }),
+    ).toBeVisible();
+    expect(screen.queryByText(repositoryScenario.secondRepository.name)).toBeNull();
+    expect(
+      screen.queryByLabelText(`${repositoryScenario.secondRepository.name} worktrees`),
+    ).toBeNull();
+    expect(screen.queryByTitle('Remove from Grafter')).toBeNull();
+    expect(
+      screen.queryByRole('button', {
+        name: `Expand ${repositoryScenario.repository.name}`,
+      }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole('button', {
+        name: `Collapse ${repositoryScenario.repository.name}`,
+      }),
+    ).toBeNull();
+    await waitFor(() => {
+      expect(refreshProject).toHaveBeenCalledWith(repositoryScenario.repository.id);
+    });
+    expect(refreshProject).not.toHaveBeenCalledWith(
+      repositoryScenario.secondRepository.id,
+    );
+  });
+
+  it('navigates between worktree and repository details with back and forward', async () => {
+    const user = userEvent.setup();
+    const { getWorktreeDetails } = stubRepositoryWindowApis(repositoryScenario.snapshot);
+    renderApp(Promise.resolve(repositoryScenario.snapshot));
+
+    await waitFor(() => {
+      expect(getWorktreeDetails).toHaveBeenCalledWith(
+        repositoryScenario.linkedWorktree.id,
+      );
+    });
+    await user.click(
+      screen.getByRole('button', {
+        name: `${repositoryScenario.repository.name} repository details`,
+      }),
+    );
+
+    expect(await screen.findByRole('region', { name: 'Worktrees' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Back' })).toBeEnabled();
+    await user.click(screen.getByRole('button', { name: 'Back' }));
+    await waitFor(() => {
+      expect(getWorktreeDetails).toHaveBeenCalledTimes(2);
+    });
+    expect(getWorktreeDetails).toHaveBeenLastCalledWith(
+      repositoryScenario.linkedWorktree.id,
+    );
+
+    expect(screen.getByRole('button', { name: 'Forward' })).toBeEnabled();
+    await user.click(screen.getByRole('button', { name: 'Forward' }));
+    expect(await screen.findByRole('region', { name: 'Worktrees' })).toBeVisible();
+  });
+
+  it('opens another repository through the window manager without changing this window', async () => {
+    const user = userEvent.setup();
+    stubRepositoryWindowApis(repositoryScenario.snapshot);
+    const chooseProject = vi.spyOn(api, 'chooseProject').mockResolvedValue(null);
+    renderApp(Promise.resolve(repositoryScenario.snapshot));
+
+    await user.click(await screen.findByRole('button', { name: 'Open Repository...' }));
+
+    expect(chooseProject).toHaveBeenCalledOnce();
+    expect(
+      screen.getByRole('button', {
+        name: `${repositoryScenario.repository.name} repository details`,
+      }),
+    ).toBeVisible();
+  });
+
+  it('selects a created worktree and queues its setup approval', async () => {
+    const user = userEvent.setup();
+    const project = newWorktreeScenario.project;
+    const createdWorktree = worktreeFactory.build({
+      projectId: project.id,
+      path: newWorktreeScenario.suggestedPath,
+      branch: newWorktreeScenario.availableBranch,
+      displayName: newWorktreeScenario.availableBranch.replaceAll('/', '-'),
+    });
+    const openedProject = {
+      ...project,
+      worktrees: [...project.worktrees, createdWorktree],
+    };
+    const openedSnapshot = appSnapshotFactory.build(
+      {},
+      { associations: { projects: [openedProject] } },
+    );
+    const initialSnapshot = appSnapshotFactory.build(
+      {},
+      { associations: { projects: [project] } },
+    );
+    const approval = approvalRequestFactory.build();
+    const { refreshProject } = stubRepositoryWindowApis(openedSnapshot);
+    refreshProject.mockResolvedValue(initialSnapshot);
+    vi.spyOn(api, 'listBranches').mockResolvedValue(newWorktreeScenario.branches);
+    vi.spyOn(api, 'suggestWorktreePath').mockResolvedValue(
+      newWorktreeScenario.suggestedPath,
+    );
+    const createWorktree = vi.spyOn(api, 'createWorktree').mockResolvedValue({
+      snapshot: openedSnapshot,
+      setupApproval: approval,
+    });
+    renderApp(Promise.resolve(initialSnapshot));
+
+    await user.click(
+      await screen.findByRole('button', { name: `Add worktree to ${project.name}` }),
+    );
+    await user.click(
+      await screen.findByRole('button', { name: newWorktreeScenario.availableBranch }),
+    );
+    await waitFor(() => {
+      expect(screen.getByRole('textbox', { name: 'Path' })).toHaveValue(
+        newWorktreeScenario.suggestedPath,
+      );
+    });
+    await user.click(screen.getByRole('button', { name: 'Create' }));
+
+    await waitFor(() => {
+      expect(createWorktree).toHaveBeenCalledOnce();
+    });
+    expect(createWorktree).toHaveBeenCalledWith({
+      projectId: project.id,
+      branch: newWorktreeScenario.availableBranch,
+      path: newWorktreeScenario.suggestedPath,
+    });
+    expect(await screen.findByRole('dialog', { name: 'Review command' })).toBeVisible();
+    expect(screen.getByText(approval.warning)).toBeVisible();
+    expect(
+      screen.getByRole('button', {
+        name: `${createdWorktree.displayName}, checked out branch ${createdWorktree.branch}`,
+      }),
+    ).toHaveAttribute('aria-current', 'page');
   });
 });

@@ -23,6 +23,7 @@ interface RenderWorktreeListOptions {
     request: { path: string },
   ) => void;
   onRemoveWorktree?: (worktree: Worktree) => void;
+  onError?: (message: string) => void;
 }
 
 function renderWorktreeList(options: RenderWorktreeListOptions = {}): void {
@@ -36,7 +37,7 @@ function renderWorktreeList(options: RenderWorktreeListOptions = {}): void {
       onCancelAdd={options.onCancelAdd ?? (() => undefined)}
       onCreated={options.onCreated ?? (() => undefined)}
       onRemoveWorktree={options.onRemoveWorktree ?? (() => undefined)}
-      onError={() => undefined}
+      onError={options.onError ?? (() => undefined)}
     />,
   );
 }
@@ -148,5 +149,38 @@ describe('WorktreeList', () => {
     expect(onCreated).toHaveBeenCalledWith(newWorktreeScenario.createdResult, {
       path: newWorktreeScenario.suggestedPath,
     });
+  });
+
+  it('reports a create failure and keeps the form recoverable', async () => {
+    const user = userEvent.setup();
+    const message = 'The worktree could not be created.';
+    vi.spyOn(api, 'listBranches').mockResolvedValue(newWorktreeScenario.branches);
+    vi.spyOn(api, 'suggestWorktreePath').mockResolvedValue(
+      newWorktreeScenario.suggestedPath,
+    );
+    vi.spyOn(api, 'createWorktree').mockRejectedValue(new Error(message));
+    const onError = vi.fn();
+    renderWorktreeList({
+      project: newWorktreeScenario.project,
+      adding: true,
+      onError,
+    });
+
+    await user.click(
+      await screen.findByRole('button', { name: newWorktreeScenario.availableBranch }),
+    );
+    await waitFor(() => {
+      expect(screen.getByRole('textbox', { name: 'Path' })).toHaveValue(
+        newWorktreeScenario.suggestedPath,
+      );
+    });
+    await user.click(screen.getByRole('button', { name: 'Create' }));
+
+    await waitFor(() => {
+      expect(onError).toHaveBeenCalledOnce();
+    });
+    expect(onError).toHaveBeenCalledWith(message);
+    expect(screen.getByRole('textbox', { name: 'Filter branches' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Create' })).toBeEnabled();
   });
 });
