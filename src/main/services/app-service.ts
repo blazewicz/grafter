@@ -1,41 +1,29 @@
-import path from 'node:path';
 import os from 'node:os';
 import { isCommandContext } from '../../shared/command-context';
 import type {
   AppSnapshot,
   ApprovalRequest,
-  CommitPage,
   CommandRecord,
   CreateWorktreeRequest,
   DiffFilePatch,
-  DiffFileRequest,
-  EditorTool,
-  OpenBranchDiffRequest,
-  OpenCommitDiffRequest,
-  OpenDiffFileRequest,
   DiffSession,
-  ListBranchCommitsRequest,
-  Project,
+  EditorTool,
   ProjectConfig,
   PullRequest,
   Settings,
-  SetComparisonBaseRequest,
   SwitchBranchRequest,
-  Worktree,
   WorktreeComparison,
   WorktreeDetails,
   WorktreeStatus,
 } from '../../shared/contracts';
-import { expandWorktreeTemplate, worktreePathForBranch } from '../../shared/paths';
 import { isSettings } from '../../shared/settings';
 import { ApprovalManager } from '../approvals';
 import type { ApplicationRuntime } from '../application-runtime';
+import type { StateStore } from '../store';
 import { GitService } from './git-service';
 import { GitHubService } from './github-service';
 import { RepositoryLocator } from './repository-locator';
-import type { StateStore } from '../store';
-
-const pullRequestFreshnessMs = 30_000;
+import { RepositoryService } from './repository-service';
 
 interface AppServiceOptions {
   homeDirectory?: string;
@@ -44,19 +32,25 @@ interface AppServiceOptions {
   now?: () => number;
 }
 
+/**
+ * Compatibility facade for the legacy multi-project renderer contract.
+ * RepositoryService owns repository live state; this class owns ordering and legacy routing.
+ */
 export class AppService {
-  readonly git: GitService;
-  readonly github: GitHubService;
   readonly repositoryLocator: RepositoryLocator;
-  readonly approvals: ApprovalManager;
-  #trees: Project[] = [];
+  readonly #managementGit: GitService;
+  readonly #managementGithub: GitHubService;
+  readonly #managementApprovals: ApprovalManager;
+  readonly #repositoryServices = new Map<string, RepositoryService>();
+  readonly #repositoryUnsubscribers = new Map<string, () => void>();
+  readonly #worktreeOwners = new Map<string, RepositoryService>();
+  readonly #approvalOwners = new Map<string, RepositoryService>();
+  readonly #diffSessionOwners = new Map<string, RepositoryService>();
   readonly #snapshotUpdateSubscribers = new Set<(snapshot: AppSnapshot) => void>();
-  readonly #now: () => number;
   readonly #homeDirectory: string;
   readonly #systemLocale: string;
-  readonly #pullRequestLookups = new Map<string, Promise<PullRequest | undefined>>();
-  readonly #pullRequestRefreshedAt = new Map<string, number>();
-  readonly #projectRefreshVersions = new Map<string, number>();
+  readonly #now: () => number;
+  #disposed = false;
 
   constructor(
     readonly store: StateStore,
@@ -64,40 +58,71 @@ export class AppService {
     options: AppServiceOptions = {},
   ) {
     const runner = runtime.commandRunner;
-    this.git = new GitService(runner);
-    this.github = new GitHubService(runner);
+    this.#managementGit = new GitService(runner);
+    this.#managementGithub = new GitHubService(runner);
+    this.#managementApprovals = new ApprovalManager(runner);
     this.repositoryLocator = new RepositoryLocator(runner);
-    this.approvals = new ApprovalManager(runner);
     this.#homeDirectory = options.homeDirectory ?? os.homedir();
     this.#systemLocale =
       options.systemLocale ?? Intl.DateTimeFormat().resolvedOptions().locale;
+    this.#now = options.now ?? Date.now;
     if (options.onSnapshotUpdate) {
       this.#snapshotUpdateSubscribers.add(options.onSnapshotUpdate);
     }
-    this.#now = options.now ?? Date.now;
+    this.#reconcileRepositoryServices();
+  }
+
+  /** Compatibility access for existing tests and transitional callers. */
+  get git(): GitService {
+    return this.#onlyRepositoryService()?.git ?? this.#managementGit;
+  }
+
+  /** Compatibility access for existing tests and transitional callers. */
+  get github(): GitHubService {
+    return this.#onlyRepositoryService()?.github ?? this.#managementGithub;
+  }
+
+  /** Compatibility access for existing tests and transitional callers. */
+  get approvals(): ApprovalManager {
+    return this.#onlyRepositoryService()?.approvals ?? this.#managementApprovals;
   }
 
   get runner() {
     return this.runtime.commandRunner;
   }
 
+  repositoryService(repositoryId: string): RepositoryService {
+    return this.#serviceForProject(repositoryId);
+  }
+
   async initialize(): Promise<void> {
+    this.#assertActive();
     await this.store.load();
+    this.#reconcileRepositoryServices();
     await this.refresh();
   }
 
   snapshot(): AppSnapshot {
+    this.#assertActive();
+    this.#reconcileRepositoryServices();
     const persisted = this.store.state;
     return {
       homeDirectory: this.#homeDirectory,
       systemLocale: this.#systemLocale,
-      projects: structuredClone(this.#trees),
+      projects: persisted.projects.map(
+        (project) =>
+          this.#repositoryServices.get(project.id)?.snapshot() ?? {
+            ...project,
+            worktrees: [],
+          },
+      ),
       recentRepositories: persisted.recentRepositories,
       settings: persisted.settings,
     };
   }
 
   subscribeToSnapshotUpdates(subscriber: (snapshot: AppSnapshot) => void): () => void {
+    this.#assertActive();
     this.#snapshotUpdateSubscribers.add(subscriber);
     let subscribed = true;
     return () => {
@@ -107,27 +132,14 @@ export class AppService {
     };
   }
 
-  #publishSnapshotUpdate(): void {
-    let firstError: unknown;
-    for (const subscriber of this.#snapshotUpdateSubscribers) {
-      try {
-        subscriber(this.snapshot());
-      } catch (error) {
-        firstError ??= error;
-      }
-    }
-    if (firstError instanceof Error) throw firstError;
-    if (firstError !== undefined) {
-      throw new Error('Snapshot subscriber failed.', { cause: firstError });
-    }
-  }
-
   commandLog(context: unknown): CommandRecord[] {
+    this.#assertActive();
     if (!isCommandContext(context)) throw new Error('Invalid command log context.');
     return this.runner.recordsFor(context);
   }
 
   async addProject(selectedPath: string): Promise<AppSnapshot> {
+    this.#assertActive();
     const location = await this.repositoryLocator.locate(selectedPath);
     const details: Omit<ProjectConfig, 'id'> = {
       name: location.name,
@@ -149,25 +161,19 @@ export class AppService {
         location.selectedWorktreePath,
         location.commonDirectoryPath,
       );
-      this.#reconcileProjectTrees();
+      this.#reconcileRepositoryServices();
       return this.snapshot();
     }
 
-    const project = this.git.createProject(details);
+    const project = this.#managementGit.createProject(details);
     await this.store.addRepository(
       project,
       location.selectedWorktreePath,
       location.commonDirectoryPath,
     );
-    this.#reconcileProjectTrees();
-    const worktrees = await this.#runProjectOperationSerialized(project.id, () =>
-      this.#refreshProject(project, false),
-    );
-    this.#prunePullRequestCache(this.#trees.flatMap((item) => item.worktrees));
-    this.#startBackgroundTask(
-      this.#hydratePullRequests(worktrees),
-      'Background pull-request hydration failed.',
-    );
+    this.#reconcileRepositoryServices();
+    await this.#serviceForProject(project.id).refresh({ hydratePullRequests: true });
+    this.#rebuildWorktreeOwners();
     return this.snapshot();
   }
 
@@ -180,234 +186,138 @@ export class AppService {
   }
 
   async removeProject(projectId: string): Promise<AppSnapshot> {
+    this.#serviceForProject(projectId);
     await this.store.removeRepository(projectId);
-    this.#projectRefreshVersions.delete(projectId);
-    this.#reconcileProjectTrees();
-    this.#prunePullRequestCache(this.#trees.flatMap((item) => item.worktrees));
+    this.#removeRepositoryService(projectId);
+    this.#reconcileRepositoryServices();
     return this.snapshot();
   }
 
   async refresh(): Promise<AppSnapshot> {
-    this.#reconcileProjectTrees();
+    this.#assertActive();
+    this.#reconcileRepositoryServices();
+    const services = this.#orderedRepositoryServices();
     await Promise.all(
-      this.store.state.projects.map((project) =>
-        this.#runProjectOperationSerialized(project.id, () =>
-          this.runtime.runRepositoryRefresh(() => this.#refreshProject(project, true)),
-        ),
+      services.map((service) =>
+        service.refresh({
+          tolerateFailure: true,
+          hydratePullRequests: true,
+          useGlobalRefreshLimit: true,
+        }),
       ),
     );
-    const worktrees = this.#trees.flatMap((project) => project.worktrees);
-    this.#prunePullRequestCache(worktrees);
-    this.#startBackgroundTask(
-      this.#hydratePullRequests(worktrees),
-      'Background pull-request hydration failed.',
-    );
+    this.#rebuildWorktreeOwners();
     return this.snapshot();
   }
 
   async refreshProject(projectId: string): Promise<AppSnapshot> {
-    const project = this.#project(projectId);
-    await this.#runProjectOperationSerialized(project.id, () =>
-      this.#refreshProject(project, false),
-    );
-    this.#prunePullRequestCache(this.#trees.flatMap((item) => item.worktrees));
+    await this.#serviceForProject(projectId).refresh();
+    this.#rebuildWorktreeOwners();
     return this.snapshot();
   }
 
-  async listBranches(projectId: string): Promise<string[]> {
-    return this.git.listBranches(this.#project(projectId));
+  listBranches(projectId: string): Promise<string[]> {
+    return this.#serviceForProject(projectId).listBranches();
   }
 
   suggestWorktreePath(projectId: string, branch: string): string {
-    const project = this.#project(projectId);
-    const root = expandWorktreeTemplate(
+    return this.#serviceForProject(projectId).suggestWorktreePath(
       this.store.state.settings.defaultWorktreePath,
-      project.name,
-      project.path,
+      branch,
     );
-    return worktreePathForBranch(root, branch || 'new-worktree');
   }
 
   async createWorktree(request: CreateWorktreeRequest): Promise<{
     snapshot: AppSnapshot;
     setupApproval?: ApprovalRequest;
   }> {
-    if (!request.branch.trim()) throw new Error('Choose a branch first.');
-    if (!path.isAbsolute(request.path))
-      throw new Error('The worktree path must be absolute.');
-
-    const { project, createdWorktree } = await this.#runProjectOperationSerialized(
-      request.projectId,
-      async () => {
-        const project = this.#project(request.projectId);
-        await this.git.addWorktree(project, request.path, request.branch);
-        await this.#refreshProject(project, false);
-        this.#prunePullRequestCache(this.#trees.flatMap((item) => item.worktrees));
-        const createdWorktree = this.#trees
-          .find((item) => item.id === project.id)
-          ?.worktrees.find((item) => item.path === request.path);
-        if (!createdWorktree) {
-          throw new Error('The new worktree could not be found after creation.');
-        }
-        this.#startBackgroundTask(
-          this.#refreshPullRequest(createdWorktree, true),
-          'Background pull-request refresh failed.',
-        );
-        return { project, createdWorktree };
-      },
-    );
-    const script = await this.git.setupScript(project);
-    const snapshot = this.snapshot();
-    if (!script) return { snapshot };
-    const setupApproval = this.approvals.prepare(
-      this.git.setupSpec(createdWorktree, script),
-      'This project requested a setup script. Review the exact shell command before running it.',
-    );
-    return { snapshot: this.snapshot(), setupApproval };
+    const service = this.#serviceForProject(request.projectId);
+    const result = await service.createWorktree(request);
+    this.#rebuildWorktreeOwners();
+    if (result.setupApproval) {
+      this.#approvalOwners.set(result.setupApproval.approvalId, service);
+    }
+    return {
+      snapshot: this.snapshot(),
+      ...(result.setupApproval ? { setupApproval: result.setupApproval } : {}),
+    };
   }
 
   async switchBranch(request: SwitchBranchRequest): Promise<AppSnapshot> {
-    const branch = request.branch.trim();
-    if (!branch) throw new Error('Choose a branch first.');
-    const projectId = this.#worktree(request.worktreeId).projectId;
-    return this.#runProjectOperationSerialized(projectId, async () => {
-      const worktree = this.#worktree(request.worktreeId);
-      if (branch === worktree.branch) {
-        throw new Error(`${branch} is already checked out in this worktree.`);
-      }
-
-      const project = this.#project(worktree.projectId);
-      await this.git.switchBranch(worktree, branch);
-      const worktrees = await this.#refreshProject(project, false);
-      this.#prunePullRequestCache(this.#trees.flatMap((item) => item.worktrees));
-
-      const switched = worktrees.find((item) => item.id === worktree.id);
-      if (switched?.branch !== branch) {
-        throw new Error('The worktree branch could not be confirmed after switching.');
-      }
-      this.#startBackgroundTask(
-        this.#refreshPullRequest(switched),
-        'Background pull-request refresh failed.',
-      );
-      return this.snapshot();
-    });
+    await this.#serviceForWorktree(request.worktreeId).switchBranch(request);
+    this.#rebuildWorktreeOwners();
+    return this.snapshot();
   }
 
   prepareRemove(worktreeId: string): ApprovalRequest {
-    const worktree = this.#worktree(worktreeId);
-    if (worktree.isMain) throw new Error('Grafter never removes a project’s main clone.');
-    if (worktree.locked) throw new Error('Unlock this worktree before removing it.');
-    const project = this.#project(worktree.projectId);
-    return this.approvals.prepare(
-      this.git.removeSpec(project, worktree),
-      `This permanently removes the ${worktree.displayName} worktree directory. Dirty worktrees are refused by Git.`,
-      async () => {
-        await this.#refreshProject(project, false);
-        this.#prunePullRequestCache(this.#trees.flatMap((item) => item.worktrees));
-      },
-      (executePreparedCommand) =>
-        this.#runProjectOperationSerialized(project.id, executePreparedCommand),
-    );
+    const service = this.#serviceForWorktree(worktreeId);
+    const approval = service.prepareRemove(worktreeId);
+    this.#approvalOwners.set(approval.approvalId, service);
+    return approval;
   }
 
   async approve(approvalId: string): Promise<AppSnapshot> {
-    await this.approvals.approve(approvalId);
+    const service = this.#takeApprovalOwner(approvalId);
+    await service.approve(approvalId);
+    this.#rebuildWorktreeOwners();
     return this.snapshot();
   }
 
   reject(approvalId: string): AppSnapshot {
-    this.approvals.reject(approvalId);
+    this.#takeApprovalOwner(approvalId).reject(approvalId);
     return this.snapshot();
   }
 
-  async details(worktreeId: string): Promise<WorktreeDetails> {
-    const worktree = this.#worktree(worktreeId);
-    return this.git.details(
-      this.#project(worktree.projectId),
-      worktree,
-      this.#comparisonBaseOverride(worktree),
-    );
+  details(worktreeId: string): Promise<WorktreeDetails> {
+    return this.#serviceForWorktree(worktreeId).details(worktreeId);
   }
 
-  async setComparisonBase(request: unknown): Promise<WorktreeComparison> {
+  setComparisonBase(request: unknown): Promise<WorktreeComparison> {
     if (!isSetComparisonBaseRequest(request)) {
-      throw new Error('Invalid comparison base request.');
+      return Promise.reject(new Error('Invalid comparison base request.'));
     }
-    const projectId = this.#worktree(request.worktreeId).projectId;
-    return this.#runProjectOperationSerialized(projectId, async () => {
-      const worktree = this.#worktree(request.worktreeId);
-      const targetBranch = request.targetBranch?.trim();
-      if (request.targetBranch !== undefined && !targetBranch) {
-        throw new Error('Choose a comparison base.');
-      }
-      if (targetBranch === worktree.branch) {
-        throw new Error('Choose a branch other than the checked-out branch.');
-      }
-      const project = this.#project(worktree.projectId);
-      if (targetBranch) {
-        const branches = await this.git.listBranches(project);
-        if (!branches.includes(targetBranch)) {
-          throw new Error('The comparison base is not a local branch.');
-        }
-      }
-      const comparison = await this.git.comparison(project, worktree, targetBranch);
-      await this.store.setComparisonBaseOverride(
-        project.id,
-        worktree.id,
-        targetBranch ? { sourceBranch: worktree.branch, targetBranch } : undefined,
-      );
-      return comparison;
-    });
+    return this.#serviceForWorktree(worktreeIdFrom(request)).setComparisonBase(request);
   }
 
-  async listBranchCommits(request: unknown): Promise<CommitPage> {
+  listBranchCommits(request: unknown) {
     if (!isListBranchCommitsRequest(request)) {
-      throw new Error('Invalid branch commit request.');
+      return Promise.reject(new Error('Invalid branch commit request.'));
     }
-    const worktree = this.#worktree(request.worktreeId);
-    return this.git.branchCommits(
-      worktree,
-      request.targetBranch.trim(),
-      request.offset,
-      request.limit,
-    );
+    return this.#serviceForWorktree(worktreeIdFrom(request)).listBranchCommits(request);
   }
 
   async openDiff(worktreeId: string): Promise<DiffSession> {
-    const worktree = this.#worktree(worktreeId);
-    return this.git.openDiff(
-      this.#project(worktree.projectId),
-      worktree,
-      this.#comparisonBaseOverride(worktree),
-    );
+    const service = this.#serviceForWorktree(worktreeId);
+    const session = await service.openDiff(worktreeId);
+    this.#diffSessionOwners.set(session.id, service);
+    return session;
   }
 
   async openBranchDiff(request: unknown): Promise<DiffSession> {
     if (!isOpenBranchDiffRequest(request)) {
       throw new Error('Invalid branch comparison request.');
     }
-    const sourceBranch = request.sourceBranch.trim();
-    const targetBranch = request.targetBranch.trim();
-    if (!sourceBranch || !targetBranch) {
-      throw new Error('Choose two branches to compare.');
-    }
-    const project = this.#project(request.projectId);
-    const sourceWorktree = this.#trees
-      .find((item) => item.id === project.id)
-      ?.worktrees.find((worktree) => worktree.branch === sourceBranch);
-    return this.git.openBranchDiff(project, sourceBranch, targetBranch, sourceWorktree);
+    const service = this.#serviceForProject(projectIdFrom(request));
+    const session = await service.openBranchDiff(request);
+    this.#diffSessionOwners.set(session.id, service);
+    return session;
   }
 
   async openCommitDiff(request: unknown): Promise<DiffSession> {
     if (!isOpenCommitDiffRequest(request)) {
       throw new Error('Invalid commit changes request.');
     }
-    return this.git.openCommitDiff(this.#project(request.projectId), request.commitHash);
+    const service = this.#serviceForProject(projectIdFrom(request));
+    const session = await service.openCommitDiff(request);
+    this.#diffSessionOwners.set(session.id, service);
+    return session;
   }
 
-  async diffFile(request: unknown): Promise<DiffFilePatch> {
-    if (!isDiffFileRequest(request)) throw new Error('Invalid diff file request.');
-    return this.git.diffFile(request);
+  diffFile(request: unknown): Promise<DiffFilePatch> {
+    if (!isDiffFileRequest(request)) {
+      return Promise.reject(new Error('Invalid diff file request.'));
+    }
+    return this.#serviceForDiffSession(sessionIdFrom(request)).diffFile(request);
   }
 
   diffFileEditorTarget(request: unknown): {
@@ -418,34 +328,35 @@ export class AppService {
     if (!isOpenDiffFileRequest(request)) {
       throw new Error('Invalid open diff file request.');
     }
-    return {
-      editor: request.editor,
-      filePath: this.git.diffFilePath(request),
-      ...(request.line === undefined ? {} : { line: request.line }),
-    };
+    return this.#serviceForDiffSession(sessionIdFrom(request)).diffFileEditorTarget(
+      request,
+    );
   }
 
   closeDiff(sessionId: string): void {
     if (typeof sessionId !== 'string') throw new Error('Invalid diff session.');
-    this.git.closeDiff(sessionId);
+    const service = this.#diffSessionOwners.get(sessionId);
+    this.#diffSessionOwners.delete(sessionId);
+    service?.closeDiff(sessionId);
   }
 
-  async refreshPullRequest(worktreeId: string): Promise<PullRequest | undefined> {
-    return this.#refreshPullRequest(this.#worktree(worktreeId));
+  refreshPullRequest(worktreeId: string): Promise<PullRequest | undefined> {
+    return this.#serviceForWorktree(worktreeId).refreshPullRequest(worktreeId);
   }
 
-  async worktreeStatus(worktreeId: string): Promise<WorktreeStatus> {
-    return this.git.status(this.#worktree(worktreeId));
+  worktreeStatus(worktreeId: string): Promise<WorktreeStatus> {
+    return this.#serviceForWorktree(worktreeId).worktreeStatus(worktreeId);
   }
 
   worktreePath(worktreeId: string): string {
-    return this.#worktree(worktreeId).path;
+    return this.#serviceForWorktree(worktreeId).worktreePath(worktreeId);
   }
 
   async updateSettings(settings: Settings): Promise<AppSnapshot> {
     if (!isSettings(settings)) throw new Error('Invalid settings.');
-    if (!settings.defaultWorktreePath.trim())
+    if (!settings.defaultWorktreePath.trim()) {
       throw new Error('The default path cannot be empty.');
+    }
     await this.store.update((state) => {
       state.settings = {
         ...settings,
@@ -456,199 +367,170 @@ export class AppService {
   }
 
   async updateProjectSetup(projectId: string, script: string): Promise<AppSnapshot> {
-    await this.store.setRepositorySetupScript(projectId, script);
-    this.#reconcileProjectTrees();
+    await this.#serviceForProject(projectId).updateSetup(script);
     return this.snapshot();
   }
 
-  #reconcileProjectTrees(): void {
-    const previousTrees = new Map(this.#trees.map((project) => [project.id, project]));
-    this.#trees = this.store.state.projects.map((project) => ({
-      ...project,
-      worktrees: previousTrees.get(project.id)?.worktrees ?? [],
-    }));
+  dispose(): void {
+    if (this.#disposed) return;
+    this.#disposed = true;
+    for (const projectId of [...this.#repositoryServices.keys()]) {
+      this.#removeRepositoryService(projectId);
+    }
+    this.#managementApprovals.dispose();
+    this.#managementGit.dispose();
+    this.#snapshotUpdateSubscribers.clear();
+    this.#worktreeOwners.clear();
+    this.#approvalOwners.clear();
+    this.#diffSessionOwners.clear();
   }
 
-  #runProjectOperationSerialized<T>(
-    projectId: string,
-    operation: () => Promise<T>,
-  ): Promise<T> {
-    return this.runtime.runRepositoryMutation(
-      this.#repositoryRuntimeKey(projectId),
-      operation,
-    );
-  }
-
-  #startBackgroundTask(task: Promise<unknown>, message: string): void {
-    this.runtime.observeBackgroundTask(() => task, message);
-  }
-
-  #repositoryRuntimeKey(projectId: string): string {
+  #reconcileRepositoryServices(): void {
+    if (this.#disposed) return;
     const persisted = this.store.state;
-    const repository = persisted.recentRepositories.find(
-      (candidate) => candidate.repositoryId === projectId,
-    );
-    if (repository?.commonDirectoryPath) return repository.commonDirectoryPath;
-    const project = persisted.projects.find((candidate) => candidate.id === projectId);
-    if (!project) throw new Error('Project not found.');
-    // Legacy projects predate canonical common-directory persistence. Their canonicalized
-    // main-worktree path is the compatibility key until work unit 6 opens a scoped service
-    // from a RepositoryLocation and always supplies the common directory.
-    return project.path;
-  }
-
-  async #refreshProject(
-    project: ProjectConfig,
-    tolerateFailure: boolean,
-  ): Promise<Worktree[]> {
-    const refreshVersion = (this.#projectRefreshVersions.get(project.id) ?? 0) + 1;
-    this.#projectRefreshVersions.set(project.id, refreshVersion);
-    const previousWorktrees = new Map(
-      this.#trees
-        .find((item) => item.id === project.id)
-        ?.worktrees.map((worktree) => [worktree.id, worktree] as const) ?? [],
-    );
-    let worktrees: Worktree[];
-    try {
-      worktrees = (await this.git.listWorktrees(project)).map((worktree) => {
-        const previous = previousWorktrees.get(worktree.id);
-        return previous?.branch === worktree.branch && previous.pullRequest
-          ? { ...worktree, pullRequest: previous.pullRequest }
-          : worktree;
-      });
-    } catch (error) {
-      if (!tolerateFailure) throw error;
-      worktrees = [...previousWorktrees.values()];
+    const activeIds = new Set(persisted.projects.map((project) => project.id));
+    for (const projectId of this.#repositoryServices.keys()) {
+      if (!activeIds.has(projectId)) this.#removeRepositoryService(projectId);
     }
-
-    const currentWorktrees =
-      this.#trees.find((item) => item.id === project.id)?.worktrees ?? [];
-    const currentProject = this.store.state.projects.find(
-      (item) => item.id === project.id,
-    );
-    if (
-      !currentProject ||
-      this.#projectRefreshVersions.get(project.id) !== refreshVersion
-    ) {
-      return currentWorktrees;
-    }
-
-    const nextTree = { ...currentProject, worktrees };
-    const existingIndex = this.#trees.findIndex((item) => item.id === project.id);
-    if (existingIndex === -1) {
-      this.#trees = [...this.#trees, nextTree];
-    } else {
-      this.#trees = this.#trees.map((item, index) =>
-        index === existingIndex ? nextTree : item,
+    for (const project of persisted.projects) {
+      const canonicalKey =
+        persisted.recentRepositories.find(
+          (repository) => repository.repositoryId === project.id,
+        )?.commonDirectoryPath ?? project.path;
+      const existing = this.#repositoryServices.get(project.id);
+      if (existing?.canonicalRepositoryKey === canonicalKey) continue;
+      if (existing) this.#removeRepositoryService(project.id);
+      const service = new RepositoryService(
+        project,
+        canonicalKey,
+        this.store,
+        this.runtime,
+        {
+          now: this.#now,
+        },
+      );
+      this.#repositoryServices.set(project.id, service);
+      this.#repositoryUnsubscribers.set(
+        project.id,
+        service.subscribeToSnapshotUpdates(() => {
+          this.#rebuildWorktreeOwners();
+          this.#publishSnapshotUpdate();
+        }),
       );
     }
-    return worktrees;
+    this.#rebuildWorktreeOwners();
   }
 
-  #project(projectId: string): ProjectConfig {
-    const project = this.store.state.projects.find((item) => item.id === projectId);
-    if (!project) throw new Error('Project not found.');
-    return project;
+  #removeRepositoryService(projectId: string): void {
+    const service = this.#repositoryServices.get(projectId);
+    this.#repositoryUnsubscribers.get(projectId)?.();
+    this.#repositoryUnsubscribers.delete(projectId);
+    this.#repositoryServices.delete(projectId);
+    if (!service) return;
+    service.dispose();
+    for (const [approvalId, owner] of this.#approvalOwners) {
+      if (owner === service) this.#approvalOwners.delete(approvalId);
+    }
+    for (const [sessionId, owner] of this.#diffSessionOwners) {
+      if (owner === service) this.#diffSessionOwners.delete(sessionId);
+    }
+    this.#rebuildWorktreeOwners();
   }
 
-  #worktree(worktreeId: string): Worktree {
-    const worktree = this.#trees
-      .flatMap((project) => project.worktrees)
-      .find((item) => item.id === worktreeId);
-    if (!worktree)
-      throw new Error('Worktree not found. Refresh the project and try again.');
-    return worktree;
-  }
-
-  async #hydratePullRequests(worktrees: readonly Worktree[]): Promise<void> {
-    await Promise.all(
-      worktrees.map((worktree) => this.#refreshPullRequest(worktree, true)),
+  #orderedRepositoryServices(): RepositoryService[] {
+    return this.store.state.projects.map((project) =>
+      this.#serviceForProject(project.id),
     );
   }
 
-  #refreshPullRequest(
-    worktree: Worktree,
-    background = false,
-  ): Promise<PullRequest | undefined> {
-    const lookupKey = pullRequestLookupKey(worktree);
-    const refreshedAt = this.#pullRequestRefreshedAt.get(lookupKey);
-    if (refreshedAt !== undefined && this.#now() - refreshedAt < pullRequestFreshnessMs) {
-      return Promise.resolve(this.#cachedPullRequest(worktree));
-    }
-
-    const activeLookup = this.#pullRequestLookups.get(lookupKey);
-    if (activeLookup) return activeLookup;
-
-    const startLookup = (): Promise<PullRequest | undefined> =>
-      this.github.pullRequest(worktree);
-    const lookup = (
-      background ? this.runtime.runBackgroundCommand(startLookup) : startLookup()
-    )
-      .then((pullRequest) => {
-        this.#pullRequestRefreshedAt.set(lookupKey, this.#now());
-        if (!pullRequest) return this.#cachedPullRequest(worktree);
-
-        const current = this.#trees
-          .flatMap((project) => project.worktrees)
-          .find((item) => item.id === worktree.id && item.branch === worktree.branch);
-        if (!current) return undefined;
-        if (pullRequestsEqual(current.pullRequest, pullRequest)) {
-          return structuredClone(pullRequest);
-        }
-
-        this.#trees = this.#trees.map((project) => ({
-          ...project,
-          worktrees: project.worktrees.map((item) =>
-            item.id === worktree.id && item.branch === worktree.branch
-              ? { ...item, pullRequest }
-              : item,
-          ),
-        }));
-        this.#publishSnapshotUpdate();
-        return structuredClone(pullRequest);
-      })
-      .finally(() => {
-        if (this.#pullRequestLookups.get(lookupKey) === lookup) {
-          this.#pullRequestLookups.delete(lookupKey);
-        }
-      });
-    this.#pullRequestLookups.set(lookupKey, lookup);
-    return lookup;
-  }
-
-  #cachedPullRequest(worktree: Worktree): PullRequest | undefined {
-    const pullRequest = this.#trees
-      .flatMap((project) => project.worktrees)
-      .find(
-        (item) => item.id === worktree.id && item.branch === worktree.branch,
-      )?.pullRequest;
-    return pullRequest ? structuredClone(pullRequest) : undefined;
-  }
-
-  #prunePullRequestCache(worktrees: readonly Worktree[]): void {
-    const currentKeys = new Set(worktrees.map(pullRequestLookupKey));
-    for (const key of this.#pullRequestRefreshedAt.keys()) {
-      if (!currentKeys.has(key)) this.#pullRequestRefreshedAt.delete(key);
+  #rebuildWorktreeOwners(): void {
+    this.#worktreeOwners.clear();
+    for (const service of this.#repositoryServices.values()) {
+      if (service.disposed) continue;
+      for (const worktree of service.snapshot().worktrees) {
+        this.#worktreeOwners.set(worktree.id, service);
+      }
     }
   }
 
-  #comparisonBaseOverride(worktree: Worktree): string | undefined {
-    const override = this.store.comparisonBaseOverride(worktree.projectId, worktree.id);
-    return override?.sourceBranch === worktree.branch ? override.targetBranch : undefined;
+  #serviceForProject(projectId: string): RepositoryService {
+    this.#assertActive();
+    const service = this.#repositoryServices.get(projectId);
+    if (!service || service.disposed) throw new Error('Project not found.');
+    return service;
+  }
+
+  #serviceForWorktree(worktreeId: string): RepositoryService {
+    this.#assertActive();
+    const service = this.#worktreeOwners.get(worktreeId);
+    if (!service || service.disposed) {
+      throw new Error('Worktree not found. Refresh the project and try again.');
+    }
+    return service;
+  }
+
+  #serviceForDiffSession(sessionId: string): RepositoryService {
+    this.#assertActive();
+    const service = this.#diffSessionOwners.get(sessionId);
+    if (!service || service.disposed) {
+      throw new Error('The diff session expired. Close and reopen it.');
+    }
+    return service;
+  }
+
+  #takeApprovalOwner(approvalId: string): RepositoryService {
+    this.#assertActive();
+    const service = this.#approvalOwners.get(approvalId);
+    this.#approvalOwners.delete(approvalId);
+    if (!service || service.disposed) {
+      throw new Error('This approval request expired. Please start the action again.');
+    }
+    return service;
+  }
+
+  #onlyRepositoryService(): RepositoryService | undefined {
+    return this.#repositoryServices.size === 1
+      ? this.#repositoryServices.values().next().value
+      : undefined;
+  }
+
+  #publishSnapshotUpdate(): void {
+    if (this.#disposed) return;
+    let firstError: unknown;
+    for (const subscriber of this.#snapshotUpdateSubscribers) {
+      try {
+        subscriber(this.snapshot());
+      } catch (error) {
+        firstError ??= error;
+      }
+    }
+    if (firstError instanceof Error) throw firstError;
+    if (firstError !== undefined) {
+      throw new Error('Snapshot subscriber failed.', { cause: firstError });
+    }
+  }
+
+  #assertActive(): void {
+    if (this.#disposed) throw new Error('The application service is disposed.');
   }
 }
 
-function pullRequestLookupKey(worktree: Pick<Worktree, 'id' | 'branch'>): string {
-  return `${worktree.id}\0${worktree.branch}`;
+function projectIdFrom(value: unknown): string {
+  if (!value || typeof value !== 'object' || !('projectId' in value)) return '';
+  return typeof value.projectId === 'string' ? value.projectId : '';
 }
 
-function isDiffFileRequest(value: unknown): value is DiffFileRequest {
-  if (!value || typeof value !== 'object') return false;
-  const request = value as Record<string, unknown>;
-  return typeof request.sessionId === 'string' && typeof request.fileId === 'string';
+function worktreeIdFrom(value: unknown): string {
+  if (!value || typeof value !== 'object' || !('worktreeId' in value)) return '';
+  return typeof value.worktreeId === 'string' ? value.worktreeId : '';
 }
 
-function isOpenBranchDiffRequest(value: unknown): value is OpenBranchDiffRequest {
+function sessionIdFrom(value: unknown): string {
+  if (!value || typeof value !== 'object' || !('sessionId' in value)) return '';
+  return typeof value.sessionId === 'string' ? value.sessionId : '';
+}
+
+function isOpenBranchDiffRequest(value: unknown): boolean {
   if (!value || typeof value !== 'object') return false;
   const request = value as Record<string, unknown>;
   return (
@@ -658,7 +540,26 @@ function isOpenBranchDiffRequest(value: unknown): value is OpenBranchDiffRequest
   );
 }
 
-function isSetComparisonBaseRequest(value: unknown): value is SetComparisonBaseRequest {
+function isDiffFileRequest(value: unknown): boolean {
+  if (!value || typeof value !== 'object') return false;
+  const request = value as Record<string, unknown>;
+  return typeof request.sessionId === 'string' && typeof request.fileId === 'string';
+}
+
+function isOpenDiffFileRequest(value: unknown): boolean {
+  if (!value || typeof value !== 'object') return false;
+  const request = value as Record<string, unknown>;
+  return (
+    isDiffFileRequest(value) &&
+    request.editor === 'vscode' &&
+    (request.line === undefined ||
+      (typeof request.line === 'number' &&
+        Number.isSafeInteger(request.line) &&
+        request.line > 0))
+  );
+}
+
+function isSetComparisonBaseRequest(value: unknown): boolean {
   if (!value || typeof value !== 'object') return false;
   const request = value as Record<string, unknown>;
   return (
@@ -667,7 +568,7 @@ function isSetComparisonBaseRequest(value: unknown): value is SetComparisonBaseR
   );
 }
 
-function isListBranchCommitsRequest(value: unknown): value is ListBranchCommitsRequest {
+function isListBranchCommitsRequest(value: unknown): boolean {
   if (!value || typeof value !== 'object') return false;
   const request = value as Record<string, unknown>;
   return (
@@ -684,35 +585,12 @@ function isListBranchCommitsRequest(value: unknown): value is ListBranchCommitsR
   );
 }
 
-function isOpenCommitDiffRequest(value: unknown): value is OpenCommitDiffRequest {
+function isOpenCommitDiffRequest(value: unknown): boolean {
   if (!value || typeof value !== 'object') return false;
   const request = value as Record<string, unknown>;
   return (
     typeof request.projectId === 'string' &&
     typeof request.commitHash === 'string' &&
     /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/i.test(request.commitHash)
-  );
-}
-
-function isOpenDiffFileRequest(value: unknown): value is OpenDiffFileRequest {
-  return (
-    isDiffFileRequest(value) &&
-    'editor' in value &&
-    value.editor === 'vscode' &&
-    (!('line' in value) ||
-      value.line === undefined ||
-      (typeof value.line === 'number' &&
-        Number.isSafeInteger(value.line) &&
-        value.line > 0))
-  );
-}
-
-function pullRequestsEqual(left: PullRequest | undefined, right: PullRequest): boolean {
-  return (
-    left?.number === right.number &&
-    left.title === right.title &&
-    left.url === right.url &&
-    left.state === right.state &&
-    left.baseBranch === right.baseBranch
   );
 }
