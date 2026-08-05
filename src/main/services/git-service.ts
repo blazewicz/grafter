@@ -557,6 +557,10 @@ export class GitService {
     this.#diffSessions.delete(sessionId);
   }
 
+  dispose(): void {
+    this.#diffSessions.clear();
+  }
+
   async setupScript(project: ProjectConfig): Promise<string | undefined> {
     if (project.setupScript?.trim()) return project.setupScript.trim();
     try {
