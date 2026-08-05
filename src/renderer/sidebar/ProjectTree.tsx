@@ -76,7 +76,7 @@ export function ProjectTree({
               className={`${controls.button} ${controls.subtle}`}
               onClick={onChooseProject}
             >
-              <Plus size={13} /> Add project
+              <Plus size={13} /> Open Repository...
             </button>
           </div>
         )}
@@ -95,8 +95,8 @@ function Heading({
       <span>Projects</span>
       <button
         className={`${controls.iconButton} ${styles.headingAction}`}
-        aria-label="Add Git project"
-        title="Add Git project"
+        aria-label="Open Repository..."
+        title="Open Repository..."
         onClick={onChooseProject}
       >
         <FolderOpen size={16} />

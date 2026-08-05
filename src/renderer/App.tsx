@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import type { AppSnapshot, CommandContext } from '../shared/contracts';
 import { AuditPanel } from './audit/AuditPanel';
@@ -36,6 +36,7 @@ export function App(): React.JSX.Element {
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(defaultSidebarWidth);
+  const appliedWorktreeSelectionRequest = useRef<string | undefined>(undefined);
   const {
     selectedId,
     canGoBack,
@@ -102,10 +103,19 @@ export function App(): React.JSX.Element {
           ...next.projects.map((project) => project.id),
           ...worktrees.map((worktree) => worktree.id),
         ],
-        worktrees[1]?.id ?? worktrees[0]?.id,
+        next.selectedWorktreeId ?? worktrees[1]?.id ?? worktrees[0]?.id,
       );
+      if (
+        next.selectedWorktreeId &&
+        next.worktreeSelectionRequestId !== undefined &&
+        `${next.selectedWorktreeId}:${next.worktreeSelectionRequestId}` !==
+          appliedWorktreeSelectionRequest.current
+      ) {
+        appliedWorktreeSelectionRequest.current = `${next.selectedWorktreeId}:${next.worktreeSelectionRequestId}`;
+        navigate(next.selectedWorktreeId);
+      }
     },
-    [reconcileNavigation],
+    [navigate, reconcileNavigation],
   );
 
   useProjectWorktreeRefresh(activeProject?.id, applySnapshot, setError);

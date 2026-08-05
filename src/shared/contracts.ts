@@ -240,6 +240,10 @@ export interface AppSnapshot {
   projects: Project[];
   recentRepositories: RecentRepository[];
   settings: Settings;
+  /** Temporary repository-window navigation handoff; removed with the singular contract. */
+  selectedWorktreeId?: string;
+  /** Distinguishes a new manager selection request from ordinary snapshot refreshes. */
+  worktreeSelectionRequestId?: number;
 }
 
 export interface ApprovalRequest {

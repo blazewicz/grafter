@@ -16,46 +16,21 @@ import type {
 } from '../shared/contracts';
 import { ipc } from '../shared/ipc';
 import { editorFileUrl } from './editors';
-import type { AppService } from './services/app-service';
+import type { WindowSessionService } from './window-session-services';
 import type { WindowSessionRegistry } from './window-sessions';
 
-export type WindowSessionService = Pick<
-  AppService,
-  | 'snapshot'
-  | 'commandLog'
-  | 'addProject'
-  | 'openRecentRepository'
-  | 'removeProject'
-  | 'refresh'
-  | 'refreshProject'
-  | 'listBranches'
-  | 'suggestWorktreePath'
-  | 'createWorktree'
-  | 'switchBranch'
-  | 'prepareRemove'
-  | 'approve'
-  | 'reject'
-  | 'details'
-  | 'setComparisonBase'
-  | 'listBranchCommits'
-  | 'openDiff'
-  | 'openBranchDiff'
-  | 'openCommitDiff'
-  | 'diffFile'
-  | 'closeDiff'
-  | 'refreshPullRequest'
-  | 'worktreeStatus'
-  | 'updateSettings'
-  | 'updateProjectSetup'
-  | 'worktreePath'
-  | 'diffFileEditorTarget'
->;
+export type { WindowSessionService } from './window-session-services';
 
 type Sessions = WindowSessionRegistry<WebContents, BrowserWindow, WindowSessionService>;
 
 interface IpcHandlerDependencies {
   ipcMain: Pick<IpcMain, 'handle'>;
   sessions: Sessions;
+  windowManager: {
+    openRepository(sender: WebContents, selectedPath: string): Promise<unknown>;
+    openRecentRepository(sender: WebContents, repositoryId: string): Promise<unknown>;
+    removeRepository(sender: WebContents, repositoryId: string): Promise<unknown>;
+  };
   dialog: Pick<Dialog, 'showOpenDialog'>;
   shell: Pick<Shell, 'openPath' | 'openExternal'>;
   clipboard: Pick<Clipboard, 'writeText'>;
@@ -63,7 +38,8 @@ interface IpcHandlerDependencies {
 }
 
 export function registerIpcHandlers(dependencies: IpcHandlerDependencies): void {
-  const { ipcMain, sessions, dialog, shell, clipboard, launchEditor } = dependencies;
+  const { ipcMain, sessions, windowManager, dialog, shell, clipboard, launchEditor } =
+    dependencies;
 
   ipcMain.handle(ipc.snapshot, (event) =>
     sessions.resolve(event.sender).service.snapshot(),
@@ -74,19 +50,23 @@ export function registerIpcHandlers(dependencies: IpcHandlerDependencies): void 
   ipcMain.handle(ipc.chooseProject, async (event) => {
     const session = sessions.resolve(event.sender);
     const result = await dialog.showOpenDialog(session.dialogParent, {
-      title: 'Choose a Git repository or worktree',
-      buttonLabel: 'Open repository',
+      title: 'Open a Git repository or worktree',
+      buttonLabel: 'Open Repository',
       properties: ['openDirectory'],
     });
     const selected = result.filePaths[0];
-    return result.canceled || !selected ? null : session.service.addProject(selected);
+    return result.canceled || !selected
+      ? null
+      : windowManager.openRepository(event.sender, selected);
   });
-  ipcMain.handle(ipc.openRecentRepository, (event, repositoryId: string) =>
-    sessions.resolve(event.sender).service.openRecentRepository(repositoryId),
-  );
-  ipcMain.handle(ipc.removeProject, (event, projectId: string) =>
-    sessions.resolve(event.sender).service.removeProject(projectId),
-  );
+  ipcMain.handle(ipc.openRecentRepository, (event, repositoryId: string) => {
+    sessions.resolve(event.sender);
+    return windowManager.openRecentRepository(event.sender, repositoryId);
+  });
+  ipcMain.handle(ipc.removeProject, (event, projectId: string) => {
+    sessions.resolve(event.sender);
+    return windowManager.removeRepository(event.sender, projectId);
+  });
   ipcMain.handle(ipc.refresh, (event) =>
     sessions.resolve(event.sender).service.refresh(),
   );
