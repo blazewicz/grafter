@@ -3,13 +3,23 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { api } from '../../../src/renderer/grafter-api';
 import { defaultSidebarWidth, Sidebar } from '../../../src/renderer/sidebar/Sidebar';
-import { buildSidebarScenario } from '../../scenarios/sidebar/sidebar';
+import type { GrafterApi, Worktree } from '../../../src/shared/contracts';
+import { buildProjectNodeScenario } from '../../scenarios/sidebar/project-node';
 
-const scenario = buildSidebarScenario();
+const scenario = buildProjectNodeScenario();
 
 interface RenderSidebarOptions {
   width?: number;
+  selectedId?: string;
+  onSelect?: (id: string) => void;
+  onChooseProject?: () => void;
+  onCreated?: (
+    result: Awaited<ReturnType<GrafterApi['createWorktree']>>,
+    request: { path: string },
+  ) => void;
+  onRemoveWorktree?: (worktree: Worktree) => void;
   onOpenSettings?: () => void;
   onResize?: (width: number) => void;
 }
@@ -18,17 +28,13 @@ function renderSidebar(options: RenderSidebarOptions = {}): void {
   render(
     <Sidebar
       homeDirectory={scenario.homeDirectory}
-      projects={scenario.projects}
+      repository={scenario.project}
       width={options.width ?? defaultSidebarWidth}
-      selectedId={undefined}
-      expanded={new Set([scenario.secondProject.id])}
-      onSelect={() => undefined}
-      onToggleProject={() => undefined}
-      onExpandProject={() => undefined}
-      onChooseProject={() => undefined}
-      onCreated={() => undefined}
-      onRemoveProject={() => undefined}
-      onRemoveWorktree={() => undefined}
+      selectedId={options.selectedId}
+      onSelect={options.onSelect ?? (() => undefined)}
+      onChooseProject={options.onChooseProject ?? (() => undefined)}
+      onCreated={options.onCreated ?? (() => undefined)}
+      onRemoveWorktree={options.onRemoveWorktree ?? (() => undefined)}
       onOpenSettings={options.onOpenSettings ?? (() => undefined)}
       onError={() => undefined}
       onResize={options.onResize ?? (() => undefined)}
@@ -42,18 +48,75 @@ describe('Sidebar', () => {
     vi.restoreAllMocks();
   });
 
-  it('composes the title, project tree and settings button in order', () => {
+  it('composes repository identity, flat worktrees, and settings in order', () => {
     renderSidebar();
 
     const title = screen.getByText('Grafter');
-    const projectTree = screen.getByText('Projects');
+    const repository = screen.getByRole('button', {
+      name: `${scenario.project.name} repository details`,
+    });
+    const worktrees = screen.getByText('Worktrees');
     const settings = screen.getByRole('button', { name: 'Settings' });
 
     expect(title).toBeVisible();
-    expect(projectTree).toBeVisible();
+    expect(repository).toBeVisible();
+    expect(worktrees).toBeVisible();
     expect(settings).toBeVisible();
-    expect(title).toAppearBefore(projectTree);
-    expect(projectTree).toAppearBefore(settings);
+    expect(title).toAppearBefore(repository);
+    expect(repository).toAppearBefore(worktrees);
+    expect(worktrees).toAppearBefore(settings);
+    expect(screen.queryByRole('button', { name: /Collapse|Expand/ })).toBeNull();
+    expect(screen.queryByText('Projects')).toBeNull();
+    expect(screen.queryByTitle('Remove from Grafter')).toBeNull();
+  });
+
+  it('navigates to repository details and exposes selected state', async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    renderSidebar({ selectedId: scenario.project.id, onSelect });
+
+    const repository = screen.getByRole('button', {
+      name: `${scenario.project.name} repository details`,
+    });
+    expect(repository).toHaveAttribute('aria-current', 'page');
+    await user.click(repository);
+
+    expect(onSelect).toHaveBeenCalledOnce();
+    expect(onSelect).toHaveBeenCalledWith(scenario.project.id);
+  });
+
+  it('opens another repository without mutating the current sidebar', async () => {
+    const user = userEvent.setup();
+    const onChooseProject = vi.fn();
+    renderSidebar({ onChooseProject });
+
+    const openRepository = screen.getByRole('button', { name: 'Open Repository...' });
+    expect(openRepository).toBeVisible();
+    await user.click(openRepository);
+
+    expect(onChooseProject).toHaveBeenCalledOnce();
+    expect(
+      screen.getByRole('button', {
+        name: `${scenario.project.name} repository details`,
+      }),
+    ).toBeVisible();
+  });
+
+  it('opens and cancels the repository-level new-worktree flow with the keyboard', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(api, 'listBranches').mockResolvedValue([]);
+    renderSidebar();
+
+    const addWorktree = screen.getByRole('button', {
+      name: `Add worktree to ${scenario.project.name}`,
+    });
+    addWorktree.focus();
+    expect(addWorktree).toHaveFocus();
+    await user.keyboard('{Enter}');
+
+    expect(await screen.findByRole('textbox', { name: 'Filter branches' })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('textbox', { name: 'Filter branches' })).toBeNull();
   });
 
   it('opens settings from the global sidebar actions', async () => {
@@ -106,7 +169,7 @@ describe('Sidebar', () => {
     renderSidebar({ width, onResize });
 
     const resizeHandle = screen.getByRole('separator', {
-      name: 'Resize projects sidebar',
+      name: 'Resize repository sidebar',
     });
     expect(resizeHandle).toHaveAttribute('aria-valuenow', String(width));
     resizeHandle.focus();
@@ -123,7 +186,7 @@ describe('Sidebar', () => {
     renderSidebar({ width: 360, onResize });
 
     await user.dblClick(
-      screen.getByRole('separator', { name: 'Resize projects sidebar' }),
+      screen.getByRole('separator', { name: 'Resize repository sidebar' }),
     );
 
     expect(onResize).toHaveBeenCalledOnce();
@@ -136,7 +199,7 @@ describe('Sidebar', () => {
     renderSidebar({ onResize });
 
     const resizeHandle = screen.getByRole('separator', {
-      name: 'Resize projects sidebar',
+      name: 'Resize repository sidebar',
     });
     const setPointerCapture = vi.spyOn(resizeHandle, 'setPointerCapture');
     const releasePointerCapture = vi.spyOn(resizeHandle, 'releasePointerCapture');

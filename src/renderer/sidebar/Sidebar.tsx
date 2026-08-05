@@ -1,8 +1,9 @@
-import { Settings } from 'lucide-react';
-import { useRef } from 'react';
+import { FolderOpen, Plus, Settings } from 'lucide-react';
+import { useRef, useState } from 'react';
 import type { GrafterApi, Project, Worktree } from '../../shared/contracts';
+import controls from '../styles/controls.module.css';
 import styles from './sidebar.module.css';
-import { ProjectTree } from './ProjectTree';
+import { WorktreeList } from './WorktreeList';
 
 const minimumSidebarWidth = 230;
 const maximumSidebarWidth = 480;
@@ -11,64 +12,111 @@ const keyboardResizeStep = 16;
 
 export function Sidebar({
   homeDirectory,
-  projects,
+  repository,
   width,
   selectedId,
-  expanded,
   onSelect,
-  onToggleProject,
-  onExpandProject,
   onChooseProject,
   onCreated,
-  onRemoveProject,
   onRemoveWorktree,
   onOpenSettings,
   onError,
   onResize,
 }: {
   homeDirectory: string;
-  projects: Project[];
+  repository: Project;
   width: number;
   selectedId: string | undefined;
-  expanded: ReadonlySet<string>;
   onSelect: (id: string) => void;
-  onToggleProject: (projectId: string) => void;
-  onExpandProject: (projectId: string) => void;
   onChooseProject: () => void;
   onCreated: (
-    projectId: string,
     result: Awaited<ReturnType<GrafterApi['createWorktree']>>,
     request: { path: string },
   ) => void;
-  onRemoveProject: (projectId: string) => void;
   onRemoveWorktree: (worktree: Worktree) => void;
   onOpenSettings: () => void;
   onError: (message: string) => void;
   onResize: (width: number) => void;
 }): React.JSX.Element {
+  const [adding, setAdding] = useState(false);
+
   return (
     <aside className={styles.sidebar} id="sidebar">
       <div className={styles.sidebarChrome} aria-hidden="true" />
       <div className={styles.sidebarBrand}>Grafter</div>
-      <ProjectTree
-        projects={projects}
-        homeDirectory={homeDirectory}
-        selectedId={selectedId}
-        expanded={expanded}
-        onToggleProject={onToggleProject}
-        onExpandProject={onExpandProject}
-        onChooseProject={onChooseProject}
-        onRemoveProject={onRemoveProject}
-        onRemoveWorktree={onRemoveWorktree}
-        onSelect={onSelect}
-        onCreated={onCreated}
-        onError={onError}
+      <RepositoryIdentity
+        repository={repository}
+        selected={selectedId === repository.id}
+        onSelect={() => onSelect(repository.id)}
       />
+      <div className={styles.sidebarHeading}>
+        <span>Worktrees</span>
+        <div className={styles.headingActions}>
+          <button
+            className={`${controls.iconButton} ${styles.headingAction}`}
+            aria-label={`Add worktree to ${repository.name}`}
+            title="New worktree"
+            onClick={() => setAdding(true)}
+          >
+            <Plus size={15} />
+          </button>
+          <button
+            className={`${controls.iconButton} ${styles.headingAction}`}
+            aria-label="Open Repository..."
+            title="Open Repository..."
+            onClick={onChooseProject}
+          >
+            <FolderOpen size={15} />
+          </button>
+        </div>
+      </div>
+      <div className={styles.projectTree}>
+        <WorktreeList
+          homeDirectory={homeDirectory}
+          project={repository}
+          selectedId={selectedId}
+          adding={adding}
+          flat
+          onSelect={onSelect}
+          onCancelAdd={() => setAdding(false)}
+          onCreated={(result, request) => {
+            setAdding(false);
+            onCreated(result, request);
+          }}
+          onRemoveWorktree={onRemoveWorktree}
+          onError={onError}
+        />
+      </div>
       <button className={styles.sidebarSettings} onClick={onOpenSettings}>
         <Settings size={15} /> Settings
       </button>
       <ResizeHandle width={width} onResize={onResize} />
     </aside>
+  );
+}
+
+function RepositoryIdentity({
+  repository,
+  selected,
+  onSelect,
+}: {
+  repository: Project;
+  selected: boolean;
+  onSelect: () => void;
+}): React.JSX.Element {
+  return (
+    <div className={`${styles.repositoryIdentity} ${selected ? styles.selected : ''}`}>
+      <button
+        className={styles.repositoryIdentityButton}
+        aria-label={`${repository.name} repository details`}
+        aria-current={selected ? 'page' : undefined}
+        title={`Open ${repository.name} repository details`}
+        onClick={onSelect}
+      >
+        <FolderOpen size={16} />
+        <span>{repository.name}</span>
+      </button>
+    </div>
   );
 }
 
@@ -96,7 +144,7 @@ function ResizeHandle({
     <div
       className={styles.sidebarResizeHandle}
       role="separator"
-      aria-label="Resize projects sidebar"
+      aria-label="Resize repository sidebar"
       aria-controls="sidebar"
       aria-orientation="vertical"
       aria-valuemin={minimumSidebarWidth}

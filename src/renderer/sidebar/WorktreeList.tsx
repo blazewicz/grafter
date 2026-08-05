@@ -12,6 +12,7 @@ export function WorktreeList({
   project,
   selectedId,
   adding,
+  flat = false,
   onSelect,
   onCancelAdd,
   onCreated,
@@ -22,6 +23,7 @@ export function WorktreeList({
   project: Project;
   selectedId: string | undefined;
   adding: boolean;
+  flat?: boolean;
   onSelect: (id: string) => void;
   onCancelAdd: () => void;
   onCreated: (
@@ -38,7 +40,10 @@ export function WorktreeList({
 
   return (
     <div>
-      <div className={styles.branchList} aria-label={`${project.name} worktrees`}>
+      <div
+        className={`${styles.branchList} ${flat ? styles.flatWorktreeList : ''}`}
+        aria-label={`${project.name} worktrees`}
+      >
         {sortedWorktrees.map((worktree) => (
           <WorktreeRow
             key={worktree.id}
@@ -88,6 +93,7 @@ function WorktreeRow({
     >
       <button
         className={styles.treeLabel}
+        aria-current={selected ? 'page' : undefined}
         aria-label={
           worktree.isMain
             ? `Main worktree, checked out branch ${worktree.branch}`

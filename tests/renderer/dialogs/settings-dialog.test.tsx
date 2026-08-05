@@ -4,25 +4,22 @@ import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SettingsDialog } from '../../../src/renderer/dialogs/SettingsDialog';
-import type { AppSnapshot, Settings } from '../../../src/shared/contracts';
-import { appSnapshotFactory, projectFactory, settingsFactory } from '../../factories';
+import type { Project, Settings } from '../../../src/shared/contracts';
+import { projectFactory, settingsFactory } from '../../factories';
 
 const project = projectFactory.build({}, { transient: { withSetupScript: true } });
 const settings = settingsFactory.build();
-const snapshot = appSnapshotFactory.build(
-  { settings },
-  { associations: { projects: [project] } },
-);
 
 function renderSettingsDialog(
-  nextSnapshot: AppSnapshot = snapshot,
+  nextProject: Project = project,
   onClose: () => void = () => undefined,
   onSave: (nextSettings: Settings) => void = () => undefined,
   onProjectSetup: (projectId: string, script: string) => void = () => undefined,
 ): void {
   render(
     <SettingsDialog
-      snapshot={nextSnapshot}
+      settings={settings}
+      repository={nextProject}
       onClose={onClose}
       onSave={onSave}
       onProjectSetup={onProjectSetup}
@@ -58,26 +55,10 @@ describe('SettingsDialog', () => {
     );
   });
 
-  it('shows an empty state when there are no projects to configure', () => {
-    const snapshotWithoutProjects = appSnapshotFactory.build(
-      {},
-      { associations: { projects: [] } },
-    );
-
-    renderSettingsDialog(snapshotWithoutProjects);
-
-    expect(
-      screen.getByText('Add a project to configure its setup command.'),
-    ).toBeVisible();
-    expect(
-      screen.queryByRole('button', { name: /Save setup override for/ }),
-    ).not.toBeInTheDocument();
-  });
-
   it('closes from the title-bar close button', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
-    renderSettingsDialog(snapshot, onClose);
+    renderSettingsDialog(project, onClose);
 
     expect(screen.getByRole('button', { name: 'Close settings' })).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Close settings' }));
@@ -88,7 +69,7 @@ describe('SettingsDialog', () => {
   it('closes from the cancel button', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
-    renderSettingsDialog(snapshot, onClose);
+    renderSettingsDialog(project, onClose);
 
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
@@ -105,7 +86,7 @@ describe('SettingsDialog', () => {
       dateFormat: 'month-day-year',
       timeFormat: '12-hour',
     } satisfies Settings;
-    renderSettingsDialog(snapshot, onClose, onSave);
+    renderSettingsDialog(project, onClose, onSave);
 
     const pathInput = screen.getByRole('textbox', { name: 'Default path' });
     const dateSelect = screen.getByRole('combobox', { name: 'Date format' });
@@ -132,7 +113,7 @@ describe('SettingsDialog', () => {
     const onSave = vi.fn();
     const onProjectSetup = vi.fn();
     const nextSetupScript = 'pnpm install';
-    renderSettingsDialog(snapshot, undefined, onSave, onProjectSetup);
+    renderSettingsDialog(project, undefined, onSave, onProjectSetup);
 
     const setupInput = screen.getByRole('textbox', { name: project.name });
     await user.clear(setupInput);
