@@ -50,7 +50,7 @@ export class AppService {
   readonly repositoryLocator: RepositoryLocator;
   readonly approvals: ApprovalManager;
   #trees: Project[] = [];
-  readonly #onSnapshotUpdate: (snapshot: AppSnapshot) => void;
+  readonly #snapshotUpdateSubscribers = new Set<(snapshot: AppSnapshot) => void>();
   readonly #now: () => number;
   readonly #homeDirectory: string;
   readonly #systemLocale: string;
@@ -71,7 +71,9 @@ export class AppService {
     this.#homeDirectory = options.homeDirectory ?? os.homedir();
     this.#systemLocale =
       options.systemLocale ?? Intl.DateTimeFormat().resolvedOptions().locale;
-    this.#onSnapshotUpdate = options.onSnapshotUpdate ?? (() => undefined);
+    if (options.onSnapshotUpdate) {
+      this.#snapshotUpdateSubscribers.add(options.onSnapshotUpdate);
+    }
     this.#now = options.now ?? Date.now;
   }
 
@@ -93,6 +95,31 @@ export class AppService {
       recentRepositories: persisted.recentRepositories,
       settings: persisted.settings,
     };
+  }
+
+  subscribeToSnapshotUpdates(subscriber: (snapshot: AppSnapshot) => void): () => void {
+    this.#snapshotUpdateSubscribers.add(subscriber);
+    let subscribed = true;
+    return () => {
+      if (!subscribed) return;
+      subscribed = false;
+      this.#snapshotUpdateSubscribers.delete(subscriber);
+    };
+  }
+
+  #publishSnapshotUpdate(): void {
+    let firstError: unknown;
+    for (const subscriber of this.#snapshotUpdateSubscribers) {
+      try {
+        subscriber(this.snapshot());
+      } catch (error) {
+        firstError ??= error;
+      }
+    }
+    if (firstError instanceof Error) throw firstError;
+    if (firstError !== undefined) {
+      throw new Error('Snapshot subscriber failed.', { cause: firstError });
+    }
   }
 
   commandLog(context: unknown): CommandRecord[] {
@@ -577,7 +604,7 @@ export class AppService {
               : item,
           ),
         }));
-        this.#onSnapshotUpdate(this.snapshot());
+        this.#publishSnapshotUpdate();
         return structuredClone(pullRequest);
       })
       .finally(() => {

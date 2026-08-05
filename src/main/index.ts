@@ -1,37 +1,26 @@
-import { app, BrowserWindow, clipboard, dialog, ipcMain, shell } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  clipboard,
+  dialog,
+  ipcMain,
+  shell,
+  type WebContents,
+} from 'electron';
 import path from 'node:path';
-import { validateClipboardText } from '../shared/clipboard';
-import type {
-  AppSnapshot,
-  CommandRecord,
-  CreateWorktreeRequest,
-  EditorTool,
-  Settings,
-  SwitchBranchRequest,
-} from '../shared/contracts';
-import { ipc } from '../shared/ipc';
 import { AppService } from './services/app-service';
 import { ApplicationRuntime } from './application-runtime';
-import { editorFileUrl, launchEditor } from './editors';
+import { launchEditor } from './editors';
+import { registerIpcHandlers, type WindowSessionService } from './ipc-handlers';
 import { StateStore } from './store';
+import { WindowSessionRegistry } from './window-sessions';
 
-let mainWindow: BrowserWindow | undefined;
-let service: AppService;
-
-function broadcastCommand(command: CommandRecord): void {
-  for (const window of BrowserWindow.getAllWindows()) {
-    window.webContents.send(ipc.commandUpdate, command);
-  }
-}
-
-function broadcastSnapshot(snapshot: AppSnapshot): void {
-  for (const window of BrowserWindow.getAllWindows()) {
-    window.webContents.send(ipc.snapshotUpdate, snapshot);
-  }
-}
-
-async function createWindow(): Promise<void> {
-  mainWindow = new BrowserWindow({
+async function createWindow(
+  sessions: WindowSessionRegistry<WebContents, BrowserWindow, WindowSessionService>,
+  service: AppService,
+  runtime: ApplicationRuntime,
+): Promise<void> {
+  const window = new BrowserWindow({
     width: 1220,
     height: 790,
     minWidth: 860,
@@ -46,7 +35,16 @@ async function createWindow(): Promise<void> {
       sandbox: true,
     },
   });
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+  sessions.register({
+    window,
+    service,
+    subscribeToSnapshotUpdates: (subscriber) =>
+      service.subscribeToSnapshotUpdates(subscriber),
+    subscribeToCommandUpdates: (subscriber) =>
+      runtime.subscribeToCommandUpdates(subscriber),
+  });
+
+  window.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith('https://')) {
       void shell
         .openExternal(url)
@@ -58,132 +56,39 @@ async function createWindow(): Promise<void> {
   });
 
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
-    await mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
+    await window.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
   } else {
-    await mainWindow.loadFile(
+    await window.loadFile(
       path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`),
     );
   }
 }
 
-function registerIpc(): void {
-  ipcMain.handle(ipc.snapshot, () => service.snapshot());
-  ipcMain.handle(ipc.commandLog, (_event, context: unknown) =>
-    service.commandLog(context),
-  );
-  ipcMain.handle(ipc.chooseProject, async () => {
-    const result = await dialog.showOpenDialog(mainWindow!, {
-      title: 'Choose a Git repository or worktree',
-      buttonLabel: 'Open repository',
-      properties: ['openDirectory'],
-    });
-    const selected = result.filePaths[0];
-    return result.canceled || !selected ? null : service.addProject(selected);
-  });
-  ipcMain.handle(ipc.openRecentRepository, (_event, repositoryId: string) =>
-    service.openRecentRepository(repositoryId),
-  );
-  ipcMain.handle(ipc.removeProject, (_event, projectId: string) =>
-    service.removeProject(projectId),
-  );
-  ipcMain.handle(ipc.refresh, () => service.refresh());
-  ipcMain.handle(ipc.refreshProject, (_event, projectId: string) =>
-    service.refreshProject(projectId),
-  );
-  ipcMain.handle(ipc.listBranches, (_event, projectId: string) =>
-    service.listBranches(projectId),
-  );
-  ipcMain.handle(ipc.suggestWorktreePath, (_event, projectId: string, branch: string) =>
-    service.suggestWorktreePath(projectId, branch),
-  );
-  ipcMain.handle(ipc.createWorktree, (_event, request: CreateWorktreeRequest) =>
-    service.createWorktree(request),
-  );
-  ipcMain.handle(ipc.switchBranch, (_event, request: SwitchBranchRequest) =>
-    service.switchBranch(request),
-  );
-  ipcMain.handle(ipc.prepareRemove, (_event, worktreeId: string) =>
-    service.prepareRemove(worktreeId),
-  );
-  ipcMain.handle(ipc.approveCommand, (_event, approvalId: string) =>
-    service.approve(approvalId),
-  );
-  ipcMain.handle(ipc.rejectCommand, (_event, approvalId: string) =>
-    service.reject(approvalId),
-  );
-  ipcMain.handle(ipc.worktreeDetails, (_event, worktreeId: string) =>
-    service.details(worktreeId),
-  );
-  ipcMain.handle(ipc.setComparisonBase, (_event, request: unknown) =>
-    service.setComparisonBase(request),
-  );
-  ipcMain.handle(ipc.listBranchCommits, (_event, request: unknown) =>
-    service.listBranchCommits(request),
-  );
-  ipcMain.handle(ipc.openDiff, (_event, worktreeId: string) =>
-    service.openDiff(worktreeId),
-  );
-  ipcMain.handle(ipc.openBranchDiff, (_event, request: unknown) =>
-    service.openBranchDiff(request),
-  );
-  ipcMain.handle(ipc.openCommitDiff, (_event, request: unknown) =>
-    service.openCommitDiff(request),
-  );
-  ipcMain.handle(ipc.diffFile, (_event, request: unknown) => service.diffFile(request));
-  ipcMain.handle(ipc.closeDiff, (_event, sessionId: string) =>
-    service.closeDiff(sessionId),
-  );
-  ipcMain.handle(ipc.refreshPullRequest, (_event, worktreeId: string) =>
-    service.refreshPullRequest(worktreeId),
-  );
-  ipcMain.handle(ipc.worktreeStatus, (_event, worktreeId: string) =>
-    service.worktreeStatus(worktreeId),
-  );
-  ipcMain.handle(ipc.updateSettings, (_event, settings: Settings) =>
-    service.updateSettings(settings),
-  );
-  ipcMain.handle(ipc.updateProjectSetup, (_event, projectId: string, script: string) =>
-    service.updateProjectSetup(projectId, script),
-  );
-  ipcMain.handle(ipc.openWorktreeDirectory, async (_event, worktreeId: string) => {
-    const error = await shell.openPath(path.resolve(service.worktreePath(worktreeId)));
-    if (error) throw new Error(error);
-  });
-  ipcMain.handle(
-    ipc.openWorktreeInEditor,
-    async (_event, worktreeId: string, editor: EditorTool) => {
-      await launchEditor(editor, service.worktreePath(worktreeId));
-    },
-  );
-  ipcMain.handle(ipc.openDiffFileInEditor, async (_event, request: unknown) => {
-    const target = service.diffFileEditorTarget(request);
-    await shell.openExternal(editorFileUrl(target.editor, target.filePath, target.line));
-  });
-  ipcMain.handle(ipc.openExternal, async (_event, url: string) => {
-    const parsed = new URL(url);
-    if (parsed.protocol !== 'https:') throw new Error('Only HTTPS links can be opened.');
-    await shell.openExternal(parsed.toString());
-  });
-  ipcMain.handle(ipc.copyText, (_event, text: unknown) => {
-    clipboard.writeText(validateClipboardText(text));
-  });
-}
-
 async function startApplication(): Promise<void> {
   const runtime = new ApplicationRuntime();
-  runtime.subscribeToCommandUpdates(broadcastCommand);
-  service = new AppService(new StateStore(app.getPath('userData')), runtime, {
+  const service = new AppService(new StateStore(app.getPath('userData')), runtime, {
     homeDirectory: app.getPath('home'),
     systemLocale: app.getSystemLocale(),
-    onSnapshotUpdate: broadcastSnapshot,
   });
+  const sessions = new WindowSessionRegistry<
+    WebContents,
+    BrowserWindow,
+    WindowSessionService
+  >();
   await service.initialize();
-  registerIpc();
-  await createWindow();
+  registerIpcHandlers({
+    ipcMain,
+    sessions,
+    dialog,
+    shell,
+    clipboard,
+    launchEditor,
+  });
+  await createWindow(sessions, service, runtime);
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      void createWindow().catch((error: unknown) =>
+      void createWindow(sessions, service, runtime).catch((error: unknown) =>
         console.error('Failed to recreate the application window.', error),
       );
     }
