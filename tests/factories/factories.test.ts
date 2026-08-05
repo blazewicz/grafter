@@ -9,13 +9,16 @@ import {
   commitPageFactory,
   diffFilePatchFactory,
   diffFileSummaryFactory,
+  loadingSnapshotFactory,
   mainWorktreeFactory,
   projectConfigFactory,
   projectFactory,
   pullRequestFactory,
+  repositorySnapshotFactory,
   resetTestDataFactories,
   worktreeDetailsFactory,
   worktreeFactory,
+  welcomeSnapshotFactory,
 } from '.';
 import { buildDiffViewerScenario } from '../scenarios/diff/diff-viewer';
 import { buildBranchComparisonScenario } from '../scenarios/details/branch-comparison';
@@ -29,6 +32,19 @@ import {
 import { buildWorktreeOrderingScenario } from '../scenarios/details/worktree-ordering';
 
 describe('domain factories', () => {
+  it('builds distinct loading, welcome, and singular repository snapshots', () => {
+    const loading = loadingSnapshotFactory.build();
+    const welcome = welcomeSnapshotFactory.build();
+    const repository = repositorySnapshotFactory.build();
+
+    expect(loading).toEqual({ kind: 'loading' });
+    expect(welcome).toMatchObject({ kind: 'welcome' });
+    expect(welcome).not.toHaveProperty('repository');
+    expect(repository).toMatchObject({ kind: 'repository' });
+    expect(repository).toHaveProperty('repository.worktrees');
+    expect(repository).not.toHaveProperty('projects');
+  });
+
   it('builds semantic command presets and allows explicit overrides', () => {
     const command = commandRecordFactory.build();
     const awaitingApproval = commandRecordFactory.build(
@@ -348,7 +364,7 @@ describe('details scenarios', () => {
     expect(scenario.details.projectId).toBe(scenario.project.id);
     expect(scenario.details.projectName).toBe(scenario.project.name);
     expect(scenario.project.worktrees).toEqual([scenario.mainWorktree, scenario.details]);
-    expect(scenario.snapshot.projects).toEqual([scenario.project]);
+    expect(scenario.snapshot.repository).toEqual(scenario.project);
   });
 
   it('publishes comparison and pull request variants through their aggregates', () => {
@@ -363,7 +379,7 @@ describe('details scenarios', () => {
       compared.project.worktrees.find((worktree) => worktree.id === compared.details.id),
     ).toEqual(compared.details);
     expect(withPullRequest.details.pullRequest).toBeDefined();
-    expect(withPullRequest.snapshot.projects[0]?.worktrees).toContainEqual(
+    expect(withPullRequest.snapshot.repository.worktrees).toContainEqual(
       withPullRequest.details,
     );
   });
@@ -375,7 +391,7 @@ describe('details scenarios', () => {
     const ordering = buildWorktreeOrderingScenario();
 
     expect(branchSwitch.availableWorktree.branch).not.toBe(branchSwitch.details.branch);
-    expect(branchSwitch.switchedSnapshot.projects[0]?.worktrees).toContainEqual(
+    expect(branchSwitch.switchedSnapshot.repository.worktrees).toContainEqual(
       expect.objectContaining({
         id: branchSwitch.details.id,
         branch: branchSwitch.availableWorktree.branch,

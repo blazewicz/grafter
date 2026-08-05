@@ -60,7 +60,7 @@ describe('BranchDiffControls', () => {
     expect(screen.getByRole('textbox', { name: 'Filter branches' })).toHaveFocus();
     expect(screen.getByText('Loading branches…')).toBeVisible();
     expect(listBranches).toHaveBeenCalledOnce();
-    expect(listBranches).toHaveBeenCalledWith(scenario.projectId);
+    expect(listBranches).toHaveBeenCalledWith();
 
     await act(async () => {
       branchResult.resolve(scenario.branches.available);
@@ -107,7 +107,6 @@ describe('BranchDiffControls', () => {
 
     expect(openBranchDiff).toHaveBeenCalledOnce();
     expect(openBranchDiff).toHaveBeenCalledWith({
-      projectId: scenario.projectId,
       sourceBranch: scenario.branches.alternativeSource,
       targetBranch: scenario.branches.target,
     });
@@ -155,7 +154,6 @@ describe('BranchDiffControls', () => {
 
     expect(openBranchDiff).toHaveBeenCalledOnce();
     expect(openBranchDiff).toHaveBeenCalledWith({
-      projectId: scenario.projectId,
       sourceBranch: scenario.branches.source,
       targetBranch: scenario.branches.alternativeTarget,
     });
@@ -179,7 +177,6 @@ describe('BranchDiffControls', () => {
 
     expect(openBranchDiff).toHaveBeenCalledOnce();
     expect(openBranchDiff).toHaveBeenCalledWith({
-      projectId: scenario.projectId,
       sourceBranch: scenario.branches.target,
       targetBranch: scenario.branches.source,
     });
@@ -217,7 +214,7 @@ describe('BranchDiffControls', () => {
     await waitFor(() => expect(onError).toHaveBeenCalledOnce());
     expect(onError).toHaveBeenCalledWith('failed');
     expect(listBranches).toHaveBeenCalledOnce();
-    expect(listBranches).toHaveBeenCalledWith(scenario.projectId);
+    expect(listBranches).toHaveBeenCalledWith();
     expect(screen.queryByText('Loading branches…')).toBeNull();
     expect(screen.getByText('No matching branches')).toBeVisible();
   });

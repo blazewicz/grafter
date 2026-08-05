@@ -1,7 +1,7 @@
-import { isCommandContext } from '../shared/command-context';
 import type {
   AppSnapshot,
   ApprovalRequest,
+  CommandLogScope,
   CommandRecord,
   CreateWorktreeRequest,
   DiffFilePatch,
@@ -22,11 +22,10 @@ type SnapshotSubscriber = (snapshot: AppSnapshot) => void;
 
 export interface WindowSessionService {
   snapshot(): AppSnapshot;
-  commandLog(context: unknown): CommandRecord[];
+  commandLog(scope: unknown): CommandRecord[];
   refresh(): Promise<AppSnapshot>;
-  refreshProject(projectId: string): Promise<AppSnapshot>;
-  listBranches(projectId: string): Promise<string[]>;
-  suggestWorktreePath(projectId: string, branch: string): string;
+  listBranches(): Promise<string[]>;
+  suggestWorktreePath(branch: string): string;
   createWorktree(request: CreateWorktreeRequest): Promise<{
     snapshot: AppSnapshot;
     setupApproval?: ApprovalRequest;
@@ -48,7 +47,7 @@ export interface WindowSessionService {
   ): ReturnType<RepositoryService['refreshPullRequest']>;
   worktreeStatus(worktreeId: string): Promise<WorktreeStatus>;
   updateSettings(settings: Settings): Promise<AppSnapshot>;
-  updateProjectSetup(projectId: string, script: string): Promise<AppSnapshot>;
+  updateRepositorySetup(script: string): Promise<AppSnapshot>;
   worktreePath(worktreeId: string): string;
   diffFileEditorTarget(request: unknown): {
     editor: EditorTool;
@@ -57,14 +56,13 @@ export interface WindowSessionService {
   };
 }
 
-interface CompatibilitySnapshotContext {
+interface WindowSnapshotContext {
   homeDirectory: string;
   systemLocale: string;
 }
 
 /**
- * WU7 compatibility boundary: adapts one RepositoryService to the old AppSnapshot
- * shape with exactly one project. WU9 replaces this class with singular contracts.
+ * Owns the process boundary for one repository window.
  */
 export class RepositoryWindowSession implements WindowSessionService {
   readonly #snapshotSubscribers = new Set<SnapshotSubscriber>();
@@ -78,7 +76,7 @@ export class RepositoryWindowSession implements WindowSessionService {
     readonly repository: RepositoryService,
     readonly store: StateStore,
     readonly runtime: ApplicationRuntime,
-    readonly context: CompatibilitySnapshotContext,
+    readonly context: WindowSnapshotContext,
   ) {
     this.#unsubscribeRepository = repository.subscribeToSnapshotUpdates(() =>
       this.#publishSnapshot(),
@@ -89,10 +87,10 @@ export class RepositoryWindowSession implements WindowSessionService {
     this.#assertActive();
     const persisted = this.store.state;
     return {
+      kind: 'repository',
       homeDirectory: this.context.homeDirectory,
       systemLocale: this.context.systemLocale,
-      projects: [this.repository.snapshot()],
-      recentRepositories: persisted.recentRepositories,
+      repository: this.repository.snapshot(),
       settings: persisted.settings,
       ...(this.#selectedWorktreeId
         ? {
@@ -144,15 +142,17 @@ export class RepositoryWindowSession implements WindowSessionService {
     this.#publishSnapshot();
   }
 
-  commandLog(context: unknown): CommandRecord[] {
+  commandLog(scope: unknown): CommandRecord[] {
     this.#assertActive();
-    if (!isCommandContext(context)) throw new Error('Invalid command log context.');
-    if (
-      context.kind === 'application' ||
-      context.projectId !== this.repository.repositoryId
-    ) {
-      throw new Error('Command context is not available in this repository window.');
-    }
+    if (!isCommandLogScope(scope)) throw new Error('Invalid command log scope.');
+    const context =
+      scope.kind === 'repository'
+        ? { kind: 'project' as const, projectId: this.repository.repositoryId }
+        : {
+            kind: 'worktree' as const,
+            projectId: this.repository.repositoryId,
+            worktreeId: this.#validatedWorktreeId(scope.worktreeId),
+          };
     return this.runtime.commandRunner.recordsFor(context);
   }
 
@@ -161,18 +161,11 @@ export class RepositoryWindowSession implements WindowSessionService {
     return this.snapshot();
   }
 
-  async refreshProject(projectId: string): Promise<AppSnapshot> {
-    this.#assertProject(projectId);
-    return this.refresh();
-  }
-
-  listBranches(projectId: string): Promise<string[]> {
-    this.#assertProject(projectId);
+  listBranches(): Promise<string[]> {
     return this.repository.listBranches();
   }
 
-  suggestWorktreePath(projectId: string, branch: string): string {
-    this.#assertProject(projectId);
+  suggestWorktreePath(branch: string): string {
     return this.repository.suggestWorktreePath(
       this.store.state.settings.defaultWorktreePath,
       branch,
@@ -258,8 +251,7 @@ export class RepositoryWindowSession implements WindowSessionService {
     return this.snapshot();
   }
 
-  async updateProjectSetup(projectId: string, script: string): Promise<AppSnapshot> {
-    this.#assertProject(projectId);
+  async updateRepositorySetup(script: string): Promise<AppSnapshot> {
     await this.repository.updateSetup(script);
     return this.snapshot();
   }
@@ -285,11 +277,9 @@ export class RepositoryWindowSession implements WindowSessionService {
     this.repository.dispose();
   }
 
-  #assertProject(projectId: string): void {
-    this.#assertActive();
-    if (projectId !== this.repository.repositoryId) {
-      throw new Error('Project not found.');
-    }
+  #validatedWorktreeId(worktreeId: string): string {
+    this.repository.worktreePath(worktreeId);
+    return worktreeId;
   }
 
   #publishSnapshot(): void {
@@ -303,23 +293,23 @@ export class RepositoryWindowSession implements WindowSessionService {
   }
 }
 
-/** WU7 compatibility boundary for a welcome window: zero projects and no Git service. */
+/** Owns the process boundary for a welcome window without constructing a Git service. */
 export class WelcomeWindowSession implements WindowSessionService {
   readonly #snapshotSubscribers = new Set<SnapshotSubscriber>();
   #disposed = false;
 
   constructor(
     readonly store: StateStore,
-    readonly context: CompatibilitySnapshotContext,
+    readonly context: WindowSnapshotContext,
   ) {}
 
   snapshot(): AppSnapshot {
     this.#assertActive();
     const persisted = this.store.state;
     return {
+      kind: 'welcome',
       homeDirectory: this.context.homeDirectory,
       systemLocale: this.context.systemLocale,
-      projects: [],
       recentRepositories: persisted.recentRepositories,
       settings: persisted.settings,
     };
@@ -354,10 +344,6 @@ export class WelcomeWindowSession implements WindowSessionService {
   }
 
   refresh(): Promise<AppSnapshot> {
-    return this.#unavailable();
-  }
-
-  refreshProject(): Promise<AppSnapshot> {
     return this.#unavailable();
   }
 
@@ -432,7 +418,7 @@ export class WelcomeWindowSession implements WindowSessionService {
     return this.#unavailable();
   }
 
-  updateProjectSetup(): Promise<AppSnapshot> {
+  updateRepositorySetup(): Promise<AppSnapshot> {
     return this.#unavailable();
   }
 
@@ -462,6 +448,18 @@ export class WelcomeWindowSession implements WindowSessionService {
     this.#assertActive();
     throw new Error('This operation requires an open repository.');
   }
+}
+
+function isCommandLogScope(value: unknown): value is CommandLogScope {
+  if (!value || typeof value !== 'object') return false;
+  const scope = value as Record<string, unknown>;
+  return (
+    (scope.kind === 'repository' && Object.keys(scope).length === 1) ||
+    (scope.kind === 'worktree' &&
+      typeof scope.worktreeId === 'string' &&
+      Boolean(scope.worktreeId) &&
+      Object.keys(scope).length === 2)
+  );
 }
 
 async function updateSettings(store: StateStore, settings: Settings): Promise<void> {

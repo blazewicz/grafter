@@ -1,12 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
-import type { CommandContext, CommandRecord } from '../../shared/contracts';
+import type {
+  CommandContext,
+  CommandLogScope,
+  CommandRecord,
+} from '../../shared/contracts';
 import { commandContextKey } from '../../shared/command-context';
 import { combineCommandRecords, mergeCommandRecord } from '../command-audit';
 import { api, friendlyError } from '../grafter-api';
 import { CommandUpdateBuffer } from './CommandUpdateBuffer';
 
 export function useCommandLogs(
-  selectedContext: CommandContext | undefined,
+  selectedScope: CommandLogScope | undefined,
+  repositoryId: string | undefined,
   onError: (message: string) => void,
 ): {
   commands: CommandRecord[];
@@ -15,6 +20,7 @@ export function useCommandLogs(
 } {
   const [commandLogs, setCommandLogs] = useState<Record<string, CommandRecord[]>>({});
   const [latestActivity, setLatestActivity] = useState<CommandRecord>();
+  const selectedContext = commandContextForScope(selectedScope, repositoryId);
   const contextKey = selectedContext ? commandContextKey(selectedContext) : undefined;
   const contextKeyRef = useRef(contextKey);
 
@@ -56,11 +62,11 @@ export function useCommandLogs(
   }, [contextKey]);
 
   useEffect(() => {
-    if (!selectedContext || !contextKey) return;
+    if (!selectedScope || !contextKey) return;
 
     let active = true;
     void api
-      .getCommandLog(selectedContext)
+      .getCommandLog(selectedScope)
       .then((commands) => {
         if (!active) return;
         setCommandLogs((current) => ({
@@ -74,7 +80,7 @@ export function useCommandLogs(
     return () => {
       active = false;
     };
-  }, [contextKey, onError, selectedContext]);
+  }, [contextKey, onError, selectedScope]);
 
   return {
     commands: contextKey ? (commandLogs[contextKey] ?? []) : [],
@@ -86,4 +92,14 @@ export function useCommandLogs(
         ? latestActivity
         : undefined,
   };
+}
+
+function commandContextForScope(
+  scope: CommandLogScope | undefined,
+  repositoryId: string | undefined,
+): CommandContext | undefined {
+  if (!scope || !repositoryId) return undefined;
+  return scope.kind === 'repository'
+    ? { kind: 'project', projectId: repositoryId }
+    : { kind: 'worktree', projectId: repositoryId, worktreeId: scope.worktreeId };
 }

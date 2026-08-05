@@ -40,7 +40,7 @@ export function BranchDiffControls({
     if (!branchMenu || branches.length) return;
     let active = true;
     void api
-      .listBranches(session.projectId)
+      .listBranches()
       .then((next) => {
         if (active) setBranches(next);
       })
@@ -53,7 +53,7 @@ export function BranchDiffControls({
     return () => {
       active = false;
     };
-  }, [branchMenu, branches.length, onError, session.projectId]);
+  }, [branchMenu, branches.length, onError]);
 
   const compareBranches = (sourceBranch: string, targetBranch: string): void => {
     setBranchMenu(undefined);
@@ -66,7 +66,6 @@ export function BranchDiffControls({
     setComparing(true);
     void api
       .openBranchDiff({
-        projectId: session.projectId,
         sourceBranch,
         targetBranch,
       })

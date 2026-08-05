@@ -29,7 +29,6 @@ interface IpcHandlerDependencies {
   windowManager: {
     openRepository(sender: WebContents, selectedPath: string): Promise<unknown>;
     openRecentRepository(sender: WebContents, repositoryId: string): Promise<unknown>;
-    removeRepository(sender: WebContents, repositoryId: string): Promise<unknown>;
   };
   dialog: Pick<Dialog, 'showOpenDialog'>;
   shell: Pick<Shell, 'openPath' | 'openExternal'>;
@@ -47,7 +46,7 @@ export function registerIpcHandlers(dependencies: IpcHandlerDependencies): void 
   ipcMain.handle(ipc.commandLog, (event, context: unknown) =>
     sessions.resolve(event.sender).service.commandLog(context),
   );
-  ipcMain.handle(ipc.chooseProject, async (event) => {
+  ipcMain.handle(ipc.chooseRepository, async (event) => {
     const session = sessions.resolve(event.sender);
     const result = await dialog.showOpenDialog(session.dialogParent, {
       title: 'Open a Git repository or worktree',
@@ -63,21 +62,14 @@ export function registerIpcHandlers(dependencies: IpcHandlerDependencies): void 
     sessions.resolve(event.sender);
     return windowManager.openRecentRepository(event.sender, repositoryId);
   });
-  ipcMain.handle(ipc.removeProject, (event, projectId: string) => {
-    sessions.resolve(event.sender);
-    return windowManager.removeRepository(event.sender, projectId);
-  });
   ipcMain.handle(ipc.refresh, (event) =>
     sessions.resolve(event.sender).service.refresh(),
   );
-  ipcMain.handle(ipc.refreshProject, (event, projectId: string) =>
-    sessions.resolve(event.sender).service.refreshProject(projectId),
+  ipcMain.handle(ipc.listBranches, (event) =>
+    sessions.resolve(event.sender).service.listBranches(),
   );
-  ipcMain.handle(ipc.listBranches, (event, projectId: string) =>
-    sessions.resolve(event.sender).service.listBranches(projectId),
-  );
-  ipcMain.handle(ipc.suggestWorktreePath, (event, projectId: string, branch: string) =>
-    sessions.resolve(event.sender).service.suggestWorktreePath(projectId, branch),
+  ipcMain.handle(ipc.suggestWorktreePath, (event, branch: string) =>
+    sessions.resolve(event.sender).service.suggestWorktreePath(branch),
   );
   ipcMain.handle(ipc.createWorktree, (event, request: CreateWorktreeRequest) =>
     sessions.resolve(event.sender).service.createWorktree(request),
@@ -127,8 +119,8 @@ export function registerIpcHandlers(dependencies: IpcHandlerDependencies): void 
   ipcMain.handle(ipc.updateSettings, (event, settings: Settings) =>
     sessions.resolve(event.sender).service.updateSettings(settings),
   );
-  ipcMain.handle(ipc.updateProjectSetup, (event, projectId: string, script: string) =>
-    sessions.resolve(event.sender).service.updateProjectSetup(projectId, script),
+  ipcMain.handle(ipc.updateRepositorySetup, (event, script: string) =>
+    sessions.resolve(event.sender).service.updateRepositorySetup(script),
   );
   ipcMain.handle(ipc.openWorktreeDirectory, async (event, worktreeId: string) => {
     const service = sessions.resolve(event.sender).service;

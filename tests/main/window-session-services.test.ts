@@ -10,8 +10,8 @@ import type {
 } from '../../src/shared/contracts';
 import { projectConfigFactory } from '../factories';
 
-describe('RepositoryWindowSession compatibility isolation', () => {
-  it('adapts exactly one project and filters command events to its repository', async () => {
+describe('RepositoryWindowSession isolation', () => {
+  it('exposes exactly one repository and filters command events to it', async () => {
     const firstProject = projectConfigFactory.build();
     const secondProject = projectConfigFactory.build();
     const store = new StateStore('/unused', { persist: () => Promise.resolve() });
@@ -32,17 +32,28 @@ describe('RepositoryWindowSession compatibility isolation', () => {
     );
     runtime.commandRunner.createPending(commandSpec({ kind: 'application' }));
 
-    expect(first.snapshot().projects.map((project) => project.id)).toEqual([
-      firstProject.id,
-    ]);
-    expect(second.snapshot().projects.map((project) => project.id)).toEqual([
-      secondProject.id,
-    ]);
+    expect(first.snapshot()).toMatchObject({
+      kind: 'repository',
+      repository: { id: firstProject.id },
+    });
+    expect(second.snapshot()).toMatchObject({
+      kind: 'repository',
+      repository: { id: secondProject.id },
+    });
     expect(firstCommands.map((record) => record.id)).toEqual([firstRecord.id]);
     expect(secondCommands.map((record) => record.id)).toEqual([secondRecord.id]);
+    expect(first.commandLog({ kind: 'repository' }).map((record) => record.id)).toEqual([
+      firstRecord.id,
+    ]);
+    expect(second.commandLog({ kind: 'repository' }).map((record) => record.id)).toEqual([
+      secondRecord.id,
+    ]);
     expect(() =>
-      first.commandLog({ kind: 'project', projectId: secondProject.id }),
-    ).toThrow('not available in this repository window');
+      first.commandLog({ kind: 'repository', projectId: secondProject.id }),
+    ).toThrow('Invalid command log scope');
+    expect(() =>
+      first.commandLog({ kind: 'worktree', worktreeId: `${secondProject.id}:main` }),
+    ).toThrow('Worktree not found');
 
     first.dispose();
     second.dispose();

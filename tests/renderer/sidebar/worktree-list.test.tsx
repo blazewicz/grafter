@@ -141,7 +141,6 @@ describe('WorktreeList', () => {
 
     expect(createWorktree).toHaveBeenCalledOnce();
     expect(createWorktree).toHaveBeenCalledWith({
-      projectId: newWorktreeScenario.project.id,
       branch: newWorktreeScenario.availableBranch,
       path: newWorktreeScenario.suggestedPath,
     });

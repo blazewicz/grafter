@@ -11,7 +11,12 @@ import {
   type WindowSessionSender,
   type WindowSessionWindow,
 } from '../../src/main/window-sessions';
-import type { ProjectConfig } from '../../src/shared/contracts';
+import type {
+  AppSnapshot,
+  ProjectConfig,
+  RepositoryWindowSnapshot,
+  WelcomeWindowSnapshot,
+} from '../../src/shared/contracts';
 import { StubCommandRunner } from './support/stub-command-runner';
 
 class FakeSender extends EventEmitter implements WindowSessionSender {
@@ -181,6 +186,24 @@ function snapshot(harness: Harness, window: FakeWindow) {
   return harness.sessions.resolve(window.webContents).service.snapshot();
 }
 
+function repositorySnapshot(
+  harness: Harness,
+  window: FakeWindow,
+): RepositoryWindowSnapshot {
+  return expectRepositorySnapshot(snapshot(harness, window));
+}
+
+function welcomeSnapshot(harness: Harness, window: FakeWindow): WelcomeWindowSnapshot {
+  const value = snapshot(harness, window);
+  if (value.kind !== 'welcome') throw new Error('Expected a welcome snapshot.');
+  return value;
+}
+
+function expectRepositorySnapshot(value: AppSnapshot): RepositoryWindowSnapshot {
+  if (value.kind !== 'repository') throw new Error('Expected a repository snapshot.');
+  return value;
+}
+
 describe('WindowManager', () => {
   it('creates an initial welcome without restoring persisted repositories', async () => {
     const location = repositoryLocation('persisted');
@@ -199,8 +222,8 @@ describe('WindowManager', () => {
     const window = await harness.manager.ensureWelcomeWindow();
 
     expect(harness.windows).toEqual([window]);
-    expect(snapshot(harness, window)).toMatchObject({
-      projects: [],
+    expect(welcomeSnapshot(harness, window)).toMatchObject({
+      kind: 'welcome',
       recentRepositories: [{ repositoryId: project.id }],
     });
     expect(harness.runner.commands).toEqual([]);
@@ -217,11 +240,11 @@ describe('WindowManager', () => {
     );
 
     expect(harness.windows).toEqual([welcome]);
-    expect(opened.projects).toHaveLength(1);
-    expect(opened.projects[0]?.path).toBe(location.mainWorktreePath);
+    const openedRepository = expectRepositorySnapshot(opened);
+    expect(openedRepository.repository.path).toBe(location.mainWorktreePath);
     expect(
-      opened.projects[0]?.worktrees.find(
-        (worktree) => worktree.id === opened.selectedWorktreeId,
+      openedRepository.repository.worktrees.find(
+        (worktree) => worktree.id === openedRepository.selectedWorktreeId,
       )?.path,
     ).toBe(location.selectedWorktreePath);
   });
@@ -245,13 +268,9 @@ describe('WindowManager', () => {
     const secondWindow = harness.windows[1];
     if (!secondWindow) throw new Error('Expected a second repository window.');
 
-    expect(invokingSnapshot.projects.map((project) => project.name)).toEqual(['alpha']);
-    expect(
-      snapshot(harness, firstWindow).projects.map((project) => project.name),
-    ).toEqual(['alpha']);
-    expect(
-      snapshot(harness, secondWindow).projects.map((project) => project.name),
-    ).toEqual(['beta']);
+    expect(expectRepositorySnapshot(invokingSnapshot).repository.name).toBe('alpha');
+    expect(repositorySnapshot(harness, firstWindow).repository.name).toBe('alpha');
+    expect(repositorySnapshot(harness, secondWindow).repository.name).toBe('beta');
   });
 
   it('deduplicates simultaneous opens of one canonical repository', async () => {
@@ -281,7 +300,7 @@ describe('WindowManager', () => {
 
     expect(harness.windows).toHaveLength(1);
     expect(harness.services).toHaveLength(1);
-    expect(snapshot(harness, welcome).projects).toHaveLength(1);
+    expect(repositorySnapshot(harness, welcome).repository.name).toBe('alpha');
   });
 
   it('focuses an existing repository window and hands off linked-worktree selection', async () => {
@@ -309,13 +328,13 @@ describe('WindowManager', () => {
       betaWindow.webContents,
       alphaLinked.selectedWorktreePath,
     );
-    const alphaSnapshot = snapshot(harness, alphaWindow);
+    const alphaSnapshot = repositorySnapshot(harness, alphaWindow);
 
     expect(harness.windows).toHaveLength(2);
     expect(alphaWindow.focusCalls).toBe(focusCalls + 1);
-    expect(betaSnapshot.projects[0]?.name).toBe('beta');
+    expect(expectRepositorySnapshot(betaSnapshot).repository.name).toBe('beta');
     expect(
-      alphaSnapshot.projects[0]?.worktrees.find(
+      alphaSnapshot.repository.worktrees.find(
         (worktree) => worktree.id === alphaSnapshot.selectedWorktreeId,
       )?.path,
     ).toBe(alphaLinked.selectedWorktreePath);
@@ -342,11 +361,11 @@ describe('WindowManager', () => {
     await expect(
       harness.manager.openRecentRepository(welcome.webContents, 'missing-id'),
     ).rejects.toThrow('does not exist');
-    expect(snapshot(harness, welcome).projects).toEqual([]);
+    expect(welcomeSnapshot(harness, welcome).kind).toBe('welcome');
 
     await harness.manager.openRepository(welcome.webContents, valid.mainWorktreePath);
     expect(harness.windows).toEqual([welcome]);
-    expect(snapshot(harness, welcome).projects[0]?.name).toBe(valid.name);
+    expect(repositorySnapshot(harness, welcome).repository.name).toBe(valid.name);
   });
 
   it('does not update recency or convert the welcome when initial refresh fails', async () => {
@@ -360,7 +379,7 @@ describe('WindowManager', () => {
       harness.manager.openRepository(welcome.webContents, location.mainWorktreePath),
     ).rejects.toThrow('Repository refresh failed.');
 
-    expect(snapshot(harness, welcome).projects).toEqual([]);
+    expect(welcomeSnapshot(harness, welcome).kind).toBe('welcome');
     expect(harness.store.state.projects).toEqual([]);
     expect(harness.store.state.recentRepositories).toEqual([]);
   });
@@ -380,7 +399,7 @@ describe('WindowManager', () => {
 
     const replacement = await harness.manager.ensureWelcomeWindow();
     expect(replacement).not.toBe(window);
-    expect(snapshot(harness, replacement).projects).toEqual([]);
+    expect(welcomeSnapshot(harness, replacement).kind).toBe('welcome');
   });
 
   it('ignores late background hydration after its repository window closes', async () => {

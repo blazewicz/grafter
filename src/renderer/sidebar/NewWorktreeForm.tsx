@@ -33,7 +33,7 @@ export function NewWorktreeForm({
 
   useEffect(() => {
     void api
-      .listBranches(project.id)
+      .listBranches()
       .then(setBranches)
       .catch((error: unknown) => onErrorRef.current(friendlyError(error)))
       .finally(() => setLoadingBranches(false));
@@ -42,7 +42,7 @@ export function NewWorktreeForm({
   const choose = (branch: string): void => {
     setChosen(branch);
     void api
-      .suggestWorktreePath(project.id, branch)
+      .suggestWorktreePath(branch)
       .then(setWorktreePath)
       .catch((error: unknown) => onError(friendlyError(error)));
   };
@@ -52,7 +52,6 @@ export function NewWorktreeForm({
     setCreating(true);
     try {
       const result = await api.createWorktree({
-        projectId: project.id,
         branch: chosen,
         path: worktreePath,
       });
