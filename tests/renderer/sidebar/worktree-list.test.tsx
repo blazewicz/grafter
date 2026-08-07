@@ -5,7 +5,12 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { api } from '../../../src/renderer/grafter-api';
 import { WorktreeList } from '../../../src/renderer/sidebar/WorktreeList';
-import type { GrafterApi, Project, Worktree } from '../../../src/shared/contracts';
+import type {
+  GrafterApi,
+  Project,
+  Worktree,
+  WorktreeStatus,
+} from '../../../src/shared/contracts';
 import { buildNewWorktreeScenario } from '../../scenarios/sidebar/new-worktree';
 import { buildRepositoryWorktreesScenario } from '../../scenarios/sidebar/repository-worktrees';
 
@@ -15,6 +20,7 @@ const newWorktreeScenario = buildNewWorktreeScenario();
 interface RenderWorktreeListOptions {
   project?: Project;
   selectedId?: string;
+  selectedWorktreeStatus?: WorktreeStatus;
   adding?: boolean;
   onSelect?: (id: string) => void;
   onCancelAdd?: () => void;
@@ -32,6 +38,7 @@ function renderWorktreeList(options: RenderWorktreeListOptions = {}): void {
       homeDirectory={scenario.homeDirectory}
       project={options.project ?? scenario.repository}
       selectedId={options.selectedId}
+      selectedWorktreeStatus={options.selectedWorktreeStatus}
       adding={options.adding ?? false}
       onSelect={options.onSelect ?? (() => undefined)}
       onCancelAdd={options.onCancelAdd ?? (() => undefined)}
@@ -65,16 +72,49 @@ describe('WorktreeList', () => {
       const button = worktreeButton(worktree);
       if (previous) expect(previous).toAppearBefore(button);
       previous = button;
-      expect(within(button).getByText(worktree.displayName)).toBeVisible();
-      if (!worktree.isMain)
-        expect(within(button).getByText(worktree.branch)).toBeVisible();
+      const displayName = within(button).getByText(worktree.displayName, {
+        selector: '[data-worktree-path] > span',
+      });
+      expect(displayName).toBeVisible();
+      expect(
+        within(button).getByText(worktree.branch, {
+          selector: '[data-branch-name] > span',
+        }),
+      ).toBeVisible();
 
-      await user.hover(within(button).getByText(worktree.displayName));
+      await user.hover(displayName);
       expect(await screen.findByRole('tooltip')).toHaveTextContent(
         scenario.expectedTooltips[worktree.id] ?? '',
       );
-      await user.unhover(within(button).getByText(worktree.displayName));
+      await user.unhover(displayName);
     }
+  });
+
+  it('shows available dirty and pull request badges in the worktree top line', () => {
+    const worktree = scenario.selectableWorktree;
+    renderWorktreeList({
+      selectedId: worktree.id,
+      selectedWorktreeStatus: 'dirty',
+    });
+
+    const button = worktreeButton(worktree);
+    expect(within(button).getByRole('img', { name: 'Dirty worktree' })).toHaveAttribute(
+      'title',
+      'Uncommitted changes',
+    );
+    expect(
+      within(button).getByRole('img', { name: 'Pull request status: open' }),
+    ).toHaveAttribute('title', 'Status: Open');
+  });
+
+  it('omits badges when their state is unavailable', () => {
+    renderWorktreeList();
+
+    const mainWorktree = scenario.expectedWorktrees.find((worktree) => worktree.isMain);
+    if (!mainWorktree) throw new Error('Expected a main worktree.');
+    const mainButton = worktreeButton(mainWorktree);
+    expect(within(mainButton).queryByLabelText('Worktree badges')).toBeNull();
+    expect(screen.queryByRole('img', { name: 'Dirty worktree' })).toBeNull();
   });
 
   it('selects a row and removes only a non-main worktree', async () => {

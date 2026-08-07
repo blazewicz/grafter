@@ -1,8 +1,14 @@
 import { FolderGit2, FolderRoot, Trash2 } from 'lucide-react';
 import { useMemo } from 'react';
-import type { GrafterApi, Project, Worktree } from '../../shared/contracts';
+import type {
+  GrafterApi,
+  Project,
+  Worktree,
+  WorktreeStatus,
+} from '../../shared/contracts';
 import { displayWorktreePath } from '../../shared/path-display';
 import { sortWorktrees } from '../../shared/worktree-list';
+import { PullRequestStateIcon } from '../ui/PullRequestStateIcon';
 import { NewWorktreeForm } from './NewWorktreeForm';
 import { SidebarTooltip } from './SidebarTooltip';
 import styles from './sidebar.module.css';
@@ -11,6 +17,7 @@ export function WorktreeList({
   homeDirectory,
   project,
   selectedId,
+  selectedWorktreeStatus,
   adding,
   flat = false,
   onSelect,
@@ -22,6 +29,7 @@ export function WorktreeList({
   homeDirectory: string;
   project: Project;
   selectedId: string | undefined;
+  selectedWorktreeStatus: WorktreeStatus | undefined;
   adding: boolean;
   flat?: boolean;
   onSelect: (id: string) => void;
@@ -51,6 +59,7 @@ export function WorktreeList({
             mainClonePath={project.path}
             worktree={worktree}
             selected={selectedId === worktree.id}
+            status={selectedId === worktree.id ? selectedWorktreeStatus : undefined}
             onSelect={onSelect}
             onRemoveWorktree={onRemoveWorktree}
           />
@@ -73,6 +82,7 @@ function WorktreeRow({
   mainClonePath,
   worktree,
   selected,
+  status,
   onSelect,
   onRemoveWorktree,
 }: {
@@ -80,6 +90,7 @@ function WorktreeRow({
   mainClonePath: string;
   worktree: Worktree;
   selected: boolean;
+  status: WorktreeStatus | undefined;
   onSelect: (id: string) => void;
   onRemoveWorktree: (worktree: Worktree) => void;
 }): React.JSX.Element {
@@ -102,15 +113,40 @@ function WorktreeRow({
         onClick={() => onSelect(worktree.id)}
         onPointerUp={releasePointerFocus}
       >
-        {worktree.isMain ? <FolderRoot size={13} /> : <FolderGit2 size={13} />}
-        <SidebarTooltip
-          className={styles.worktreeNameWrap}
-          label={worktree.displayName}
-          labelClassName={styles.worktreeName}
-          tooltip={worktree.isMain ? `Main worktree · ${displayedPath}` : displayedPath}
-          data-worktree-path={worktree.path}
-        />
-        {(!worktree.isMain || worktree.branch !== 'main') && (
+        <span className={styles.worktreeIcon} aria-hidden="true">
+          {worktree.isMain ? <FolderRoot size={13} /> : <FolderGit2 size={13} />}
+        </span>
+        <span className={styles.worktreeCopy}>
+          <span className={styles.worktreeTopLine}>
+            <SidebarTooltip
+              className={styles.worktreeNameWrap}
+              label={worktree.displayName}
+              labelClassName={styles.worktreeName}
+              tooltip={
+                worktree.isMain ? `Main worktree · ${displayedPath}` : displayedPath
+              }
+              data-worktree-path={worktree.path}
+            />
+            {(status === 'dirty' || worktree.pullRequest) && (
+              <span className={styles.worktreeBadges} aria-label="Worktree badges">
+                {status === 'dirty' && (
+                  <span
+                    className={styles.dirtyBadge}
+                    role="img"
+                    aria-label="Dirty worktree"
+                    title="Uncommitted changes"
+                  />
+                )}
+                {worktree.pullRequest && (
+                  <PullRequestStateIcon
+                    className={styles.pullRequestBadge}
+                    state={worktree.pullRequest.state}
+                    size={13}
+                  />
+                )}
+              </span>
+            )}
+          </span>
           <SidebarTooltip
             className={styles.branchNameWrap}
             label={worktree.branch}
@@ -119,7 +155,7 @@ function WorktreeRow({
             tooltip={worktree.branch}
             data-branch-name={worktree.branch}
           />
-        )}
+        </span>
       </button>
       {!worktree.isMain && (
         <div className={styles.rowActions}>

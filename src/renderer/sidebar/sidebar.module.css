@@ -150,7 +150,7 @@
 
 .tree-row {
   position: relative;
-  height: 30px;
+  height: 42px;
   display: flex;
   align-items: center;
   border-radius: 8px;
@@ -179,9 +179,9 @@
   height: 100%;
   min-width: 0;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 7px;
-  padding: 0 7px;
+  padding: 5px 7px;
   border: 0;
   background: transparent;
   text-align: left;
@@ -213,12 +213,56 @@
   gap: 6px;
 }
 
+.worktree-icon {
+  flex: 0 0 auto;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  margin-top: 1px;
+}
+
+.worktree-copy {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.worktree-top-line {
+  min-width: 0;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.worktree-badges {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding-left: 1px;
+}
+
+.dirty-badge {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--amber);
+  box-shadow: 0 0 0 1px rgba(216, 173, 104, 0.15);
+}
+
+.pull-request-badge {
+  opacity: 0.9;
+}
+
 .branch-name-wrap {
   position: relative;
   min-width: 0;
-  max-width: 44%;
-  flex: 0 1 auto;
-  height: 100%;
+  max-width: 100%;
+  height: 14px;
   display: flex;
   align-items: center;
   color: var(--faint);

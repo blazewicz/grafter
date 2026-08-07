@@ -3,6 +3,7 @@ import {
   mainWorktreeFactory,
   projectConfigFactory,
   projectFactory,
+  pullRequestFactory,
   worktreeFactory,
 } from '../../factories';
 import { fakeSlug } from '../../factories/faker';
@@ -27,6 +28,7 @@ export function buildRepositoryWorktreesScenario(): RepositoryWorktreesScenario 
     projectId: repositoryConfig.id,
     displayName: `a-${fakeSlug('worktree')}`,
     path: `${repositoryConfig.path}.worktrees/${fakeSlug('first')}`,
+    pullRequest: pullRequestFactory.build(),
   });
   const sharedDisplayName = `m-${fakeSlug('worktree')}`;
   const firstByPath = worktreeFactory.build({

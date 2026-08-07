@@ -1,6 +1,11 @@
 import { FolderOpen, Plus, Settings } from 'lucide-react';
 import { useRef, useState } from 'react';
-import type { GrafterApi, Project, Worktree } from '../../shared/contracts';
+import type {
+  GrafterApi,
+  Project,
+  Worktree,
+  WorktreeStatus,
+} from '../../shared/contracts';
 import controls from '../styles/controls.module.css';
 import styles from './sidebar.module.css';
 import { WorktreeList } from './WorktreeList';
@@ -15,6 +20,7 @@ export function Sidebar({
   repository,
   width,
   selectedId,
+  selectedWorktreeStatus,
   onSelect,
   onOpenRepository,
   onCreated,
@@ -27,6 +33,7 @@ export function Sidebar({
   repository: Project;
   width: number;
   selectedId: string | undefined;
+  selectedWorktreeStatus: WorktreeStatus | undefined;
   onSelect: (id: string) => void;
   onOpenRepository: () => void;
   onCreated: (
@@ -75,6 +82,7 @@ export function Sidebar({
           homeDirectory={homeDirectory}
           project={repository}
           selectedId={selectedId}
+          selectedWorktreeStatus={selectedWorktreeStatus}
           adding={adding}
           flat
           onSelect={onSelect}

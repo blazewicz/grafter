@@ -31,6 +31,7 @@ function renderSidebar(options: RenderSidebarOptions = {}): void {
       repository={scenario.repository}
       width={options.width ?? defaultSidebarWidth}
       selectedId={options.selectedId}
+      selectedWorktreeStatus={undefined}
       onSelect={options.onSelect ?? (() => undefined)}
       onOpenRepository={options.onOpenRepository ?? (() => undefined)}
       onCreated={options.onCreated ?? (() => undefined)}
