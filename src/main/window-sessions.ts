@@ -121,6 +121,19 @@ export class WindowSessionRegistry<
     return session;
   }
 
+  forEachService(visitor: (service: TService) => void): void {
+    for (const session of this.#sessions.values()) {
+      if (
+        session.disposed ||
+        session.dialogParent.isDestroyed() ||
+        session.dialogParent.webContents.isDestroyed()
+      ) {
+        continue;
+      }
+      visitor(session.service);
+    }
+  }
+
   #trackSubscription(
     session: RegisteredWindowSession<TService, TWindow>,
     unsubscribe: () => void,

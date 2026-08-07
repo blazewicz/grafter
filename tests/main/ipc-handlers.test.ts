@@ -21,6 +21,7 @@ interface Harness {
   launchEditor: ReturnType<typeof vi.fn>;
   openRepository: ReturnType<typeof vi.fn>;
   openRecentRepository: ReturnType<typeof vi.fn>;
+  updateSettings: ReturnType<typeof vi.fn>;
 }
 
 function createHarness(
@@ -42,11 +43,12 @@ function createHarness(
   const launchEditor = vi.fn().mockResolvedValue(undefined);
   const openRepository = vi.fn().mockResolvedValue(undefined);
   const openRecentRepository = vi.fn().mockResolvedValue(undefined);
+  const updateSettings = vi.fn().mockResolvedValue(undefined);
 
   registerIpcHandlers({
     ipcMain: { handle },
     sessions: { resolve } as unknown as Sessions,
-    windowManager: { openRepository, openRecentRepository },
+    windowManager: { openRepository, openRecentRepository, updateSettings },
     dialog: { showOpenDialog },
     shell: { openPath, openExternal },
     clipboard: { writeText },
@@ -63,6 +65,7 @@ function createHarness(
     launchEditor,
     openRepository,
     openRecentRepository,
+    updateSettings,
   };
 }
 

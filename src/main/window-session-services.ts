@@ -22,6 +22,7 @@ type SnapshotSubscriber = (snapshot: AppSnapshot) => void;
 
 export interface WindowSessionService {
   snapshot(): AppSnapshot;
+  publishSnapshot(): void;
   commandLog(scope: unknown): CommandRecord[];
   refresh(): Promise<AppSnapshot>;
   listBranches(): Promise<string[]>;
@@ -157,7 +158,7 @@ export class RepositoryWindowSession implements WindowSessionService {
   }
 
   async refresh(): Promise<AppSnapshot> {
-    await this.repository.refresh();
+    await this.repository.refresh({ useGlobalRefreshLimit: true });
     return this.snapshot();
   }
 
@@ -335,7 +336,6 @@ export class WelcomeWindowSession implements WindowSessionService {
 
   async updateSettings(settings: Settings): Promise<AppSnapshot> {
     await updateSettings(this.store, settings);
-    this.publishSnapshot();
     return this.snapshot();
   }
 

@@ -5,7 +5,10 @@ import type { RepositoryLocation } from '../../src/main/services/repository-loca
 import { RepositoryService } from '../../src/main/services/repository-service';
 import { StateStore } from '../../src/main/store';
 import { WindowManager } from '../../src/main/window-manager';
-import type { WindowSessionService } from '../../src/main/window-session-services';
+import {
+  WelcomeWindowSession,
+  type WindowSessionService,
+} from '../../src/main/window-session-services';
 import {
   WindowSessionRegistry,
   type WindowSessionSender,
@@ -17,6 +20,8 @@ import type {
   RepositoryWindowSnapshot,
   WelcomeWindowSnapshot,
 } from '../../src/shared/contracts';
+import { ipc } from '../../src/shared/ipc';
+import { settingsFactory } from '../factories';
 import { StubCommandRunner } from './support/stub-command-runner';
 
 class FakeSender extends EventEmitter implements WindowSessionSender {
@@ -194,7 +199,10 @@ function repositorySnapshot(
 }
 
 function welcomeSnapshot(harness: Harness, window: FakeWindow): WelcomeWindowSnapshot {
-  const value = snapshot(harness, window);
+  return expectWelcomeSnapshot(snapshot(harness, window));
+}
+
+function expectWelcomeSnapshot(value: AppSnapshot): WelcomeWindowSnapshot {
   if (value.kind !== 'welcome') throw new Error('Expected a welcome snapshot.');
   return value;
 }
@@ -271,6 +279,85 @@ describe('WindowManager', () => {
     expect(expectRepositorySnapshot(invokingSnapshot).repository.name).toBe('alpha');
     expect(repositorySnapshot(harness, firstWindow).repository.name).toBe('alpha');
     expect(repositorySnapshot(harness, secondWindow).repository.name).toBe('beta');
+  });
+
+  it('publishes successful global settings updates to every live window session', async () => {
+    const alpha = repositoryLocation('alpha');
+    const beta = repositoryLocation('beta');
+    const harness = createHarness(
+      new Map([
+        [alpha.selectedWorktreePath, alpha],
+        [beta.selectedWorktreePath, beta],
+      ]),
+    );
+    const alphaWindow = await harness.manager.ensureWelcomeWindow();
+    await harness.manager.openRepository(alphaWindow.webContents, alpha.mainWorktreePath);
+    await harness.manager.openRepository(alphaWindow.webContents, beta.mainWorktreePath);
+    const betaWindow = harness.windows[1];
+    if (!betaWindow) throw new Error('Expected a second repository window.');
+
+    const welcomeWindow = new FakeWindow();
+    const welcomeService = new WelcomeWindowSession(harness.store, {
+      homeDirectory: '/Users/developer',
+      systemLocale: 'en-GB',
+    });
+    const disposeWelcomeRegistration = harness.sessions.register({
+      window: welcomeWindow,
+      service: welcomeService,
+      subscribeToSnapshotUpdates: (subscriber) =>
+        welcomeService.subscribeToSnapshotUpdates(subscriber),
+      subscribeToCommandUpdates: (subscriber) =>
+        welcomeService.subscribeToCommandUpdates(subscriber),
+    });
+    const disposedWindow = new FakeWindow();
+    const disposedService = new WelcomeWindowSession(harness.store, {
+      homeDirectory: '/Users/developer',
+      systemLocale: 'en-GB',
+    });
+    const disposeClosedRegistration = harness.sessions.register({
+      window: disposedWindow,
+      service: disposedService,
+      subscribeToSnapshotUpdates: (subscriber) =>
+        disposedService.subscribeToSnapshotUpdates(subscriber),
+      subscribeToCommandUpdates: (subscriber) =>
+        disposedService.subscribeToCommandUpdates(subscriber),
+    });
+    disposeClosedRegistration();
+    disposedService.dispose();
+
+    const alphaRepository = repositorySnapshot(harness, alphaWindow).repository;
+    const betaRepository = repositorySnapshot(harness, betaWindow).repository;
+    alphaWindow.webContents.sent.splice(0);
+    betaWindow.webContents.sent.splice(0);
+    welcomeWindow.webContents.sent.splice(0);
+    const settings = settingsFactory.build({
+      defaultWorktreePath: '  /worktrees/<repo_name>  ',
+    });
+
+    const result = await harness.manager.updateSettings(
+      alphaWindow.webContents,
+      settings,
+    );
+
+    expect(expectRepositorySnapshot(result).settings.defaultWorktreePath).toBe(
+      '/worktrees/<repo_name>',
+    );
+    for (const window of [alphaWindow, betaWindow, welcomeWindow]) {
+      expect(window.webContents.sent).toHaveLength(1);
+      expect(window.webContents.sent[0]).toMatchObject({
+        channel: ipc.snapshotUpdate,
+        value: { settings: { defaultWorktreePath: '/worktrees/<repo_name>' } },
+      });
+    }
+    expect(repositorySnapshot(harness, alphaWindow).repository).toEqual(alphaRepository);
+    expect(repositorySnapshot(harness, betaWindow).repository).toEqual(betaRepository);
+    expect(
+      expectWelcomeSnapshot(welcomeService.snapshot()).recentRepositories,
+    ).toHaveLength(2);
+    expect(disposedWindow.webContents.sent).toEqual([]);
+
+    disposeWelcomeRegistration();
+    welcomeService.dispose();
   });
 
   it('deduplicates simultaneous opens of one canonical repository', async () => {

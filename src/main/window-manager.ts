@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { AppSnapshot, ProjectConfig } from '../shared/contracts';
+import type { AppSnapshot, ProjectConfig, Settings } from '../shared/contracts';
 import type { ApplicationRuntime } from './application-runtime';
 import {
   RepositoryLocator,
@@ -134,6 +134,13 @@ export class WindowManager<
     );
     if (!repository) throw new Error('Recent repository not found.');
     return this.openRepository(sender, repository.lastOpenedPath);
+  }
+
+  async updateSettings(sender: TSender, settings: Settings): Promise<AppSnapshot> {
+    const session = this.#sessions.resolve(sender).service;
+    const snapshot = await session.updateSettings(settings);
+    this.#publishSnapshots();
+    return snapshot;
   }
 
   async openRepositoryFromWindow(
@@ -327,6 +334,10 @@ export class WindowManager<
     for (const session of this.#windows.values()) {
       if (session.kind === 'welcome') session.service.publishSnapshot();
     }
+  }
+
+  #publishSnapshots(): void {
+    this.#sessions.forEachService((service) => service.publishSnapshot());
   }
 
   #session(window: TWindow): ManagedSession {
