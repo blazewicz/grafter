@@ -150,15 +150,19 @@
 
 .tree-row {
   position: relative;
-  height: 42px;
+  height: 44px;
   display: flex;
   align-items: center;
   border-radius: 8px;
+  background: rgba(255, 255, 255, 0.014);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.048),
+    inset 0 1px rgba(255, 255, 255, 0.018);
   color: #b3b3b7;
 }
 
 .tree-row:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.055);
   color: #dededf;
 }
 
@@ -189,6 +193,9 @@
 }
 
 .branch-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
   margin-left: 15px;
   padding-left: 7px;
   border-left: 1px solid rgba(255, 255, 255, 0.055);
@@ -226,7 +233,7 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 3px;
 }
 
 .worktree-top-line {
@@ -243,6 +250,12 @@
   align-items: center;
   gap: 7px;
   padding-left: 1px;
+}
+
+.tree-row:hover .worktree-badges,
+.tree-row > .tree-label:focus-visible .worktree-badges,
+.tree-row:has(> .row-actions:focus-within) .worktree-badges {
+  display: none;
 }
 
 .dirty-badge {
@@ -265,8 +278,8 @@
   height: 14px;
   display: flex;
   align-items: center;
-  color: var(--faint);
-  font-size: 10px;
+  color: #929298;
+  font-size: 10.25px;
 }
 
 .branch-name {
