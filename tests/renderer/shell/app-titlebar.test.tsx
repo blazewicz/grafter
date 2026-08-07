@@ -11,13 +11,13 @@ const project = projectFactory.build();
 const worktree = worktreeFactory.build({ projectId: project.id });
 
 interface RenderAppTitlebarOptions {
-  projectName?: string;
+  repositoryName?: string;
   worktree?: Worktree | undefined;
   canGoBack?: boolean;
   canGoForward?: boolean;
   onBack?: () => void;
   onForward?: () => void;
-  onSelectProject?: (() => void) | undefined;
+  onSelectRepository?: (() => void) | undefined;
   busy?: boolean;
   onRefresh?: () => void;
 }
@@ -25,15 +25,15 @@ interface RenderAppTitlebarOptions {
 function renderAppTitlebar(options: RenderAppTitlebarOptions = {}): void {
   render(
     <AppTitlebar
-      projectName={options.projectName ?? project.name}
+      repositoryName={options.repositoryName ?? project.name}
       worktree={Object.hasOwn(options, 'worktree') ? options.worktree : worktree}
       canGoBack={options.canGoBack ?? false}
       canGoForward={options.canGoForward ?? true}
       onBack={options.onBack ?? (() => undefined)}
       onForward={options.onForward ?? (() => undefined)}
-      onSelectProject={
-        Object.hasOwn(options, 'onSelectProject')
-          ? options.onSelectProject
+      onSelectRepository={
+        Object.hasOwn(options, 'onSelectRepository')
+          ? options.onSelectRepository
           : () => undefined
       }
       busy={options.busy ?? false}
@@ -48,51 +48,51 @@ describe('AppTitlebar', () => {
     vi.restoreAllMocks();
   });
 
-  it('renders project details with an interactive project and no worktree context', async () => {
+  it('renders repository details with an interactive repository and no worktree context', async () => {
     const user = userEvent.setup();
-    const onSelectProject = vi.fn();
+    const onSelectRepository = vi.fn();
     renderAppTitlebar({
       worktree: undefined,
-      onSelectProject,
+      onSelectRepository,
     });
 
     const projectDetails = screen.getByRole('button', { name: project.name });
     expect(projectDetails).toBeVisible();
     expect(projectDetails).toHaveAttribute(
       'title',
-      `Open ${project.name} project details`,
+      `Open ${project.name} repository details`,
     );
     expect(screen.queryByText(worktree.displayName)).toBeNull();
 
     await user.click(projectDetails);
 
-    expect(onSelectProject).toHaveBeenCalledOnce();
+    expect(onSelectRepository).toHaveBeenCalledOnce();
   });
 
-  it('renders worktree details with a project link and worktree context', async () => {
+  it('renders worktree details with a repository link and worktree context', async () => {
     const user = userEvent.setup();
-    const onSelectProject = vi.fn();
-    renderAppTitlebar({ onSelectProject });
+    const onSelectRepository = vi.fn();
+    renderAppTitlebar({ onSelectRepository });
 
     const projectDetails = screen.getByRole('button', { name: project.name });
     expect(projectDetails).toBeVisible();
     expect(projectDetails).toHaveAttribute(
       'title',
-      `Open ${project.name} project details`,
+      `Open ${project.name} repository details`,
     );
     expect(screen.getByText(worktree.displayName)).toBeVisible();
 
     await user.click(projectDetails);
 
-    expect(onSelectProject).toHaveBeenCalledOnce();
+    expect(onSelectRepository).toHaveBeenCalledOnce();
   });
 
   it('renders a non-interactive fallback when no project is active', () => {
     const fallbackName = 'Worktrees';
     renderAppTitlebar({
-      projectName: fallbackName,
+      repositoryName: fallbackName,
       worktree: undefined,
-      onSelectProject: undefined,
+      onSelectRepository: undefined,
     });
 
     expect(screen.getByText(fallbackName)).toBeVisible();
@@ -105,7 +105,7 @@ describe('AppTitlebar', () => {
     renderAppTitlebar();
 
     expect(screen.getByRole('banner')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Refresh repositories' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Refresh repository' })).toBeVisible();
   });
 
   it('exposes history availability through its navigation controls', () => {
@@ -129,7 +129,7 @@ describe('AppTitlebar', () => {
 
     await user.click(screen.getByRole('button', { name: 'Back' }));
     await user.click(screen.getByRole('button', { name: 'Forward' }));
-    await user.click(screen.getByRole('button', { name: 'Refresh repositories' }));
+    await user.click(screen.getByRole('button', { name: 'Refresh repository' }));
 
     expect(onBack).toHaveBeenCalledOnce();
     expect(onForward).toHaveBeenCalledOnce();

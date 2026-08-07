@@ -1,37 +1,26 @@
-import { app, BrowserWindow, clipboard, dialog, ipcMain, shell } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  clipboard,
+  dialog,
+  ipcMain,
+  Menu,
+  shell,
+  type MenuItemConstructorOptions,
+  type WebContents,
+} from 'electron';
 import path from 'node:path';
-import { validateClipboardText } from '../shared/clipboard';
-import type {
-  AppSnapshot,
-  CommandRecord,
-  CreateWorktreeRequest,
-  EditorTool,
-  Settings,
-  SwitchBranchRequest,
-} from '../shared/contracts';
-import { ipc } from '../shared/ipc';
-import { AppService } from './services/app-service';
-import { CommandRunner } from './commands';
-import { editorFileUrl, launchEditor } from './editors';
+import { ApplicationRuntime } from './application-runtime';
+import { launchEditor } from './editors';
+import { registerIpcHandlers } from './ipc-handlers';
+import { openRepositoryFromNativeMenu } from './native-open-repository';
 import { StateStore } from './store';
+import { WindowManager } from './window-manager';
+import type { WindowSessionService } from './window-session-services';
+import { WindowSessionRegistry } from './window-sessions';
 
-let mainWindow: BrowserWindow | undefined;
-let service: AppService;
-
-function broadcastCommand(command: CommandRecord): void {
-  for (const window of BrowserWindow.getAllWindows()) {
-    window.webContents.send(ipc.commandUpdate, command);
-  }
-}
-
-function broadcastSnapshot(snapshot: AppSnapshot): void {
-  for (const window of BrowserWindow.getAllWindows()) {
-    window.webContents.send(ipc.snapshotUpdate, snapshot);
-  }
-}
-
-async function createWindow(): Promise<void> {
-  mainWindow = new BrowserWindow({
+function createBrowserWindow(): BrowserWindow {
+  const window = new BrowserWindow({
     width: 1220,
     height: 790,
     minWidth: 860,
@@ -46,7 +35,8 @@ async function createWindow(): Promise<void> {
       sandbox: true,
     },
   });
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+
+  window.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith('https://')) {
       void shell
         .openExternal(url)
@@ -56,134 +46,119 @@ async function createWindow(): Promise<void> {
     }
     return { action: 'deny' };
   });
+  return window;
+}
 
+async function loadBrowserWindow(window: BrowserWindow): Promise<void> {
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
-    await mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
+    await window.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
   } else {
-    await mainWindow.loadFile(
+    await window.loadFile(
       path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`),
     );
   }
 }
 
-function registerIpc(): void {
-  ipcMain.handle(ipc.snapshot, () => service.snapshot());
-  ipcMain.handle(ipc.commandLog, (_event, context: unknown) =>
-    service.commandLog(context),
-  );
-  ipcMain.handle(ipc.chooseProject, async () => {
-    const result = await dialog.showOpenDialog(mainWindow!, {
-      title: 'Choose the main Git clone',
-      buttonLabel: 'Add project',
-      properties: ['openDirectory'],
-    });
-    const selected = result.filePaths[0];
-    return result.canceled || !selected ? null : service.addProject(selected);
-  });
-  ipcMain.handle(ipc.removeProject, (_event, projectId: string) =>
-    service.removeProject(projectId),
-  );
-  ipcMain.handle(ipc.refresh, () => service.refresh());
-  ipcMain.handle(ipc.refreshProject, (_event, projectId: string) =>
-    service.refreshProject(projectId),
-  );
-  ipcMain.handle(ipc.listBranches, (_event, projectId: string) =>
-    service.listBranches(projectId),
-  );
-  ipcMain.handle(ipc.suggestWorktreePath, (_event, projectId: string, branch: string) =>
-    service.suggestWorktreePath(projectId, branch),
-  );
-  ipcMain.handle(ipc.createWorktree, (_event, request: CreateWorktreeRequest) =>
-    service.createWorktree(request),
-  );
-  ipcMain.handle(ipc.switchBranch, (_event, request: SwitchBranchRequest) =>
-    service.switchBranch(request),
-  );
-  ipcMain.handle(ipc.prepareRemove, (_event, worktreeId: string) =>
-    service.prepareRemove(worktreeId),
-  );
-  ipcMain.handle(ipc.approveCommand, (_event, approvalId: string) =>
-    service.approve(approvalId),
-  );
-  ipcMain.handle(ipc.rejectCommand, (_event, approvalId: string) =>
-    service.reject(approvalId),
-  );
-  ipcMain.handle(ipc.worktreeDetails, (_event, worktreeId: string) =>
-    service.details(worktreeId),
-  );
-  ipcMain.handle(ipc.setComparisonBase, (_event, request: unknown) =>
-    service.setComparisonBase(request),
-  );
-  ipcMain.handle(ipc.listBranchCommits, (_event, request: unknown) =>
-    service.listBranchCommits(request),
-  );
-  ipcMain.handle(ipc.openDiff, (_event, worktreeId: string) =>
-    service.openDiff(worktreeId),
-  );
-  ipcMain.handle(ipc.openBranchDiff, (_event, request: unknown) =>
-    service.openBranchDiff(request),
-  );
-  ipcMain.handle(ipc.openCommitDiff, (_event, request: unknown) =>
-    service.openCommitDiff(request),
-  );
-  ipcMain.handle(ipc.diffFile, (_event, request: unknown) => service.diffFile(request));
-  ipcMain.handle(ipc.closeDiff, (_event, sessionId: string) =>
-    service.closeDiff(sessionId),
-  );
-  ipcMain.handle(ipc.refreshPullRequest, (_event, worktreeId: string) =>
-    service.refreshPullRequest(worktreeId),
-  );
-  ipcMain.handle(ipc.worktreeStatus, (_event, worktreeId: string) =>
-    service.worktreeStatus(worktreeId),
-  );
-  ipcMain.handle(ipc.updateSettings, (_event, settings: Settings) =>
-    service.updateSettings(settings),
-  );
-  ipcMain.handle(ipc.updateProjectSetup, (_event, projectId: string, script: string) =>
-    service.updateProjectSetup(projectId, script),
-  );
-  ipcMain.handle(ipc.openWorktreeDirectory, async (_event, worktreeId: string) => {
-    const error = await shell.openPath(path.resolve(service.worktreePath(worktreeId)));
-    if (error) throw new Error(error);
-  });
-  ipcMain.handle(
-    ipc.openWorktreeInEditor,
-    async (_event, worktreeId: string, editor: EditorTool) => {
-      await launchEditor(editor, service.worktreePath(worktreeId));
-    },
-  );
-  ipcMain.handle(ipc.openDiffFileInEditor, async (_event, request: unknown) => {
-    const target = service.diffFileEditorTarget(request);
-    await shell.openExternal(editorFileUrl(target.editor, target.filePath, target.line));
-  });
-  ipcMain.handle(ipc.openExternal, async (_event, url: string) => {
-    const parsed = new URL(url);
-    if (parsed.protocol !== 'https:') throw new Error('Only HTTPS links can be opened.');
-    await shell.openExternal(parsed.toString());
-  });
-  ipcMain.handle(ipc.copyText, (_event, text: unknown) => {
-    clipboard.writeText(validateClipboardText(text));
-  });
-}
-
 async function startApplication(): Promise<void> {
-  const runner = new CommandRunner(broadcastCommand);
-  service = new AppService(new StateStore(app.getPath('userData')), runner, {
+  const runtime = new ApplicationRuntime();
+  const store = new StateStore(app.getPath('userData'));
+  await store.load();
+  const sessions = new WindowSessionRegistry<
+    WebContents,
+    BrowserWindow,
+    WindowSessionService
+  >();
+  const windowManager = new WindowManager({
+    store,
+    runtime,
+    sessions,
+    createWindow: createBrowserWindow,
+    loadWindow: loadBrowserWindow,
     homeDirectory: app.getPath('home'),
     systemLocale: app.getSystemLocale(),
-    onSnapshotUpdate: broadcastSnapshot,
   });
-  await service.initialize();
-  registerIpc();
-  await createWindow();
+
+  registerIpcHandlers({
+    ipcMain,
+    sessions,
+    windowManager,
+    dialog,
+    shell,
+    clipboard,
+    launchEditor,
+  });
+  Menu.setApplicationMenu(
+    buildApplicationMenu(() => {
+      void openRepositoryFromNativeMenu({
+        getFocusedWindow: () => BrowserWindow.getFocusedWindow(),
+        getAllWindows: () => BrowserWindow.getAllWindows(),
+        ensureWelcomeWindow: () => windowManager.ensureWelcomeWindow(),
+        showOpenDialog: (window) =>
+          dialog.showOpenDialog(window, {
+            title: 'Open a Git repository or worktree',
+            buttonLabel: 'Open Repository',
+            properties: ['openDirectory'],
+          }),
+        showOpenError: (window, detail) =>
+          dialog.showMessageBox(window, {
+            type: 'error',
+            title: 'Unable to Open Repository',
+            message: 'The selected folder could not be opened as a Git repository.',
+            detail,
+          }),
+        openRepositoryFromWindow: (window, selectedPath) =>
+          windowManager.openRepositoryFromWindow(window, selectedPath),
+        logError: (message, error) => console.error(message, error),
+      });
+    }),
+  );
+  await windowManager.ensureWelcomeWindow();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      void createWindow().catch((error: unknown) =>
-        console.error('Failed to recreate the application window.', error),
-      );
+      void windowManager
+        .ensureWelcomeWindow()
+        .catch((error: unknown) =>
+          console.error('Failed to recreate the welcome window.', error),
+        );
     }
   });
+}
+
+function buildApplicationMenu(onOpenRepository: () => void): Menu {
+  const fileMenu: MenuItemConstructorOptions = {
+    label: 'File',
+    submenu: [
+      {
+        label: 'Open Repository...',
+        accelerator: 'CmdOrCtrl+O',
+        click: onOpenRepository,
+      },
+      { type: 'separator' },
+      { role: 'close' },
+    ],
+  };
+  const template: MenuItemConstructorOptions[] =
+    process.platform === 'darwin'
+      ? [
+          {
+            label: app.name,
+            submenu: [
+              { role: 'about' },
+              { type: 'separator' },
+              { role: 'hide' },
+              { role: 'hideOthers' },
+              { role: 'unhide' },
+              { type: 'separator' },
+              { role: 'quit' },
+            ],
+          },
+          fileMenu,
+          { role: 'editMenu' },
+          { role: 'windowMenu' },
+        ]
+      : [fileMenu, { role: 'editMenu' }, { role: 'windowMenu' }];
+  return Menu.buildFromTemplate(template);
 }
 
 void app

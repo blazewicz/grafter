@@ -237,7 +237,7 @@ describe('BranchChangesCard', () => {
     expect(screen.getByRole('textbox', { name: 'Filter branches' })).toHaveFocus();
     expect(screen.getByText('Loading branches…')).toBeVisible();
     expect(listBranches).toHaveBeenCalledOnce();
-    expect(listBranches).toHaveBeenCalledWith(details.projectId);
+    expect(listBranches).toHaveBeenCalledWith();
 
     branches.resolve(changesScenario.branches);
 
@@ -331,7 +331,7 @@ describe('BranchChangesCard', () => {
     });
     expect(onError).toHaveBeenCalledWith('failed');
     expect(listBranches).toHaveBeenCalledOnce();
-    expect(listBranches).toHaveBeenCalledWith(details.projectId);
+    expect(listBranches).toHaveBeenCalledWith();
     expect(screen.getByText('No matching branches')).toBeVisible();
   });
 

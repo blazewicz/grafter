@@ -1,43 +1,43 @@
 import { X } from 'lucide-react';
 import { useState } from 'react';
 import type {
-  AppSnapshot,
   DateFormatPreference,
   Project,
+  Settings,
   TimeFormatPreference,
 } from '../../shared/contracts';
 import controls from '../styles/controls.module.css';
 import styles from './dialogs.module.css';
 
-function ProjectSetupOverride({
-  project,
+function RepositorySetupOverride({
+  repository,
   script,
   onChange,
   onSave,
 }: {
-  project: Project;
+  repository: Project;
   script: string;
-  onChange: (projectId: string, script: string) => void;
-  onSave: (projectId: string, script: string) => void;
+  onChange: (script: string) => void;
+  onSave: (script: string) => void;
 }): React.JSX.Element {
-  const inputId = `project-setup-${project.id}`;
+  const inputId = `repository-setup-${repository.id}`;
 
   return (
     <div>
       <label htmlFor={inputId}>
-        <span>{project.name}</span>
+        <span>{repository.name}</span>
       </label>
       <div className={styles.inlineSave}>
         <input
           id={inputId}
           placeholder="e.g. npm install"
           value={script}
-          onChange={(event) => onChange(project.id, event.target.value)}
+          onChange={(event) => onChange(event.target.value)}
         />
         <button
           className={`${controls.button} ${controls.ghost}`}
-          aria-label={`Save setup override for ${project.name}`}
-          onClick={() => onSave(project.id, script)}
+          aria-label={`Save setup override for ${repository.name}`}
+          onClick={() => onSave(script)}
         >
           Save
         </button>
@@ -47,31 +47,22 @@ function ProjectSetupOverride({
 }
 
 export function SettingsDialog({
-  snapshot,
+  settings,
+  repository,
   onClose,
   onSave,
-  onProjectSetup,
+  onRepositorySetup,
 }: {
-  snapshot: AppSnapshot;
+  settings: Settings;
+  repository: Project;
   onClose: () => void;
-  onSave: (settings: AppSnapshot['settings']) => void;
-  onProjectSetup: (projectId: string, script: string) => void;
+  onSave: (settings: Settings) => void;
+  onRepositorySetup: (script: string) => void;
 }): React.JSX.Element {
-  const [pathTemplate, setPathTemplate] = useState(snapshot.settings.defaultWorktreePath);
-  const [dateFormat, setDateFormat] = useState(snapshot.settings.dateFormat);
-  const [timeFormat, setTimeFormat] = useState(snapshot.settings.timeFormat);
-  const [scripts, setScripts] = useState<Record<string, string>>(() =>
-    Object.fromEntries(
-      snapshot.projects.map((project) => [project.id, project.setupScript ?? '']),
-    ),
-  );
-
-  function handleProjectScriptChange(projectId: string, script: string): void {
-    setScripts((current) => ({
-      ...current,
-      [projectId]: script,
-    }));
-  }
+  const [pathTemplate, setPathTemplate] = useState(settings.defaultWorktreePath);
+  const [dateFormat, setDateFormat] = useState(settings.dateFormat);
+  const [timeFormat, setTimeFormat] = useState(settings.timeFormat);
+  const [setupScript, setSetupScript] = useState(repository.setupScript ?? '');
 
   return (
     <div className={styles.modalBackdrop}>
@@ -97,7 +88,7 @@ export function SettingsDialog({
         <div className={styles.settingsSection}>
           <h3>Worktree location</h3>
           <p>
-            Relative paths are resolved from the main clone. Use{' '}
+            Relative paths are resolved from the repository’s main worktree. Use{' '}
             <code>&lt;repo_name&gt;</code> as a placeholder.
           </p>
           <label>
@@ -150,21 +141,12 @@ export function SettingsDialog({
             These stay in Grafter’s app data and override a repository’s{' '}
             <code>.grafter.json</code>.
           </p>
-          {snapshot.projects.length ? (
-            snapshot.projects.map((project) => (
-              <ProjectSetupOverride
-                key={project.id}
-                project={project}
-                script={scripts[project.id] ?? ''}
-                onChange={handleProjectScriptChange}
-                onSave={onProjectSetup}
-              />
-            ))
-          ) : (
-            <div className={styles.settingsEmpty}>
-              Add a project to configure its setup command.
-            </div>
-          )}
+          <RepositorySetupOverride
+            repository={repository}
+            script={setupScript}
+            onChange={setSetupScript}
+            onSave={onRepositorySetup}
+          />
         </div>
         <div className={styles.modalActions}>
           <button className={`${controls.button} ${controls.ghost}`} onClick={onClose}>

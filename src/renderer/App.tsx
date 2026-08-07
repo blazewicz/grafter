@@ -1,13 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
-import type { AppSnapshot, CommandContext } from '../shared/contracts';
+import type { AppSnapshot, CommandLogScope } from '../shared/contracts';
 import { AuditPanel } from './audit/AuditPanel';
 import { useCommandLogs } from './audit/useCommandLogs';
 import { MainView } from './details/MainView';
 import { useWorktreeInspection } from './details/useWorktreeInspection';
 import { DiffViewer } from './diff/DiffViewer';
 import { ApprovalDialog } from './dialogs/ApprovalDialog';
-import { ProjectRemovalDialog } from './dialogs/ProjectRemovalDialog';
 import { SettingsDialog } from './dialogs/SettingsDialog';
 import { useCommandApproval } from './dialogs/useCommandApproval';
 import { ErrorToast } from './feedback/ErrorToast';
@@ -15,9 +14,10 @@ import { AppTitlebar } from './shell/AppTitlebar';
 import { Splash } from './shell/Splash';
 import { useNavigationHistory } from './shell/useNavigationHistory';
 import { defaultSidebarWidth, Sidebar } from './sidebar/Sidebar';
-import { useProjectWorktreeRefresh } from './sidebar/useProjectWorktreeRefresh';
+import { useRepositoryRefresh } from './sidebar/useRepositoryRefresh';
 import { useDiffViewer } from './diff/useDiffViewer';
 import { api, friendlyError } from './grafter-api';
+import { Welcome } from './welcome/Welcome';
 import styles from './App.module.css';
 
 type DialogName = 'settings' | null;
@@ -27,14 +27,13 @@ interface AppShellStyle extends CSSProperties {
 }
 
 export function App(): React.JSX.Element {
-  const [snapshot, setSnapshot] = useState<AppSnapshot | null>(null);
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const [projectRemovalId, setProjectRemovalId] = useState<string>();
+  const [snapshot, setSnapshot] = useState<AppSnapshot>({ kind: 'loading' });
   const [dialog, setDialog] = useState<DialogName>(null);
   const [logsOpen, setLogsOpen] = useState(false);
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(defaultSidebarWidth);
+  const appliedWorktreeSelectionRequest = useRef<string | undefined>(undefined);
   const {
     selectedId,
     canGoBack,
@@ -48,66 +47,68 @@ export function App(): React.JSX.Element {
     '--sidebar-width': `${sidebarWidth}px`,
   };
 
-  const selectedProject = snapshot?.projects.find((project) => project.id === selectedId);
-  const projectPendingRemoval = snapshot?.projects.find(
-    (project) => project.id === projectRemovalId,
+  const repository = snapshot.kind === 'repository' ? snapshot.repository : undefined;
+  const selectedRepository = repository?.id === selectedId ? repository : undefined;
+  const selectedWorktree = repository?.worktrees.find(
+    (worktree) => worktree.id === selectedId,
   );
-  const selectedWorktree = snapshot?.projects
-    .flatMap((project) => project.worktrees)
-    .find((worktree) => worktree.id === selectedId);
-  const activeProject =
-    selectedProject ??
-    snapshot?.projects.find((project) => project.id === selectedWorktree?.projectId);
-  const selectedProjectId = selectedProject?.id;
+  const selectedRepositoryId = selectedRepository?.id;
   const selectedWorktreeId = selectedWorktree?.id;
-  const selectedWorktreeProjectId = selectedWorktree?.projectId;
-  const selectedContext = useMemo<CommandContext | undefined>(() => {
-    if (selectedWorktreeId && selectedWorktreeProjectId) {
-      return {
-        kind: 'worktree',
-        projectId: selectedWorktreeProjectId,
-        worktreeId: selectedWorktreeId,
-      };
+  const selectedScope = useMemo<CommandLogScope | undefined>(() => {
+    if (selectedWorktreeId) return { kind: 'worktree', worktreeId: selectedWorktreeId };
+    if (selectedRepositoryId) {
+      return { kind: 'repository' };
     }
-    if (selectedProjectId) return { kind: 'project', projectId: selectedProjectId };
     return undefined;
-  }, [selectedProjectId, selectedWorktreeId, selectedWorktreeProjectId]);
+  }, [selectedRepositoryId, selectedWorktreeId]);
   const {
     commands,
     contextKey: selectedContextKey,
     latestActivity,
-  } = useCommandLogs(selectedContext, setError);
+  } = useCommandLogs(selectedScope, repository?.id, setError);
   const { details, status: worktreeStatus } = useWorktreeInspection(
     selectedWorktreeId,
     selectedWorktree?.branch,
     selectedWorktree?.head,
     setError,
   );
-  const projectWorktrees = details
-    ? (snapshot?.projects.find((project) => project.id === details.projectId)
-        ?.worktrees ?? [details])
-    : [];
+  const repositoryWorktrees =
+    details && details.projectId === repository?.id ? repository.worktrees : [];
 
   const applySnapshot = useCallback(
     (next: AppSnapshot): void => {
       setSnapshot(next);
-      setExpanded((current) => {
-        if (current.size) return current;
-        return new Set(next.projects.map((project) => project.id));
-      });
-      const worktrees = next.projects.flatMap((project) => project.worktrees);
-      reconcileNavigation(
-        [
-          ...next.projects.map((project) => project.id),
-          ...worktrees.map((worktree) => worktree.id),
-        ],
-        worktrees[1]?.id ?? worktrees[0]?.id,
-      );
+      switch (next.kind) {
+        case 'loading':
+        case 'welcome':
+          appliedWorktreeSelectionRequest.current = undefined;
+          reconcileNavigation([], undefined);
+          return;
+        case 'repository': {
+          const worktrees = next.repository.worktrees;
+          reconcileNavigation(
+            [next.repository.id, ...worktrees.map((worktree) => worktree.id)],
+            next.selectedWorktreeId ?? worktrees[1]?.id ?? worktrees[0]?.id,
+          );
+          if (
+            next.selectedWorktreeId &&
+            next.worktreeSelectionRequestId !== undefined &&
+            `${next.selectedWorktreeId}:${next.worktreeSelectionRequestId}` !==
+              appliedWorktreeSelectionRequest.current
+          ) {
+            appliedWorktreeSelectionRequest.current = `${next.selectedWorktreeId}:${next.worktreeSelectionRequestId}`;
+            navigate(next.selectedWorktreeId);
+          }
+          return;
+        }
+        default:
+          return assertNever(next);
+      }
     },
-    [reconcileNavigation],
+    [navigate, reconcileNavigation],
   );
 
-  useProjectWorktreeRefresh(activeProject?.id, applySnapshot, setError);
+  useRepositoryRefresh(snapshot.kind === 'repository', applySnapshot, setError);
 
   const run = useCallback(
     async <T,>(
@@ -151,13 +152,17 @@ export function App(): React.JSX.Element {
     };
   }, [applySnapshot]);
 
-  const chooseProject = (): void => {
+  const chooseRepository = (): void => {
     void run(
-      () => api.chooseProject(),
+      () => api.chooseRepository(),
       (next) => {
         if (next) applySnapshot(next);
       },
     );
+  };
+
+  const openRecentRepository = (repositoryId: string): void => {
+    void run(() => api.openRecentRepository(repositoryId), applySnapshot);
   };
 
   const {
@@ -172,27 +177,35 @@ export function App(): React.JSX.Element {
   const { approval, approvalRunning, enqueueApproval, resolveApproval } =
     useCommandApproval(api, run, applySnapshot);
 
-  const toggleProject = (projectId: string): void => {
-    setExpanded((current) => {
-      const next = new Set(current);
-      if (next.has(projectId)) next.delete(projectId);
-      else next.add(projectId);
-      return next;
-    });
-  };
+  if (snapshot.kind === 'loading') return <Splash />;
 
-  if (!snapshot) return <Splash />;
+  if (snapshot.kind === 'welcome') {
+    return (
+      <>
+        <Welcome
+          homeDirectory={snapshot.homeDirectory}
+          recentRepositories={snapshot.recentRepositories}
+          busy={busy}
+          onOpenRepository={chooseRepository}
+          onOpenRecentRepository={openRecentRepository}
+        />
+        {error && <ErrorToast message={error} onDismiss={() => setError(undefined)} />}
+      </>
+    );
+  }
+
+  const activeRepository = snapshot.repository;
 
   return (
     <div className={styles.appShell} style={appShellStyle}>
       <AppTitlebar
-        projectName={activeProject?.name ?? snapshot.projects[0]?.name ?? 'Worktrees'}
+        repositoryName={activeRepository.name}
         worktree={selectedWorktree}
         canGoBack={canGoBack}
         canGoForward={canGoForward}
         onBack={goBack}
         onForward={goForward}
-        onSelectProject={activeProject ? () => navigate(activeProject.id) : undefined}
+        onSelectRepository={() => navigate(activeRepository.id)}
         busy={busy}
         onRefresh={() => void run(() => api.refresh(), applySnapshot)}
       />
@@ -200,25 +213,22 @@ export function App(): React.JSX.Element {
       <div className={styles.workspace}>
         <Sidebar
           homeDirectory={snapshot.homeDirectory}
-          projects={snapshot.projects}
+          repository={activeRepository}
           width={sidebarWidth}
           selectedId={selectedId}
-          expanded={expanded}
           onSelect={navigate}
-          onToggleProject={toggleProject}
-          onExpandProject={(projectId) =>
-            setExpanded((current) => new Set(current).add(projectId))
-          }
-          onChooseProject={chooseProject}
-          onCreated={(projectId, next, request) => {
+          onOpenRepository={chooseRepository}
+          onCreated={(next, request) => {
             applySnapshot(next.snapshot);
-            const created = next.snapshot.projects
-              .find((project) => project.id === projectId)
-              ?.worktrees.find((worktree) => worktree.path === request.path);
+            const created =
+              next.snapshot.kind === 'repository'
+                ? next.snapshot.repository.worktrees.find(
+                    (worktree) => worktree.path === request.path,
+                  )
+                : undefined;
             if (created) navigate(created.id);
             if (next.setupApproval) enqueueApproval(next.setupApproval);
           }}
-          onRemoveProject={setProjectRemovalId}
           onRemoveWorktree={(worktree) =>
             void run(() => api.prepareRemoveWorktree(worktree.id), enqueueApproval)
           }
@@ -231,13 +241,13 @@ export function App(): React.JSX.Element {
           homeDirectory={snapshot.homeDirectory}
           settings={snapshot.settings}
           systemLocale={snapshot.systemLocale}
-          selectedProject={selectedProject}
+          selectedProject={selectedRepository}
           selectedWorktree={selectedWorktree}
           details={details}
-          projectWorktrees={projectWorktrees}
+          projectWorktrees={repositoryWorktrees}
           status={worktreeStatus}
           onSnapshot={applySnapshot}
-          onAdd={chooseProject}
+          onAdd={chooseRepository}
           onSelectWorktree={navigate}
           diffOpening={diffOpening}
           onOpenDiff={openDiff}
@@ -266,25 +276,10 @@ export function App(): React.JSX.Element {
           onApprove={() => resolveApproval('approve')}
         />
       )}
-      {projectPendingRemoval && (
-        <ProjectRemovalDialog
-          projectName={projectPendingRemoval.name}
-          busy={busy}
-          onCancel={() => setProjectRemovalId(undefined)}
-          onConfirm={() =>
-            void run(
-              () => api.removeProject(projectPendingRemoval.id),
-              (next) => {
-                applySnapshot(next);
-                setProjectRemovalId(undefined);
-              },
-            )
-          }
-        />
-      )}
       {dialog === 'settings' && (
         <SettingsDialog
-          snapshot={snapshot}
+          settings={snapshot.settings}
+          repository={activeRepository}
           onClose={() => setDialog(null)}
           onSave={(settings) =>
             void run(
@@ -295,8 +290,8 @@ export function App(): React.JSX.Element {
               },
             )
           }
-          onProjectSetup={(projectId, script) =>
-            void run(() => api.updateProjectSetup(projectId, script), applySnapshot)
+          onRepositorySetup={(script) =>
+            void run(() => api.updateRepositorySetup(script), applySnapshot)
           }
         />
       )}
@@ -314,4 +309,8 @@ export function App(): React.JSX.Element {
       {error && <ErrorToast message={error} onDismiss={() => setError(undefined)} />}
     </div>
   );
+}
+
+function assertNever(value: never): never {
+  throw new Error(`Unhandled window snapshot: ${String(value)}`);
 }

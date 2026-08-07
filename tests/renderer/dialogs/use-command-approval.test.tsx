@@ -4,7 +4,7 @@ import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useCommandApproval } from '../../../src/renderer/dialogs/useCommandApproval';
 import type { AppSnapshot, GrafterApi } from '../../../src/shared/contracts';
-import { approvalRequestFactory, appSnapshotFactory } from '../../factories';
+import { approvalRequestFactory, repositorySnapshotFactory } from '../../factories';
 import { deferred } from '../../support/deferred';
 
 type ApprovalApi = Pick<GrafterApi, 'approveCommand' | 'rejectCommand'>;
@@ -40,7 +40,7 @@ describe('useCommandApproval', () => {
   it('presents queued approvals in arrival order', async () => {
     const firstRequest = approvalRequestFactory.build();
     const secondRequest = approvalRequestFactory.build();
-    const snapshot = appSnapshotFactory.build();
+    const snapshot = repositorySnapshotFactory.build();
     const request = deferred<AppSnapshot>();
     const api = createApi();
     api.approveCommand.mockReturnValue(request.promise);
@@ -90,7 +90,7 @@ describe('useCommandApproval', () => {
     '$decision forwards the exact approval ID and applies the resulting snapshot',
     async ({ decision, method, otherMethod, remainsVisible }) => {
       const approval = approvalRequestFactory.build();
-      const snapshot = appSnapshotFactory.build();
+      const snapshot = repositorySnapshotFactory.build();
       const request = deferred<AppSnapshot>();
       const api = createApi();
       api[method].mockReturnValue(request.promise);
@@ -126,7 +126,7 @@ describe('useCommandApproval', () => {
   it('retains new requests and ignores repeated decisions while resolving', async () => {
     const firstRequest = approvalRequestFactory.build();
     const secondRequest = approvalRequestFactory.build();
-    const snapshot = appSnapshotFactory.build();
+    const snapshot = repositorySnapshotFactory.build();
     const request = deferred<AppSnapshot>();
     const api = createApi();
     api.approveCommand.mockReturnValue(request.promise);

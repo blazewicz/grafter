@@ -6,58 +6,39 @@
 
 > **Grafting** is the practice of joining parts of plants so they grow together as one.
 
-**A compact desktop workflow for Git worktrees.**
+**A compact GUI for navigating git worktrees.**
 
 ## What is Grafter?
 
-Grafter is a desktop companion for developers who use Git worktrees. It keeps local
-repositories and their worktrees easy to find while you move between your IDE, terminal,
-file manager, and GitHub.
+Grafter is a desktop companion for developers who use Git worktrees. Open any local
+repository and Grafter finds all of its worktrees and shows them in a compact window,
+with many useful insights, shortcuts to GitHub and your IDE and full transparency of
+everything that happens under the hood.
 
-- Automatically discovers worktrees for managed repositories.
-- Opens a worktree in Visual Studio Code or your file manager.
-- Shows checked-out branches, worktree status, latest commit details, and pull requests.
-- Wraps familiar command-line tools such as `git` and `gh`.
+Grafter is a GUI wrapper for CLI commands `git` and `gh`. No extra configuration is
+needed if you already have these two available. Grafter will show you all of the
+commands it runs.
 
 ## What Grafter isn't
 
-- A merge tool.
 - An IDE.
+- A merge tool.
 - A replacement for the Git CLI.
-- A replacement for GitHub Desktop.
-- An agentic coding tool.
 
-## Why use it?
+## Why would you need it?
 
-Grafter may be useful if:
-
-- Coding agents have created enough worktrees that navigating them by hand has become
-  cumbersome.
-- You keep separate workspaces for development and review work and want to move between
-  them without repeatedly stashing changes.
+- You use worktrees to isolate work units you work on against a single repo.
+- You work with different AI coding tools with worktrees per chat.
+- You're tired of typing the same commands over and over again and prefer a couple of clicks.
 
 ## When is it not for you?
 
-- You are new to Git and want a beginner-friendly graphical replacement for the Git CLI.
-- You need Windows support. Grafter targets macOS and Linux, but Linux is not currently
-  tested by the maintainer.
-
-## Features
-
-- Discover, create, inspect, and remove worktrees for managed repositories.
-- View worktree paths, clean or dirty status, and checked-out branches.
-- Switch between available local branches.
-- View the latest commit, including its message, author, timestamp, and diff summary.
-- See pull request status and open the pull request in your browser.
-- Open a worktree in Visual Studio Code or your file manager.
-- Review Git and GitHub CLI commands, output, and failures in the audit log.
-- Copy any recorded command and run it yourself in a terminal.
-- Review the exact command before approving destructive worktree removal or a
-  project-provided setup script.
+- You are new to Git and simply want a beginner-friendly graphical replacement for the Git CLI.
+- You need Windows support. Grafter is designed primarily for macOS; it may work on Linux, but Linux is not currently tested by the maintainer.
 
 ## Requirements
 
-- macOS or Linux
+- macOS
 - Node.js 22 or newer
 - Git
 - GitHub CLI (`gh`) for GitHub features
@@ -81,7 +62,7 @@ npm run check
 Build an unpacked application with `npm run package`, or create platform distributables
 with `npm run make`.
 
-## Project setup scripts
+## Repository setup scripts
 
 A repository can provide a `.grafter.json` file:
 
@@ -92,9 +73,5 @@ A repository can provide a `.grafter.json` file:
 ```
 
 Grafter shows the exact shell, arguments, script, and working directory before asking for
-approval. A local per-project override can also be configured in Settings; local overrides
-take precedence over `.grafter.json`.
-
-## Disclaimer
-
-Yes, this project is vibecoded — mostly with GPT-5.6 Sol in Codex.
+approval. A local override for the open repository can also be configured in Settings;
+local overrides take precedence over `.grafter.json`.

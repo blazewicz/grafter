@@ -9,7 +9,7 @@ export function useDiffViewer(
   diffSession: DiffSession | undefined;
   diffOpening: boolean;
   openDiff: (worktreeId: string) => void;
-  openCommitDiff: (projectId: string, commitHash: string) => void;
+  openCommitDiff: (commitHash: string) => void;
   closeDiff: () => void;
   replaceDiffSession: (next: DiffSession) => void;
 } {
@@ -25,10 +25,10 @@ export function useDiffViewer(
       .finally(() => setDiffOpening(false));
   };
 
-  const openCommitDiff = (projectId: string, commitHash: string): void => {
+  const openCommitDiff = (commitHash: string): void => {
     setDiffOpening(true);
     void api
-      .openCommitDiff({ projectId, commitHash })
+      .openCommitDiff({ commitHash })
       .then(setDiffSession)
       .catch((caught: unknown) => onError(friendlyError(caught)))
       .finally(() => setDiffOpening(false));

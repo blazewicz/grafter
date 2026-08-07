@@ -17,6 +17,7 @@ const approvalLifetimeMs = 5 * 60_000;
 
 export class ApprovalManager {
   readonly #pending = new Map<string, PendingApproval>();
+  #disposed = false;
 
   constructor(private readonly runner: CommandRunner) {}
 
@@ -26,6 +27,7 @@ export class ApprovalManager {
     afterSuccess?: () => Promise<void>,
     execution?: ApprovalExecution,
   ): ApprovalRequest {
+    this.#assertActive();
     const approvalId = randomUUID();
     const approvedSpec = { ...spec, requiresApproval: true };
     const command = this.runner.createPending(approvedSpec);
@@ -46,6 +48,7 @@ export class ApprovalManager {
   }
 
   async approve(approvalId: string): Promise<void> {
+    this.#assertActive();
     const pending = this.#take(approvalId);
     const executePreparedCommand = async (): Promise<void> => {
       const result = await this.runner.run(pending.spec, pending.recordId);
@@ -59,6 +62,7 @@ export class ApprovalManager {
   }
 
   reject(approvalId: string): void {
+    this.#assertActive();
     const pending = this.#take(approvalId);
     this.runner.reject(pending.recordId);
   }
@@ -82,5 +86,19 @@ export class ApprovalManager {
     if (!pending) return;
     this.#pending.delete(approvalId);
     this.runner.expire(pending.recordId);
+  }
+
+  dispose(): void {
+    if (this.#disposed) return;
+    this.#disposed = true;
+    for (const pending of this.#pending.values()) {
+      clearTimeout(pending.expirationTimer);
+      this.runner.expire(pending.recordId);
+    }
+    this.#pending.clear();
+  }
+
+  #assertActive(): void {
+    if (this.#disposed) throw new Error('The repository service is disposed.');
   }
 }

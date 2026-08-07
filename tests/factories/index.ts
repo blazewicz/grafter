@@ -1,5 +1,9 @@
 export { approvalRequestFactory } from './approval-request';
-export { appSnapshotFactory } from './app-snapshot';
+export {
+  loadingSnapshotFactory,
+  repositorySnapshotFactory,
+  welcomeSnapshotFactory,
+} from './app-snapshot';
 export { branchDiffSessionFactory } from './branch-diff-session';
 export { commandRecordFactory } from './command-record';
 export { commitDetailsFactory } from './commit-details';
@@ -12,13 +16,18 @@ export { diffStatsFactory } from './diff-stats';
 export { pullRequestFactory } from './pull-request';
 export { projectConfigFactory } from './project-config';
 export { projectFactory } from './project';
+export { recentRepositoryFactory } from './recent-repository';
 export { settingsFactory } from './settings';
 export { mainWorktreeFactory, worktreeFactory } from './worktree';
 export { worktreeComparisonFactory } from './worktree-comparison';
 export { worktreeDetailsFactory } from './worktree-details';
 
 import { approvalRequestFactory } from './approval-request';
-import { appSnapshotFactory } from './app-snapshot';
+import {
+  loadingSnapshotFactory,
+  repositorySnapshotFactory,
+  welcomeSnapshotFactory,
+} from './app-snapshot';
 import { branchDiffSessionFactory } from './branch-diff-session';
 import { commandRecordFactory } from './command-record';
 import { commitDetailsFactory } from './commit-details';
@@ -32,6 +41,7 @@ import { resetTestFaker } from './faker';
 import { pullRequestFactory } from './pull-request';
 import { projectConfigFactory } from './project-config';
 import { projectFactory } from './project';
+import { recentRepositoryFactory } from './recent-repository';
 import { settingsFactory } from './settings';
 import { mainWorktreeFactory, worktreeFactory } from './worktree';
 import { worktreeComparisonFactory } from './worktree-comparison';
@@ -39,7 +49,9 @@ import { worktreeDetailsFactory } from './worktree-details';
 
 const factories = [
   approvalRequestFactory,
-  appSnapshotFactory,
+  loadingSnapshotFactory,
+  repositorySnapshotFactory,
+  welcomeSnapshotFactory,
   branchDiffSessionFactory,
   commandRecordFactory,
   commitDetailsFactory,
@@ -52,6 +64,7 @@ const factories = [
   pullRequestFactory,
   projectConfigFactory,
   projectFactory,
+  recentRepositoryFactory,
   settingsFactory,
   worktreeFactory,
   mainWorktreeFactory,

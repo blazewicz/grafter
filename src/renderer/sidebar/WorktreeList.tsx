@@ -1,13 +1,4 @@
-import {
-  ChevronDown,
-  ChevronRight,
-  FolderGit2,
-  FolderOpen,
-  FolderMinus,
-  FolderRoot,
-  Plus,
-  Trash2,
-} from 'lucide-react';
+import { FolderGit2, FolderRoot, Trash2 } from 'lucide-react';
 import { useMemo } from 'react';
 import type { GrafterApi, Project, Worktree } from '../../shared/contracts';
 import { displayWorktreePath } from '../../shared/path-display';
@@ -16,35 +7,29 @@ import { NewWorktreeForm } from './NewWorktreeForm';
 import { SidebarTooltip } from './SidebarTooltip';
 import styles from './sidebar.module.css';
 
-export function ProjectNode({
+export function WorktreeList({
   homeDirectory,
   project,
-  expanded,
   selectedId,
   adding,
-  onToggle,
+  flat = false,
   onSelect,
-  onAdd,
   onCancelAdd,
   onCreated,
-  onRemoveProject,
   onRemoveWorktree,
   onError,
 }: {
   homeDirectory: string;
   project: Project;
-  expanded: boolean;
   selectedId: string | undefined;
   adding: boolean;
-  onToggle: () => void;
+  flat?: boolean;
   onSelect: (id: string) => void;
-  onAdd: () => void;
   onCancelAdd: () => void;
   onCreated: (
     result: Awaited<ReturnType<GrafterApi['createWorktree']>>,
     request: { path: string },
   ) => void;
-  onRemoveProject: () => void;
   onRemoveWorktree: (worktree: Worktree) => void;
   onError: (message: string) => void;
 }): React.JSX.Element {
@@ -54,100 +39,31 @@ export function ProjectNode({
   );
 
   return (
-    <>
-      <ProjectRoot
-        project={project}
-        expanded={expanded}
-        selectedId={selectedId}
-        onToggle={onToggle}
-        onSelect={onSelect}
-        onAdd={onAdd}
-        onRemoveProject={onRemoveProject}
-      />
-      {expanded && (
-        <div>
-          <div className={styles.branchList}>
-            {sortedWorktrees.map((worktree) => (
-              <WorktreeRow
-                key={worktree.id}
-                homeDirectory={homeDirectory}
-                mainClonePath={project.path}
-                worktree={worktree}
-                selected={selectedId === worktree.id}
-                onSelect={onSelect}
-                onRemoveWorktree={onRemoveWorktree}
-              />
-            ))}
-          </div>
-          {adding && (
-            <NewWorktreeForm
-              project={project}
-              onCancel={onCancelAdd}
-              onCreated={onCreated}
-              onError={onError}
-            />
-          )}
-        </div>
-      )}
-    </>
-  );
-}
-
-function ProjectRoot({
-  project,
-  expanded,
-  selectedId,
-  onToggle,
-  onSelect,
-  onAdd,
-  onRemoveProject,
-}: {
-  project: Project;
-  expanded: boolean;
-  selectedId: string | undefined;
-  onToggle: () => void;
-  onSelect: (id: string) => void;
-  onAdd: () => void;
-  onRemoveProject: () => void;
-}): React.JSX.Element {
-  return (
-    <div
-      className={`${styles.treeRow} ${styles.projectRow} ${
-        selectedId === project.id ? styles.selected : ''
-      }`}
-    >
-      <button
-        className={styles.treeToggle}
-        aria-label={expanded ? `Collapse ${project.name}` : `Expand ${project.name}`}
-        onClick={onToggle}
+    <div>
+      <div
+        className={`${styles.branchList} ${flat ? styles.flatWorktreeList : ''}`}
+        aria-label={`${project.name} worktrees`}
       >
-        {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-      </button>
-      <button
-        className={styles.treeLabel}
-        onClick={() => onSelect(project.id)}
-        onPointerUp={releasePointerFocus}
-      >
-        <FolderOpen size={15} />
-        <span>{project.name}</span>
-      </button>
-      <div className={styles.rowActions}>
-        <button
-          aria-label={`Add worktree to ${project.name}`}
-          title="New worktree"
-          onClick={onAdd}
-        >
-          <Plus size={14} />
-        </button>
-        <button
-          aria-label={`Remove ${project.name} from Grafter`}
-          aria-haspopup="dialog"
-          title="Remove from Grafter"
-          onClick={onRemoveProject}
-        >
-          <FolderMinus size={13} />
-        </button>
+        {sortedWorktrees.map((worktree) => (
+          <WorktreeRow
+            key={worktree.id}
+            homeDirectory={homeDirectory}
+            mainClonePath={project.path}
+            worktree={worktree}
+            selected={selectedId === worktree.id}
+            onSelect={onSelect}
+            onRemoveWorktree={onRemoveWorktree}
+          />
+        ))}
       </div>
+      {adding && (
+        <NewWorktreeForm
+          project={project}
+          onCancel={onCancelAdd}
+          onCreated={onCreated}
+          onError={onError}
+        />
+      )}
     </div>
   );
 }
@@ -177,6 +93,7 @@ function WorktreeRow({
     >
       <button
         className={styles.treeLabel}
+        aria-current={selected ? 'page' : undefined}
         aria-label={
           worktree.isMain
             ? `Main worktree, checked out branch ${worktree.branch}`

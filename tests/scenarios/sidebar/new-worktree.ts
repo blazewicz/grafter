@@ -1,5 +1,5 @@
 import type { AppSnapshot, Project } from '../../../src/shared/contracts';
-import { appSnapshotFactory, projectFactory } from '../../factories';
+import { repositorySnapshotFactory, projectFactory } from '../../factories';
 import { fakeSlug } from '../../factories/faker';
 
 export interface NewWorktreeScenario {
@@ -26,7 +26,10 @@ export function buildNewWorktreeScenario(): NewWorktreeScenario {
     suggestedPath: `${project.path}.worktrees/${pathSuffix}`,
     editedPath: `${project.path}.worktrees/${pathSuffix}-edited`,
     createdResult: {
-      snapshot: appSnapshotFactory.build({}, { associations: { projects: [project] } }),
+      snapshot: repositorySnapshotFactory.build(
+        {},
+        { associations: { repository: project } },
+      ),
     },
   };
 }

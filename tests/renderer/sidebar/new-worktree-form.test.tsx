@@ -45,7 +45,7 @@ describe('NewWorktreeForm', () => {
 
     expect(screen.getByText('Loading branches…')).toBeVisible();
     expect(listBranches).toHaveBeenCalledOnce();
-    expect(listBranches).toHaveBeenCalledWith(scenario.project.id);
+    expect(listBranches).toHaveBeenCalledWith();
     expect(
       await screen.findByRole('button', { name: scenario.availableBranch }),
     ).toBeEnabled();
@@ -80,10 +80,7 @@ describe('NewWorktreeForm', () => {
     );
 
     expect(suggestWorktreePath).toHaveBeenCalledOnce();
-    expect(suggestWorktreePath).toHaveBeenCalledWith(
-      scenario.project.id,
-      scenario.availableBranch,
-    );
+    expect(suggestWorktreePath).toHaveBeenCalledWith(scenario.availableBranch);
     const pathInput = await screen.findByRole('textbox', { name: 'Path' });
     await waitFor(() => {
       expect(pathInput).toHaveValue(scenario.suggestedPath);
@@ -94,7 +91,6 @@ describe('NewWorktreeForm', () => {
 
     expect(createWorktree).toHaveBeenCalledOnce();
     expect(createWorktree).toHaveBeenCalledWith({
-      projectId: scenario.project.id,
       branch: scenario.availableBranch,
       path: scenario.editedPath,
     });
@@ -184,7 +180,7 @@ describe('NewWorktreeForm', () => {
     });
     expect(onError).toHaveBeenCalledWith('failed');
     expect(listBranches).toHaveBeenCalledOnce();
-    expect(listBranches).toHaveBeenCalledWith(scenario.project.id);
+    expect(listBranches).toHaveBeenCalledWith();
     expect(screen.getByText('No matching branches')).toBeVisible();
   });
 });

@@ -127,7 +127,7 @@ describe('BranchCard', () => {
     expect(screen.getByRole('textbox', { name: 'Filter branches' })).toHaveFocus();
     expect(screen.getByText('Loading branches…')).toBeVisible();
     expect(listBranches).toHaveBeenCalledOnce();
-    expect(listBranches).toHaveBeenCalledWith(details.projectId);
+    expect(listBranches).toHaveBeenCalledWith();
 
     branches.resolve(branchScenario.branches);
 
@@ -164,7 +164,7 @@ describe('BranchCard', () => {
     );
 
     expect(listBranches).toHaveBeenCalledOnce();
-    expect(listBranches).toHaveBeenCalledWith(details.projectId);
+    expect(listBranches).toHaveBeenCalledWith();
     expect(switchBranch).toHaveBeenCalledOnce();
     expect(switchBranch).toHaveBeenCalledWith({
       worktreeId: details.id,
@@ -207,7 +207,7 @@ describe('BranchCard', () => {
     });
     expect(onError).toHaveBeenCalledWith('failed');
     expect(listBranches).toHaveBeenCalledOnce();
-    expect(listBranches).toHaveBeenCalledWith(details.projectId);
+    expect(listBranches).toHaveBeenCalledWith();
     expect(screen.getByText('No matching branches')).toBeVisible();
   });
 

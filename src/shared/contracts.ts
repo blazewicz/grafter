@@ -118,7 +118,6 @@ export interface CommitDiffSession extends DiffSessionBase {
 export type DiffSession = BranchDiffSession | CommitDiffSession;
 
 export interface OpenBranchDiffRequest {
-  projectId: string;
   sourceBranch: string;
   targetBranch: string;
 }
@@ -136,7 +135,6 @@ export interface ListBranchCommitsRequest {
 }
 
 export interface OpenCommitDiffRequest {
-  projectId: string;
   commitHash: string;
 }
 
@@ -224,12 +222,40 @@ export interface Project extends ProjectConfig {
   worktrees: Worktree[];
 }
 
-export interface AppSnapshot {
+export interface RecentRepository {
+  repositoryId: string;
+  name: string;
+  /** Canonical runtime key when it has been discovered by the main process. */
+  commonDirectoryPath?: string;
+  mainWorktreePath: string;
+  lastOpenedPath: string;
+  lastOpenedAt: string;
+}
+
+interface WindowSnapshotBase {
   homeDirectory: string;
   systemLocale: string;
-  projects: Project[];
   settings: Settings;
 }
+
+export interface LoadingWindowSnapshot {
+  kind: 'loading';
+}
+
+export interface WelcomeWindowSnapshot extends WindowSnapshotBase {
+  kind: 'welcome';
+  recentRepositories: RecentRepository[];
+}
+
+export interface RepositoryWindowSnapshot extends WindowSnapshotBase {
+  kind: 'repository';
+  repository: Project;
+  selectedWorktreeId?: string;
+  worktreeSelectionRequestId?: number;
+}
+
+export type AppSnapshot =
+  LoadingWindowSnapshot | WelcomeWindowSnapshot | RepositoryWindowSnapshot;
 
 export interface ApprovalRequest {
   approvalId: string;
@@ -238,7 +264,6 @@ export interface ApprovalRequest {
 }
 
 export interface CreateWorktreeRequest {
-  projectId: string;
   branch: string;
   path: string;
 }
@@ -250,13 +275,12 @@ export interface SwitchBranchRequest {
 
 export interface GrafterApi {
   getSnapshot(): Promise<AppSnapshot>;
-  getCommandLog(context: CommandContext): Promise<CommandRecord[]>;
-  chooseProject(): Promise<AppSnapshot | null>;
-  removeProject(projectId: string): Promise<AppSnapshot>;
+  getCommandLog(scope: CommandLogScope): Promise<CommandRecord[]>;
+  chooseRepository(): Promise<AppSnapshot | null>;
+  openRecentRepository(repositoryId: string): Promise<AppSnapshot>;
   refresh(): Promise<AppSnapshot>;
-  refreshProject(projectId: string): Promise<AppSnapshot>;
-  listBranches(projectId: string): Promise<string[]>;
-  suggestWorktreePath(projectId: string, branch: string): Promise<string>;
+  listBranches(): Promise<string[]>;
+  suggestWorktreePath(branch: string): Promise<string>;
   createWorktree(request: CreateWorktreeRequest): Promise<{
     snapshot: AppSnapshot;
     setupApproval?: ApprovalRequest;
@@ -276,7 +300,7 @@ export interface GrafterApi {
   refreshPullRequest(worktreeId: string): Promise<PullRequest | undefined>;
   getWorktreeStatus(worktreeId: string): Promise<WorktreeStatus>;
   updateSettings(settings: Settings): Promise<AppSnapshot>;
-  updateProjectSetup(projectId: string, script: string): Promise<AppSnapshot>;
+  updateRepositorySetup(script: string): Promise<AppSnapshot>;
   openWorktreeDirectory(worktreeId: string): Promise<void>;
   openWorktreeInEditor(worktreeId: string, editor: EditorTool): Promise<void>;
   openDiffFileInEditor(request: OpenDiffFileRequest): Promise<void>;
@@ -285,3 +309,6 @@ export interface GrafterApi {
   onSnapshotUpdate(listener: (snapshot: AppSnapshot) => void): () => void;
   onCommandUpdate(listener: (command: CommandRecord) => void): () => void;
 }
+
+export type CommandLogScope =
+  { kind: 'repository' } | { kind: 'worktree'; worktreeId: string };

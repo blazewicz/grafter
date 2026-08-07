@@ -66,7 +66,7 @@ export function BranchCard({
     if (!menuOpen) return;
     let active = true;
     void api
-      .listBranches(details.projectId)
+      .listBranches()
       .then((next) => {
         if (active) setBranches(next);
       })
@@ -79,7 +79,7 @@ export function BranchCard({
     return () => {
       active = false;
     };
-  }, [details.projectId, menuOpen, onError]);
+  }, [menuOpen, onError]);
 
   const switchBranch = async (branch: string): Promise<void> => {
     setSwitchingBranch(true);
