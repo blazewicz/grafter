@@ -10,14 +10,22 @@
 
 ## What is Grafter?
 
-Grafter is a desktop companion for developers who use Git worktrees. It keeps local
-repositories and their worktrees easy to find while you move between your IDE, terminal,
-file manager, and GitHub.
+Grafter is a desktop companion for developers who use Git worktrees. Open any worktree and
+Grafter gives that repository its own focused window, with all of the repository’s
+worktrees easy to reach while you move between your IDE, terminal, file manager, and
+GitHub.
 
-- Automatically discovers worktrees for managed repositories.
+- Opens a repository from its main worktree or any linked worktree.
+- Shows recently opened repositories on the welcome screen.
+- Keeps different repositories in separate windows.
 - Opens a worktree in Visual Studio Code or your file manager.
 - Shows checked-out branches, worktree status, latest commit details, and pull requests.
 - Wraps familiar command-line tools such as `git` and `gh`.
+
+Grafter opens at most one window for each repository. Opening another worktree from an
+already open repository focuses its existing window and selects that worktree instead of
+creating a duplicate. Repositories from a previous session are not restored automatically;
+open one from the welcome screen or its recent list when you need it.
 
 ## What Grafter isn't
 
@@ -44,7 +52,8 @@ Grafter may be useful if:
 
 ## Features
 
-- Discover, create, inspect, and remove worktrees for managed repositories.
+- Discover, create, inspect, and remove worktrees in the open repository.
+- Open another repository in a separate window without changing the current window.
 - View worktree paths, clean or dirty status, and checked-out branches.
 - Switch between available local branches.
 - View the latest commit, including its message, author, timestamp, and diff summary.
@@ -53,7 +62,7 @@ Grafter may be useful if:
 - Review Git and GitHub CLI commands, output, and failures in the audit log.
 - Copy any recorded command and run it yourself in a terminal.
 - Review the exact command before approving destructive worktree removal or a
-  project-provided setup script.
+  repository-provided setup script.
 
 ## Requirements
 
@@ -81,7 +90,7 @@ npm run check
 Build an unpacked application with `npm run package`, or create platform distributables
 with `npm run make`.
 
-## Project setup scripts
+## Repository setup scripts
 
 A repository can provide a `.grafter.json` file:
 
@@ -92,8 +101,8 @@ A repository can provide a `.grafter.json` file:
 ```
 
 Grafter shows the exact shell, arguments, script, and working directory before asking for
-approval. A local per-project override can also be configured in Settings; local overrides
-take precedence over `.grafter.json`.
+approval. A local override for the open repository can also be configured in Settings;
+local overrides take precedence over `.grafter.json`.
 
 ## Disclaimer
 

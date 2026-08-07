@@ -15,7 +15,8 @@ describe('RepositoryWindowSession isolation', () => {
     const firstProject = projectConfigFactory.build();
     const secondProject = projectConfigFactory.build();
     const store = new StateStore('/unused', { persist: () => Promise.resolve() });
-    await store.update((state) => state.projects.push(firstProject, secondProject));
+    await store.addRepository(firstProject);
+    await store.addRepository(secondProject);
     const runtime = new ApplicationRuntime();
     const first = createSession(firstProject, store, runtime);
     const second = createSession(secondProject, store, runtime);
@@ -62,7 +63,7 @@ describe('RepositoryWindowSession isolation', () => {
   it('stops snapshot and command publication after disposal', async () => {
     const project = projectConfigFactory.build();
     const store = new StateStore('/unused', { persist: () => Promise.resolve() });
-    await store.update((state) => state.projects.push(project));
+    await store.addRepository(project);
     const runtime = new ApplicationRuntime();
     const session = createSession(project, store, runtime);
     const snapshotSubscriber = vi.fn();

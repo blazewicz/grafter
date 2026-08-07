@@ -61,4 +61,12 @@ describe('preload repository-scoped API', () => {
       [ipc.commandLog, { kind: 'worktree', worktreeId: 'owning-repository:worktree' }],
     ]);
   });
+
+  it('does not expose project CRUD or multi-project snapshot adapters', () => {
+    const api = exposedApi();
+
+    expect(api).not.toHaveProperty('addProject');
+    expect(api).not.toHaveProperty('removeProject');
+    expect(api).not.toHaveProperty('refreshProject');
+  });
 });

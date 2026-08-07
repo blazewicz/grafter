@@ -56,7 +56,6 @@ export class RepositoryService {
   readonly #now: () => number;
   #project: Project;
   #refreshVersion = 0;
-  #allowUnpersistedRefresh = false;
   #disposed = false;
 
   constructor(
@@ -89,8 +88,8 @@ export class RepositoryService {
 
   snapshot(): Project {
     this.#assertActive();
-    const project = this.#persistedProject();
-    return structuredClone({ ...project, worktrees: this.#project.worktrees });
+    const repository = this.#repositoryConfig();
+    return structuredClone({ ...repository, worktrees: this.#project.worktrees });
   }
 
   subscribeToSnapshotUpdates(subscriber: (project: Project) => void): () => void {
@@ -127,32 +126,14 @@ export class RepositoryService {
     );
   }
 
-  /**
-   * Validates a newly discovered repository before the window manager records recency.
-   * The compatibility store entry is intentionally unavailable during this first refresh.
-   */
-  async refreshForInitialOpen(options: RepositoryRefreshOptions = {}): Promise<Project> {
-    if (
-      this.#store.state.projects.some((candidate) => candidate.id === this.repositoryId)
-    ) {
-      return this.refresh(options);
-    }
-    this.#allowUnpersistedRefresh = true;
-    try {
-      return await this.refresh(options);
-    } finally {
-      this.#allowUnpersistedRefresh = false;
-    }
-  }
-
   listBranches(): Promise<string[]> {
     this.#assertActive();
-    return this.git.listBranches(this.#persistedProject());
+    return this.git.listBranches(this.#repositoryConfig());
   }
 
   suggestWorktreePath(defaultWorktreePath: string, branch: string): string {
     this.#assertActive();
-    const project = this.#persistedProject();
+    const project = this.#repositoryConfig();
     const root = expandWorktreeTemplate(defaultWorktreePath, project.name, project.path);
     return worktreePathForBranch(root, branch || 'new-worktree');
   }
@@ -171,7 +152,7 @@ export class RepositoryService {
     }
 
     const { project, createdWorktree } = await this.#runMutation(async () => {
-      const project = this.#persistedProject();
+      const project = this.#repositoryConfig();
       await this.git.addWorktree(project, request.path, request.branch);
       const worktrees = await this.#refresh(false);
       const createdWorktree = worktrees.find((item) => item.path === request.path);
@@ -190,7 +171,7 @@ export class RepositoryService {
       project: this.snapshot(),
       setupApproval: this.approvals.prepare(
         this.git.setupSpec(createdWorktree, script),
-        'This project requested a setup script. Review the exact shell command before running it.',
+        'This repository requested a setup script. Review the exact shell command before running it.',
       ),
     };
   }
@@ -219,9 +200,11 @@ export class RepositoryService {
 
   prepareRemove(worktreeId: string): ApprovalRequest {
     const worktree = this.#worktree(worktreeId);
-    if (worktree.isMain) throw new Error('Grafter never removes a project’s main clone.');
+    if (worktree.isMain) {
+      throw new Error('Grafter never removes a repository’s main worktree.');
+    }
     if (worktree.locked) throw new Error('Unlock this worktree before removing it.');
-    const project = this.#persistedProject();
+    const project = this.#repositoryConfig();
     return this.approvals.prepare(
       this.git.removeSpec(project, worktree),
       `This permanently removes the ${worktree.displayName} worktree directory. Dirty worktrees are refused by Git.`,
@@ -247,7 +230,7 @@ export class RepositoryService {
   async details(worktreeId: string): Promise<WorktreeDetails> {
     const worktree = this.#worktree(worktreeId);
     return this.git.details(
-      this.#persistedProject(),
+      this.#repositoryConfig(),
       worktree,
       this.#comparisonBaseOverride(worktree),
     );
@@ -267,7 +250,7 @@ export class RepositoryService {
       if (targetBranch === worktree.branch) {
         throw new Error('Choose a branch other than the checked-out branch.');
       }
-      const project = this.#persistedProject();
+      const project = this.#repositoryConfig();
       if (targetBranch) {
         const branches = await this.git.listBranches(project);
         if (!branches.includes(targetBranch)) {
@@ -300,7 +283,7 @@ export class RepositoryService {
   async openDiff(worktreeId: string): Promise<DiffSession> {
     const worktree = this.#worktree(worktreeId);
     return this.git.openDiff(
-      this.#persistedProject(),
+      this.#repositoryConfig(),
       worktree,
       this.#comparisonBaseOverride(worktree),
     );
@@ -319,7 +302,7 @@ export class RepositoryService {
       (worktree) => worktree.branch === sourceBranch,
     );
     return this.git.openBranchDiff(
-      this.#persistedProject(),
+      this.#repositoryConfig(),
       sourceBranch,
       targetBranch,
       sourceWorktree,
@@ -330,7 +313,7 @@ export class RepositoryService {
     if (!isOpenCommitDiffRequest(request)) {
       throw new Error('Invalid commit changes request.');
     }
-    return this.git.openCommitDiff(this.#persistedProject(), request.commitHash);
+    return this.git.openCommitDiff(this.#repositoryConfig(), request.commitHash);
   }
 
   async diffFile(request: unknown): Promise<DiffFilePatch> {
@@ -394,7 +377,7 @@ export class RepositoryService {
   async #refresh(tolerateFailure: boolean): Promise<Worktree[]> {
     this.#assertActive();
     const refreshVersion = ++this.#refreshVersion;
-    const project = this.#persistedProject();
+    const project = this.#repositoryConfig();
     const previousWorktrees = new Map(
       this.#project.worktrees.map((worktree) => [worktree.id, worktree] as const),
     );
@@ -411,12 +394,6 @@ export class RepositoryService {
       worktrees = [...previousWorktrees.values()];
     }
     if (this.#disposed || refreshVersion !== this.#refreshVersion) {
-      return this.#project.worktrees;
-    }
-    if (
-      !this.#allowUnpersistedRefresh &&
-      !this.#store.state.projects.some((candidate) => candidate.id === this.repositoryId)
-    ) {
       return this.#project.worktrees;
     }
     this.#project = { ...project, worktrees };
@@ -504,26 +481,20 @@ export class RepositoryService {
     this.#assertActive();
     const worktree = this.#project.worktrees.find((item) => item.id === worktreeId);
     if (!worktree) {
-      throw new Error('Worktree not found. Refresh the project and try again.');
+      throw new Error('Worktree not found. Refresh the repository and try again.');
     }
     return worktree;
   }
 
-  #persistedProject(): ProjectConfig {
+  #repositoryConfig(): ProjectConfig {
     this.#assertActive();
-    const project = this.#store.state.projects.find(
-      (candidate) => candidate.id === this.repositoryId,
-    );
-    if (!project && this.#allowUnpersistedRefresh) {
-      return {
-        id: this.#project.id,
-        name: this.#project.name,
-        path: this.#project.path,
-        ...(this.#project.setupScript ? { setupScript: this.#project.setupScript } : {}),
-      };
-    }
-    if (!project) throw new Error('Project not found.');
-    return project;
+    const setupScript = this.#store.repositorySetupScript(this.repositoryId);
+    return {
+      id: this.#project.id,
+      name: this.#project.name,
+      path: this.#project.path,
+      ...(setupScript ? { setupScript } : {}),
+    };
   }
 
   #runMutation<T>(operation: () => Promise<T>): Promise<T> {

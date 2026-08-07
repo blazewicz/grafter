@@ -6,15 +6,15 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { api } from '../../../src/renderer/grafter-api';
 import { defaultSidebarWidth, Sidebar } from '../../../src/renderer/sidebar/Sidebar';
 import type { GrafterApi, Worktree } from '../../../src/shared/contracts';
-import { buildProjectNodeScenario } from '../../scenarios/sidebar/project-node';
+import { buildRepositoryWorktreesScenario } from '../../scenarios/sidebar/repository-worktrees';
 
-const scenario = buildProjectNodeScenario();
+const scenario = buildRepositoryWorktreesScenario();
 
 interface RenderSidebarOptions {
   width?: number;
   selectedId?: string;
   onSelect?: (id: string) => void;
-  onChooseProject?: () => void;
+  onOpenRepository?: () => void;
   onCreated?: (
     result: Awaited<ReturnType<GrafterApi['createWorktree']>>,
     request: { path: string },
@@ -28,11 +28,11 @@ function renderSidebar(options: RenderSidebarOptions = {}): void {
   render(
     <Sidebar
       homeDirectory={scenario.homeDirectory}
-      repository={scenario.project}
+      repository={scenario.repository}
       width={options.width ?? defaultSidebarWidth}
       selectedId={options.selectedId}
       onSelect={options.onSelect ?? (() => undefined)}
-      onChooseProject={options.onChooseProject ?? (() => undefined)}
+      onOpenRepository={options.onOpenRepository ?? (() => undefined)}
       onCreated={options.onCreated ?? (() => undefined)}
       onRemoveWorktree={options.onRemoveWorktree ?? (() => undefined)}
       onOpenSettings={options.onOpenSettings ?? (() => undefined)}
@@ -53,7 +53,7 @@ describe('Sidebar', () => {
 
     const title = screen.getByText('Grafter');
     const repository = screen.getByRole('button', {
-      name: `${scenario.project.name} repository details`,
+      name: `${scenario.repository.name} repository details`,
     });
     const worktrees = screen.getByText('Worktrees');
     const settings = screen.getByRole('button', { name: 'Settings' });
@@ -73,31 +73,31 @@ describe('Sidebar', () => {
   it('navigates to repository details and exposes selected state', async () => {
     const user = userEvent.setup();
     const onSelect = vi.fn();
-    renderSidebar({ selectedId: scenario.project.id, onSelect });
+    renderSidebar({ selectedId: scenario.repository.id, onSelect });
 
     const repository = screen.getByRole('button', {
-      name: `${scenario.project.name} repository details`,
+      name: `${scenario.repository.name} repository details`,
     });
     expect(repository).toHaveAttribute('aria-current', 'page');
     await user.click(repository);
 
     expect(onSelect).toHaveBeenCalledOnce();
-    expect(onSelect).toHaveBeenCalledWith(scenario.project.id);
+    expect(onSelect).toHaveBeenCalledWith(scenario.repository.id);
   });
 
   it('opens another repository without mutating the current sidebar', async () => {
     const user = userEvent.setup();
-    const onChooseProject = vi.fn();
-    renderSidebar({ onChooseProject });
+    const onOpenRepository = vi.fn();
+    renderSidebar({ onOpenRepository });
 
     const openRepository = screen.getByRole('button', { name: 'Open Repository...' });
     expect(openRepository).toBeVisible();
     await user.click(openRepository);
 
-    expect(onChooseProject).toHaveBeenCalledOnce();
+    expect(onOpenRepository).toHaveBeenCalledOnce();
     expect(
       screen.getByRole('button', {
-        name: `${scenario.project.name} repository details`,
+        name: `${scenario.repository.name} repository details`,
       }),
     ).toBeVisible();
   });
@@ -108,7 +108,7 @@ describe('Sidebar', () => {
     renderSidebar();
 
     const addWorktree = screen.getByRole('button', {
-      name: `Add worktree to ${scenario.project.name}`,
+      name: `Add worktree to ${scenario.repository.name}`,
     });
     addWorktree.focus();
     expect(addWorktree).toHaveFocus();

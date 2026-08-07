@@ -4,7 +4,7 @@ import pLimit from 'p-limit';
 import type { ProjectConfig, RecentRepository, Settings } from '../shared/contracts';
 import { defaultSettings, normalizeSettings } from '../shared/settings';
 
-export const currentStateSchemaVersion = 1;
+export const currentStateSchemaVersion = 2;
 
 export interface ComparisonBaseOverride {
   sourceBranch: string;
@@ -16,22 +16,17 @@ export interface RepositoryPreferences {
   comparisonBaseOverrides: Record<string, ComparisonBaseOverride>;
 }
 
+/** The normalized schema used by the runtime and every new state-file write. */
 export interface PersistedState {
   schemaVersion: typeof currentStateSchemaVersion;
-  /** Compatibility data used by the current multi-project renderer. */
-  projects: ProjectConfig[];
   settings: Settings;
-  /** Compatibility copy; repositoryPreferences is the scoped source of truth. */
-  comparisonBaseOverrides: Record<string, ComparisonBaseOverride>;
   recentRepositories: RecentRepository[];
   repositoryPreferences: Record<string, RepositoryPreferences>;
 }
 
 const initialState: PersistedState = {
   schemaVersion: currentStateSchemaVersion,
-  projects: [],
   settings: defaultSettings,
-  comparisonBaseOverrides: {},
   recentRepositories: [],
   repositoryPreferences: {},
 };
@@ -70,30 +65,32 @@ export class StateStore {
 
   async update(mutator: (state: PersistedState) => void): Promise<void> {
     return this.#updateLimit(async () => {
-      const previous = this.#state;
-      const draft = structuredClone(previous);
+      const draft = structuredClone(this.#state);
       mutator(draft);
-      synchronizeCompatibilityChanges(previous, draft, this.#now());
+      draft.schemaVersion = currentStateSchemaVersion;
+      draft.recentRepositories = deduplicateAndSortRecents(draft.recentRepositories);
       await this.#persist(this.#file, draft);
       this.#state = draft;
     });
   }
 
   async addRepository(
-    project: ProjectConfig,
-    lastOpenedPath = project.path,
+    repository: ProjectConfig,
+    lastOpenedPath = repository.path,
     commonDirectoryPath?: string,
   ): Promise<void> {
     await this.update((state) => {
-      if (state.projects.some((candidate) => candidate.id === project.id)) return;
-      state.projects.push(project);
       upsertRecentRepository(
         state,
-        project,
+        repository,
         lastOpenedPath,
         this.#now(),
         commonDirectoryPath,
       );
+      const preferences = ensureRepositoryPreferences(state, repository.id);
+      if (repository.setupScript && !preferences.setupScript) {
+        preferences.setupScript = repository.setupScript;
+      }
     });
   }
 
@@ -103,25 +100,21 @@ export class StateStore {
     commonDirectoryPath?: string,
   ): Promise<void> {
     await this.update((state) => {
-      const project = state.projects.find((candidate) => candidate.id === repositoryId);
-      if (!project) throw new Error('Project not found.');
+      const recent = state.recentRepositories.find(
+        (candidate) => candidate.repositoryId === repositoryId,
+      );
+      if (!recent) throw new Error('Repository not found.');
       upsertRecentRepository(
         state,
-        project,
+        {
+          id: recent.repositoryId,
+          name: recent.name,
+          path: recent.mainWorktreePath,
+        },
         lastOpenedPath,
         this.#now(),
-        commonDirectoryPath,
+        commonDirectoryPath ?? recent.commonDirectoryPath,
       );
-    });
-  }
-
-  async removeRepository(repositoryId: string): Promise<void> {
-    await this.update((state) => {
-      state.projects = state.projects.filter((project) => project.id !== repositoryId);
-      state.recentRepositories = state.recentRepositories.filter(
-        (repository) => repository.repositoryId !== repositoryId,
-      );
-      delete state.repositoryPreferences[repositoryId];
     });
   }
 
@@ -134,17 +127,11 @@ export class StateStore {
     setupScript: string | undefined,
   ): Promise<void> {
     await this.update((state) => {
-      const project = state.projects.find((candidate) => candidate.id === repositoryId);
-      if (!project) throw new Error('Project not found.');
+      assertKnownRepository(state, repositoryId);
       const preferences = ensureRepositoryPreferences(state, repositoryId);
       const normalizedScript = normalizeNonEmptyString(setupScript);
-      if (normalizedScript) {
-        preferences.setupScript = normalizedScript;
-        project.setupScript = normalizedScript;
-      } else {
-        delete preferences.setupScript;
-        delete project.setupScript;
-      }
+      if (normalizedScript) preferences.setupScript = normalizedScript;
+      else delete preferences.setupScript;
     });
   }
 
@@ -165,21 +152,18 @@ export class StateStore {
     override: ComparisonBaseOverride | undefined,
   ): Promise<void> {
     await this.update((state) => {
-      if (!state.projects.some((project) => project.id === repositoryId)) {
-        throw new Error('Project not found.');
-      }
+      assertKnownRepository(state, repositoryId);
       const preferences = ensureRepositoryPreferences(state, repositoryId);
-      if (override) {
-        preferences.comparisonBaseOverrides[worktreeId] = override;
-        state.comparisonBaseOverrides[worktreeId] = override;
-      } else {
-        delete preferences.comparisonBaseOverrides[worktreeId];
-        delete state.comparisonBaseOverrides[worktreeId];
-      }
+      if (override) preferences.comparisonBaseOverrides[worktreeId] = override;
+      else delete preferences.comparisonBaseOverrides[worktreeId];
     });
   }
 }
 
+/**
+ * Accepts both the normalized schema and the last pre-migration project-based shapes.
+ * Legacy fields are consumed here and are deliberately absent from the returned state.
+ */
 export function normalizePersistedState(value: unknown, now: number): PersistedState {
   if (!isRecord(value)) return structuredClone(initialState);
   const schemaVersion = normalizeSchemaVersion(value.schemaVersion);
@@ -189,22 +173,24 @@ export function normalizePersistedState(value: unknown, now: number): PersistedS
     );
   }
 
-  const projects = normalizeProjects(value.projects);
-  const normalizedRecents = normalizeRecentRepositories(value.recentRepositories, now);
-  const recentRepositories = reconcileProjectRecents(projects, normalizedRecents, now);
-  const comparisonBaseOverrides = normalizeComparisonBaseOverrides(
-    value.comparisonBaseOverrides,
+  const legacyProjects = normalizeProjects(value.projects);
+  const recentRepositories = reconcileProjectRecents(
+    legacyProjects,
+    normalizeRecentRepositories(value.recentRepositories, now),
+    now,
   );
   const repositoryPreferences = normalizeRepositoryPreferences(
     value.repositoryPreferences,
   );
-  migrateLegacyPreferences(projects, comparisonBaseOverrides, repositoryPreferences);
+  migrateLegacyPreferences(
+    legacyProjects,
+    normalizeComparisonBaseOverrides(value.comparisonBaseOverrides),
+    repositoryPreferences,
+  );
 
   return {
     schemaVersion: currentStateSchemaVersion,
-    projects,
     settings: normalizeSettings(value.settings),
-    comparisonBaseOverrides,
     recentRepositories,
     repositoryPreferences,
   };
@@ -252,12 +238,8 @@ function normalizeRecentRepositories(value: unknown, now: number): RecentReposit
       (left, right) =>
         Date.parse(right.lastOpenedAt) - Date.parse(left.lastOpenedAt) ||
         left.inputIndex - right.inputIndex,
-    );
-  const ids = new Set<string>();
-  const paths = new Set<string>();
-  const commonDirectoryPaths = new Set<string>();
-  return repositories.flatMap((candidate) => {
-    const repository: RecentRepository = {
+    )
+    .map((candidate): RecentRepository => ({
       repositoryId: candidate.repositoryId,
       name: candidate.name,
       ...(candidate.commonDirectoryPath
@@ -266,22 +248,8 @@ function normalizeRecentRepositories(value: unknown, now: number): RecentReposit
       mainWorktreePath: candidate.mainWorktreePath,
       lastOpenedPath: candidate.lastOpenedPath,
       lastOpenedAt: candidate.lastOpenedAt,
-    };
-    if (
-      ids.has(repository.repositoryId) ||
-      paths.has(repository.mainWorktreePath) ||
-      (repository.commonDirectoryPath !== undefined &&
-        commonDirectoryPaths.has(repository.commonDirectoryPath))
-    ) {
-      return [];
-    }
-    ids.add(repository.repositoryId);
-    paths.add(repository.mainWorktreePath);
-    if (repository.commonDirectoryPath) {
-      commonDirectoryPaths.add(repository.commonDirectoryPath);
-    }
-    return [repository];
-  });
+    }));
+  return deduplicateAndSortRecents(repositories);
 }
 
 function normalizeRecentRepository(
@@ -312,26 +280,26 @@ function reconcileProjectRecents(
   recents: readonly RecentRepository[],
   now: number,
 ): RecentRepository[] {
-  const remaining = [...recents];
+  const reconciled = [...recents];
   for (const project of projects) {
-    const matchingIndex = remaining.findIndex(
+    const matchingIndex = reconciled.findIndex(
       (recent) =>
         recent.repositoryId === project.id || recent.mainWorktreePath === project.path,
     );
     if (matchingIndex === -1) {
-      remaining.push(recentFromProject(project, project.path, now));
+      reconciled.push(recentFromProject(project, project.path, now));
       continue;
     }
-    const matching = remaining[matchingIndex];
+    const matching = reconciled[matchingIndex];
     if (!matching) continue;
-    remaining[matchingIndex] = {
+    reconciled[matchingIndex] = {
       ...matching,
       repositoryId: project.id,
       name: project.name,
       mainWorktreePath: project.path,
     };
   }
-  return deduplicateAndSortRecents(remaining);
+  return deduplicateAndSortRecents(reconciled);
 }
 
 function normalizeRepositoryPreferences(
@@ -371,22 +339,20 @@ function normalizeComparisonBaseOverrides(
 }
 
 function migrateLegacyPreferences(
-  projects: ProjectConfig[],
-  legacyOverrides: Record<string, ComparisonBaseOverride>,
+  projects: readonly ProjectConfig[],
+  legacyOverrides: Readonly<Record<string, ComparisonBaseOverride>>,
   preferencesByRepository: Record<string, RepositoryPreferences>,
 ): void {
   const projectIdsLongestFirst = projects
     .map((project) => project.id)
     .sort((left, right) => right.length - left.length);
   for (const project of projects) {
-    const existing = preferencesByRepository[project.id];
-    const preferences = existing ?? { comparisonBaseOverrides: {} };
-    if (existing?.setupScript) {
-      project.setupScript = existing.setupScript;
-    } else if (project.setupScript) {
+    const preferences = (preferencesByRepository[project.id] ??= {
+      comparisonBaseOverrides: {},
+    });
+    if (!preferences.setupScript && project.setupScript) {
       preferences.setupScript = project.setupScript;
     }
-    preferencesByRepository[project.id] = preferences;
   }
 
   for (const [worktreeId, override] of Object.entries(legacyOverrides)) {
@@ -398,116 +364,40 @@ function migrateLegacyPreferences(
     if (!preferences) continue;
     preferences.comparisonBaseOverrides[worktreeId] ??= override;
   }
-
-  for (const preferences of Object.values(preferencesByRepository)) {
-    Object.assign(legacyOverrides, preferences.comparisonBaseOverrides);
-  }
-}
-
-function synchronizeCompatibilityChanges(
-  previous: PersistedState,
-  draft: PersistedState,
-  now: number,
-): void {
-  draft.schemaVersion = currentStateSchemaVersion;
-  const previousProjects = new Map(
-    previous.projects.map((project) => [project.id, project]),
-  );
-  const draftIds = new Set(draft.projects.map((project) => project.id));
-
-  for (const repositoryId of previousProjects.keys()) {
-    if (draftIds.has(repositoryId)) continue;
-    draft.recentRepositories = draft.recentRepositories.filter(
-      (repository) => repository.repositoryId !== repositoryId,
-    );
-    delete draft.repositoryPreferences[repositoryId];
-  }
-
-  for (const project of draft.projects) {
-    const previousProject = previousProjects.get(project.id);
-    if (!previousProject) {
-      const recent = draft.recentRepositories.find(
-        (repository) =>
-          repository.repositoryId === project.id ||
-          repository.mainWorktreePath === project.path,
-      );
-      if (!recent) {
-        upsertRecentRepository(draft, project, project.path, now, undefined, false);
-      }
-    } else {
-      const recent = draft.recentRepositories.find(
-        (repository) => repository.repositoryId === project.id,
-      );
-      if (recent) {
-        recent.name = project.name;
-        recent.mainWorktreePath = project.path;
-      }
-    }
-    const preferences = ensureRepositoryPreferences(draft, project.id);
-    if (project.setupScript) preferences.setupScript = project.setupScript;
-    else delete preferences.setupScript;
-  }
-
-  synchronizeLegacyComparisonChanges(previous, draft);
-  draft.recentRepositories = deduplicateAndSortRecents(draft.recentRepositories);
-}
-
-function synchronizeLegacyComparisonChanges(
-  previous: PersistedState,
-  draft: PersistedState,
-): void {
-  const repositoryIds = draft.projects
-    .map((project) => project.id)
-    .sort((left, right) => right.length - left.length);
-  const changedWorktreeIds = new Set([
-    ...Object.keys(previous.comparisonBaseOverrides),
-    ...Object.keys(draft.comparisonBaseOverrides),
-  ]);
-  for (const worktreeId of changedWorktreeIds) {
-    const before = previous.comparisonBaseOverrides[worktreeId];
-    const after = draft.comparisonBaseOverrides[worktreeId];
-    if (comparisonOverridesEqual(before, after)) continue;
-    const repositoryId = repositoryIds.find((id) => worktreeId.startsWith(`${id}:`));
-    if (!repositoryId) continue;
-    const preferences = ensureRepositoryPreferences(draft, repositoryId);
-    if (after) preferences.comparisonBaseOverrides[worktreeId] = after;
-    else delete preferences.comparisonBaseOverrides[worktreeId];
-  }
 }
 
 function upsertRecentRepository(
   state: PersistedState,
-  project: ProjectConfig,
+  repository: ProjectConfig,
   lastOpenedPath: string,
   now: number,
   commonDirectoryPath?: string,
-  touch = true,
 ): void {
-  const normalizedLastOpenedPath = normalizeAbsolutePath(lastOpenedPath) ?? project.path;
+  const normalizedLastOpenedPath =
+    normalizeAbsolutePath(lastOpenedPath) ?? repository.path;
   const normalizedCommonDirectoryPath = normalizeAbsolutePath(commonDirectoryPath);
   const existingIndex = state.recentRepositories.findIndex(
-    (repository) =>
-      repository.repositoryId === project.id ||
-      repository.mainWorktreePath === project.path ||
+    (candidate) =>
+      candidate.repositoryId === repository.id ||
+      candidate.mainWorktreePath === repository.path ||
       (normalizedCommonDirectoryPath !== undefined &&
-        repository.commonDirectoryPath === normalizedCommonDirectoryPath),
+        candidate.commonDirectoryPath === normalizedCommonDirectoryPath),
   );
   const existing = state.recentRepositories[existingIndex];
-  const recent = {
-    ...(existing ?? recentFromProject(project, normalizedLastOpenedPath, now)),
-    repositoryId: project.id,
-    name: project.name,
+  const recent: RecentRepository = {
+    ...(existing ?? recentFromProject(repository, normalizedLastOpenedPath, now)),
+    repositoryId: repository.id,
+    name: repository.name,
     ...(normalizedCommonDirectoryPath
       ? { commonDirectoryPath: normalizedCommonDirectoryPath }
       : {}),
-    mainWorktreePath: project.path,
+    mainWorktreePath: repository.path,
     lastOpenedPath: normalizedLastOpenedPath,
-    ...(touch ? { lastOpenedAt: dateFromTimestamp(now) } : {}),
+    lastOpenedAt: dateFromTimestamp(now),
   };
   if (existingIndex >= 0) state.recentRepositories.splice(existingIndex, 1);
   state.recentRepositories.unshift(recent);
-  state.recentRepositories = deduplicateAndSortRecents(state.recentRepositories);
-  ensureRepositoryPreferences(state, project.id);
+  ensureRepositoryPreferences(state, repository.id);
 }
 
 function recentFromProject(
@@ -555,6 +445,16 @@ function deduplicateAndSortRecents(
   });
 }
 
+function assertKnownRepository(state: PersistedState, repositoryId: string): void {
+  if (
+    !state.recentRepositories.some(
+      (repository) => repository.repositoryId === repositoryId,
+    )
+  ) {
+    throw new Error('Repository not found.');
+  }
+}
+
 function ensureRepositoryPreferences(
   state: PersistedState,
   repositoryId: string,
@@ -562,16 +462,6 @@ function ensureRepositoryPreferences(
   return (state.repositoryPreferences[repositoryId] ??= {
     comparisonBaseOverrides: {},
   });
-}
-
-function comparisonOverridesEqual(
-  left: ComparisonBaseOverride | undefined,
-  right: ComparisonBaseOverride | undefined,
-): boolean {
-  return (
-    left?.sourceBranch === right?.sourceBranch &&
-    left?.targetBranch === right?.targetBranch
-  );
 }
 
 function normalizeAbsolutePath(value: unknown): string | undefined {

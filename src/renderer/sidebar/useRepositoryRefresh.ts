@@ -2,9 +2,9 @@ import { useEffect } from 'react';
 import type { AppSnapshot } from '../../shared/contracts';
 import { api, friendlyError } from '../grafter-api';
 
-const projectWorktreeRefreshMs = 15_000;
+const repositoryRefreshMs = 15_000;
 
-export function useProjectWorktreeRefresh(
+export function useRepositoryRefresh(
   repositoryOpen: boolean,
   onRefresh: (snapshot: AppSnapshot) => void,
   onError: (message: string) => void,
@@ -27,11 +27,11 @@ export function useProjectWorktreeRefresh(
       clearScheduledRefresh();
       if (!active || document.visibilityState !== 'visible') return;
       timeoutId = window.setTimeout(() => {
-        void refreshProject();
-      }, projectWorktreeRefreshMs);
+        void refreshRepository();
+      }, repositoryRefreshMs);
     };
 
-    const refreshProject = async (): Promise<void> => {
+    const refreshRepository = async (): Promise<void> => {
       if (!active || refreshInFlight || document.visibilityState !== 'visible') return;
       refreshInFlight = true;
       try {
@@ -50,11 +50,11 @@ export function useProjectWorktreeRefresh(
 
     const onVisibilityChange = (): void => {
       clearScheduledRefresh();
-      if (document.visibilityState === 'visible') void refreshProject();
+      if (document.visibilityState === 'visible') void refreshRepository();
     };
 
     document.addEventListener('visibilitychange', onVisibilityChange);
-    void refreshProject();
+    void refreshRepository();
 
     return () => {
       active = false;

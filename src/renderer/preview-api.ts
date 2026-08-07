@@ -210,7 +210,7 @@ let snapshot: AppSnapshot = {
   },
 };
 
-const previewProjects = structuredClone([
+const previewRepositories = structuredClone([
   repositorySnapshot().repository,
   gardenPreviewProject,
 ]);
@@ -373,11 +373,11 @@ let previewCommandSequence = 0;
 
 const details: Record<string, WorktreeDetails> = {
   'grafter:main': {
-    ...previewProjects[0]!.worktrees[0]!,
+    ...previewRepositories[0]!.worktrees[0]!,
     projectName: 'grafter-repository-scoped-windows-migration',
   },
   'grafter:glass': {
-    ...previewProjects[0]!.worktrees[1]!,
+    ...previewRepositories[0]!.worktrees[1]!,
     projectName: 'grafter-repository-scoped-windows-migration',
     automaticBaseBranch: 'main',
     targetBranch: 'release/next',
@@ -385,7 +385,7 @@ const details: Record<string, WorktreeDetails> = {
     comparisonBaseOverrideUnavailable: true,
   },
   'grafter:audit': {
-    ...previewProjects[0]!.worktrees[2]!,
+    ...previewRepositories[0]!.worktrees[2]!,
     projectName: 'grafter-repository-scoped-windows-migration',
     automaticBaseBranch: 'feature/merged-base',
     automaticBaseBranchUnavailable: true,
@@ -393,14 +393,14 @@ const details: Record<string, WorktreeDetails> = {
     diffStats: { files: 3, additions: 121, deletions: 9 },
   },
   'grafter:comparison-preview': {
-    ...previewProjects[0]!.worktrees[3]!,
+    ...previewRepositories[0]!.worktrees[3]!,
     projectName: 'grafter-repository-scoped-windows-migration',
     automaticBaseBranch: 'main',
     targetBranch: 'main',
     diffStats: { files: 4, additions: 86, deletions: 12 },
   },
   'garden:main': {
-    ...previewProjects[1]!.worktrees[0]!,
+    ...previewRepositories[1]!.worktrees[0]!,
     projectName: 'garden-api',
   },
 };
@@ -433,7 +433,7 @@ const previewDiffFiles: DiffSession['files'] = [
   },
   {
     id: 'preview-file-project-node',
-    path: 'src/renderer/components/sidebar/ProjectNode.tsx',
+    path: 'src/renderer/sidebar/Sidebar.tsx',
     status: 'modified',
     additions: 8,
     deletions: 4,
@@ -795,14 +795,16 @@ export const previewApi: GrafterApi = {
   },
   chooseRepository: () => Promise.resolve(null),
   openRecentRepository: (repositoryId) => {
-    const project = previewProjects.find((candidate) => candidate.id === repositoryId);
-    if (!project) return Promise.reject(new Error('Recent repository not found.'));
+    const repository = previewRepositories.find(
+      (candidate) => candidate.id === repositoryId,
+    );
+    if (!repository) return Promise.reject(new Error('Recent repository not found.'));
     snapshot = {
       kind: 'repository',
       homeDirectory: '/Users/kasia',
       systemLocale: 'en-GB',
       settings: previewSettings,
-      repository: structuredClone(project),
+      repository: structuredClone(repository),
     };
     return Promise.resolve(structuredClone(snapshot));
   },

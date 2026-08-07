@@ -88,7 +88,7 @@ export function SettingsDialog({
         <div className={styles.settingsSection}>
           <h3>Worktree location</h3>
           <p>
-            Relative paths are resolved from the main clone. Use{' '}
+            Relative paths are resolved from the repository’s main worktree. Use{' '}
             <code>&lt;repo_name&gt;</code> as a placeholder.
           </p>
           <label>

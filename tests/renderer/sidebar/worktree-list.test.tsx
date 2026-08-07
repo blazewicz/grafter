@@ -7,9 +7,9 @@ import { api } from '../../../src/renderer/grafter-api';
 import { WorktreeList } from '../../../src/renderer/sidebar/WorktreeList';
 import type { GrafterApi, Project, Worktree } from '../../../src/shared/contracts';
 import { buildNewWorktreeScenario } from '../../scenarios/sidebar/new-worktree';
-import { buildProjectNodeScenario } from '../../scenarios/sidebar/project-node';
+import { buildRepositoryWorktreesScenario } from '../../scenarios/sidebar/repository-worktrees';
 
-const scenario = buildProjectNodeScenario();
+const scenario = buildRepositoryWorktreesScenario();
 const newWorktreeScenario = buildNewWorktreeScenario();
 
 interface RenderWorktreeListOptions {
@@ -30,7 +30,7 @@ function renderWorktreeList(options: RenderWorktreeListOptions = {}): void {
   render(
     <WorktreeList
       homeDirectory={scenario.homeDirectory}
-      project={options.project ?? scenario.project}
+      project={options.project ?? scenario.repository}
       selectedId={options.selectedId}
       adding={options.adding ?? false}
       onSelect={options.onSelect ?? (() => undefined)}
