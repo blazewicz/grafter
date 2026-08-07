@@ -29,6 +29,7 @@ interface IpcHandlerDependencies {
   windowManager: {
     openRepository(sender: WebContents, selectedPath: string): Promise<unknown>;
     openRecentRepository(sender: WebContents, repositoryId: string): Promise<unknown>;
+    updateSettings(sender: WebContents, settings: Settings): Promise<unknown>;
   };
   dialog: Pick<Dialog, 'showOpenDialog'>;
   shell: Pick<Shell, 'openPath' | 'openExternal'>;
@@ -116,9 +117,10 @@ export function registerIpcHandlers(dependencies: IpcHandlerDependencies): void 
   ipcMain.handle(ipc.worktreeStatus, (event, worktreeId: string) =>
     sessions.resolve(event.sender).service.worktreeStatus(worktreeId),
   );
-  ipcMain.handle(ipc.updateSettings, (event, settings: Settings) =>
-    sessions.resolve(event.sender).service.updateSettings(settings),
-  );
+  ipcMain.handle(ipc.updateSettings, (event, settings: Settings) => {
+    sessions.resolve(event.sender);
+    return windowManager.updateSettings(event.sender, settings);
+  });
   ipcMain.handle(ipc.updateRepositorySetup, (event, script: string) =>
     sessions.resolve(event.sender).service.updateRepositorySetup(script),
   );

@@ -140,6 +140,26 @@ describe('WindowSessionRegistry', () => {
     ]);
   });
 
+  it('visits only live registered services', () => {
+    const registry = new WindowSessionRegistry<
+      FakeSender,
+      FakeWindow,
+      { name: string }
+    >();
+    const first = registration('first');
+    const disposed = registration('disposed');
+    const last = registration('last');
+    register(registry, first);
+    const dispose = register(registry, disposed);
+    register(registry, last);
+    dispose();
+    const names: string[] = [];
+
+    registry.forEachService((service) => names.push(service.name));
+
+    expect(names).toEqual(['first', 'last']);
+  });
+
   it('rejects unknown and destroyed senders with controlled errors', () => {
     const registry = new WindowSessionRegistry<
       FakeSender,

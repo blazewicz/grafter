@@ -13,6 +13,7 @@ import path from 'node:path';
 import { ApplicationRuntime } from './application-runtime';
 import { launchEditor } from './editors';
 import { registerIpcHandlers } from './ipc-handlers';
+import { openRepositoryFromNativeMenu } from './native-open-repository';
 import { StateStore } from './store';
 import { WindowManager } from './window-manager';
 import type { WindowSessionService } from './window-session-services';
@@ -88,9 +89,27 @@ async function startApplication(): Promise<void> {
   });
   Menu.setApplicationMenu(
     buildApplicationMenu(() => {
-      void chooseRepository(windowManager).catch((error: unknown) =>
-        console.error('Failed to open a repository.', error),
-      );
+      void openRepositoryFromNativeMenu({
+        getFocusedWindow: () => BrowserWindow.getFocusedWindow(),
+        getAllWindows: () => BrowserWindow.getAllWindows(),
+        ensureWelcomeWindow: () => windowManager.ensureWelcomeWindow(),
+        showOpenDialog: (window) =>
+          dialog.showOpenDialog(window, {
+            title: 'Open a Git repository or worktree',
+            buttonLabel: 'Open Repository',
+            properties: ['openDirectory'],
+          }),
+        showOpenError: (window, detail) =>
+          dialog.showMessageBox(window, {
+            type: 'error',
+            title: 'Unable to Open Repository',
+            message: 'The selected folder could not be opened as a Git repository.',
+            detail,
+          }),
+        openRepositoryFromWindow: (window, selectedPath) =>
+          windowManager.openRepositoryFromWindow(window, selectedPath),
+        logError: (message, error) => console.error(message, error),
+      });
     }),
   );
   await windowManager.ensureWelcomeWindow();
@@ -104,24 +123,6 @@ async function startApplication(): Promise<void> {
         );
     }
   });
-}
-
-async function chooseRepository(
-  windowManager: WindowManager<WebContents, BrowserWindow>,
-): Promise<void> {
-  const window =
-    BrowserWindow.getFocusedWindow() ??
-    BrowserWindow.getAllWindows()[0] ??
-    (await windowManager.ensureWelcomeWindow());
-  const result = await dialog.showOpenDialog(window, {
-    title: 'Open a Git repository or worktree',
-    buttonLabel: 'Open Repository',
-    properties: ['openDirectory'],
-  });
-  const selectedPath = result.filePaths[0];
-  if (!result.canceled && selectedPath) {
-    await windowManager.openRepositoryFromWindow(window, selectedPath);
-  }
 }
 
 function buildApplicationMenu(onOpenRepository: () => void): Menu {
