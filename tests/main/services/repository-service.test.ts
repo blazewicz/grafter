@@ -351,7 +351,7 @@ async function storeWith(...projects: ProjectConfig[]): Promise<StateStore> {
   const directory = await mkdtemp(path.join(os.tmpdir(), 'grafter-repository-service-'));
   const store = new StateStore(directory);
   await store.load();
-  await store.update((state) => state.projects.push(...projects));
+  for (const project of projects) await store.addRepository(project);
   return store;
 }
 

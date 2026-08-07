@@ -380,7 +380,6 @@ describe('WindowManager', () => {
     ).rejects.toThrow('Repository refresh failed.');
 
     expect(welcomeSnapshot(harness, welcome).kind).toBe('welcome');
-    expect(harness.store.state.projects).toEqual([]);
     expect(harness.store.state.recentRepositories).toEqual([]);
   });
 

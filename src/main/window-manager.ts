@@ -166,22 +166,6 @@ export class WindowManager<
     }
   }
 
-  async removeRepository(sender: TSender, repositoryId: string): Promise<AppSnapshot> {
-    const window = this.#sessions.resolve(sender).dialogParent;
-    const session = this.#session(window);
-    if (
-      session.kind !== 'repository' ||
-      session.service.repository.repositoryId !== repositoryId
-    ) {
-      throw new Error('Project not found.');
-    }
-    await this.#store.removeRepository(repositoryId);
-    this.#repositoryWindows.delete(session.canonicalRepositoryKey);
-    this.#installWelcomeSession(window);
-    this.#publishWelcomeSnapshots();
-    return this.#session(window).service.snapshot();
-  }
-
   #createWelcomeWindow(): Promise<TWindow> {
     const window = this.#createWindow();
     this.#trackWindow(window);
@@ -205,15 +189,13 @@ export class WindowManager<
         candidate.commonDirectoryPath === location.commonDirectoryPath ||
         candidate.mainWorktreePath === location.mainWorktreePath,
     );
-    const existingProject = persisted.projects.find(
-      (candidate) =>
-        candidate.id === recent?.repositoryId ||
-        candidate.path === location.mainWorktreePath,
-    );
-    const project: ProjectConfig = existingProject ?? {
-      id: this.#createRepositoryId(),
+    const repositoryId = recent?.repositoryId ?? this.#createRepositoryId();
+    const setupScript = this.#store.repositorySetupScript(repositoryId);
+    const project: ProjectConfig = {
+      id: repositoryId,
       name: location.name,
       path: location.mainWorktreePath,
+      ...(setupScript ? { setupScript } : {}),
     };
 
     const repository = this.#createRepositoryService(
@@ -221,20 +203,12 @@ export class WindowManager<
       location.commonDirectoryPath,
     );
     try {
-      await repository.refreshForInitialOpen();
-      if (existingProject) {
-        await this.#store.openRepository(
-          project.id,
-          location.selectedWorktreePath,
-          location.commonDirectoryPath,
-        );
-      } else {
-        await this.#store.addRepository(
-          project,
-          location.selectedWorktreePath,
-          location.commonDirectoryPath,
-        );
-      }
+      await repository.refresh();
+      await this.#store.addRepository(
+        project,
+        location.selectedWorktreePath,
+        location.commonDirectoryPath,
+      );
       repository.startPullRequestHydration();
       const service = new RepositoryWindowSession(
         repository,

@@ -14,7 +14,7 @@ import { AppTitlebar } from './shell/AppTitlebar';
 import { Splash } from './shell/Splash';
 import { useNavigationHistory } from './shell/useNavigationHistory';
 import { defaultSidebarWidth, Sidebar } from './sidebar/Sidebar';
-import { useProjectWorktreeRefresh } from './sidebar/useProjectWorktreeRefresh';
+import { useRepositoryRefresh } from './sidebar/useRepositoryRefresh';
 import { useDiffViewer } from './diff/useDiffViewer';
 import { api, friendlyError } from './grafter-api';
 import { Welcome } from './welcome/Welcome';
@@ -108,7 +108,7 @@ export function App(): React.JSX.Element {
     [navigate, reconcileNavigation],
   );
 
-  useProjectWorktreeRefresh(snapshot.kind === 'repository', applySnapshot, setError);
+  useRepositoryRefresh(snapshot.kind === 'repository', applySnapshot, setError);
 
   const run = useCallback(
     async <T,>(
@@ -217,7 +217,7 @@ export function App(): React.JSX.Element {
           width={sidebarWidth}
           selectedId={selectedId}
           onSelect={navigate}
-          onChooseProject={chooseRepository}
+          onOpenRepository={chooseRepository}
           onCreated={(next, request) => {
             applySnapshot(next.snapshot);
             const created =

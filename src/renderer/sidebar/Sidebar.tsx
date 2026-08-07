@@ -16,7 +16,7 @@ export function Sidebar({
   width,
   selectedId,
   onSelect,
-  onChooseProject,
+  onOpenRepository,
   onCreated,
   onRemoveWorktree,
   onOpenSettings,
@@ -28,7 +28,7 @@ export function Sidebar({
   width: number;
   selectedId: string | undefined;
   onSelect: (id: string) => void;
-  onChooseProject: () => void;
+  onOpenRepository: () => void;
   onCreated: (
     result: Awaited<ReturnType<GrafterApi['createWorktree']>>,
     request: { path: string },
@@ -64,13 +64,13 @@ export function Sidebar({
             className={`${controls.iconButton} ${styles.headingAction}`}
             aria-label="Open Repository..."
             title="Open Repository..."
-            onClick={onChooseProject}
+            onClick={onOpenRepository}
           >
             <FolderOpen size={15} />
           </button>
         </div>
       </div>
-      <div className={styles.projectTree}>
+      <div className={styles.repositoryWorktrees}>
         <WorktreeList
           homeDirectory={homeDirectory}
           project={repository}
