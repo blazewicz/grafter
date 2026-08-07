@@ -1,4 +1,4 @@
-import { FolderGit2, FolderRoot, Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { useMemo } from 'react';
 import type {
   GrafterApi,
@@ -113,9 +113,6 @@ function WorktreeRow({
         onClick={() => onSelect(worktree.id)}
         onPointerUp={releasePointerFocus}
       >
-        <span className={styles.worktreeIcon} aria-hidden="true">
-          {worktree.isMain ? <FolderRoot size={13} /> : <FolderGit2 size={13} />}
-        </span>
         <span className={styles.worktreeCopy}>
           <span className={styles.worktreeTopLine}>
             <SidebarTooltip
