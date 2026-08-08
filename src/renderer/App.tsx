@@ -216,8 +216,8 @@ export function App(): React.JSX.Element {
           repository={activeRepository}
           width={sidebarWidth}
           selectedId={selectedId}
+          selectedWorktreeStatus={worktreeStatus}
           onSelect={navigate}
-          onOpenRepository={chooseRepository}
           onCreated={(next, request) => {
             applySnapshot(next.snapshot);
             const created =

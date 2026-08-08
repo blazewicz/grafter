@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Worktree } from '../../src/shared/contracts';
 import {
+  filterWorktrees,
   resolveWorktreeDisplayNames,
   sortWorktrees,
   type WorktreeWithoutDisplayName,
@@ -120,19 +121,77 @@ describe('resolveWorktreeDisplayNames', () => {
 });
 
 describe('sortWorktrees', () => {
-  it('pins main and sorts by display name without using branch or PR data', () => {
-    const beta = worktree('Beta', '/worktrees/z-path');
-    const alpha = worktree('alpha', '/worktrees/a-path');
+  it('pins main and sorts by path without using display name or PR data', () => {
+    const firstByPath = worktree('Zulu', '/worktrees/a-path');
+    const lastByPath = worktree('alpha', '/worktrees/z-path');
     const main = worktree('main', '/projects/repo');
     main.isMain = true;
-    beta.pullRequest = {
+    lastByPath.pullRequest = {
       number: 1,
       title: 'Stacked branch',
       url: 'https://github.com/example/repo/pull/1',
       state: 'OPEN',
-      baseBranch: alpha.branch,
+      baseBranch: firstByPath.branch,
     };
 
-    expect(sortWorktrees([beta, main, alpha])).toEqual([main, alpha, beta]);
+    expect(sortWorktrees([lastByPath, main, firstByPath], 'path')).toEqual([
+      main,
+      firstByPath,
+      lastByPath,
+    ]);
+  });
+
+  it('preserves display-name sorting for callers without an explicit order', () => {
+    const firstByName = worktree('alpha', '/worktrees/z-path');
+    const lastByName = worktree('Zulu', '/worktrees/a-path');
+    const main = worktree('main', '/projects/repo');
+    main.isMain = true;
+
+    expect(sortWorktrees([lastByName, main, firstByName])).toEqual([
+      main,
+      firstByName,
+      lastByName,
+    ]);
+  });
+
+  it('pins main and sorts by branch with path as a tie-breaker', () => {
+    const lastByBranch = worktree('alpha', '/worktrees/a-path');
+    lastByBranch.branch = 'z-last';
+    const lastByPath = worktree('beta', '/worktrees/z-path');
+    lastByPath.branch = 'a-first';
+    const firstByPath = worktree('gamma', '/worktrees/b-path');
+    firstByPath.branch = 'a-first';
+    const main = worktree('main', '/projects/repo');
+    main.isMain = true;
+
+    expect(
+      sortWorktrees([lastByBranch, lastByPath, main, firstByPath], 'branch'),
+    ).toEqual([main, firstByPath, lastByPath, lastByBranch]);
+  });
+});
+
+describe('filterWorktrees', () => {
+  it('matches path and branch case-insensitively without mutating the input', () => {
+    const byPath = worktree('path match', '/worktrees/Feature-Search');
+    byPath.branch = 'unrelated';
+    const byBranch = worktree('branch match', '/worktrees/unrelated');
+    byBranch.branch = 'Feature/Branch-Search';
+    const other = worktree('other', '/worktrees/other');
+    other.branch = 'feature/other';
+    const worktrees = [byPath, byBranch, other];
+
+    expect(filterWorktrees(worktrees, '  feature-search  ')).toEqual([byPath]);
+    expect(filterWorktrees(worktrees, 'BRANCH-SEARCH')).toEqual([byBranch]);
+    expect(worktrees).toEqual([byPath, byBranch, other]);
+  });
+
+  it('returns every worktree for a blank query', () => {
+    const worktrees = [
+      worktree('first', '/worktrees/first'),
+      worktree('second', '/worktrees/second'),
+    ];
+
+    expect(filterWorktrees(worktrees, '   ')).toEqual(worktrees);
+    expect(filterWorktrees(worktrees, '')).not.toBe(worktrees);
   });
 });

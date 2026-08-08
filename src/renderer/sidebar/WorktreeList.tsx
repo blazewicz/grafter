@@ -1,8 +1,15 @@
-import { FolderGit2, FolderRoot, Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { useMemo } from 'react';
-import type { GrafterApi, Project, Worktree } from '../../shared/contracts';
+import type {
+  GrafterApi,
+  Project,
+  Worktree,
+  WorktreeStatus,
+} from '../../shared/contracts';
 import { displayWorktreePath } from '../../shared/path-display';
-import { sortWorktrees } from '../../shared/worktree-list';
+import { filterWorktrees, sortWorktrees } from '../../shared/worktree-list';
+import type { WorktreeSortOrder } from '../../shared/worktree-list';
+import { PullRequestStateIcon } from '../ui/PullRequestStateIcon';
 import { NewWorktreeForm } from './NewWorktreeForm';
 import { SidebarTooltip } from './SidebarTooltip';
 import styles from './sidebar.module.css';
@@ -11,6 +18,9 @@ export function WorktreeList({
   homeDirectory,
   project,
   selectedId,
+  selectedWorktreeStatus,
+  sortOrder,
+  filterQuery,
   adding,
   flat = false,
   onSelect,
@@ -22,6 +32,9 @@ export function WorktreeList({
   homeDirectory: string;
   project: Project;
   selectedId: string | undefined;
+  selectedWorktreeStatus: WorktreeStatus | undefined;
+  sortOrder: WorktreeSortOrder;
+  filterQuery: string;
   adding: boolean;
   flat?: boolean;
   onSelect: (id: string) => void;
@@ -33,9 +46,9 @@ export function WorktreeList({
   onRemoveWorktree: (worktree: Worktree) => void;
   onError: (message: string) => void;
 }): React.JSX.Element {
-  const sortedWorktrees = useMemo(
-    () => sortWorktrees(project.worktrees),
-    [project.worktrees],
+  const visibleWorktrees = useMemo(
+    () => filterWorktrees(sortWorktrees(project.worktrees, sortOrder), filterQuery),
+    [filterQuery, project.worktrees, sortOrder],
   );
 
   return (
@@ -44,17 +57,24 @@ export function WorktreeList({
         className={`${styles.branchList} ${flat ? styles.flatWorktreeList : ''}`}
         aria-label={`${project.name} worktrees`}
       >
-        {sortedWorktrees.map((worktree) => (
-          <WorktreeRow
-            key={worktree.id}
-            homeDirectory={homeDirectory}
-            mainClonePath={project.path}
-            worktree={worktree}
-            selected={selectedId === worktree.id}
-            onSelect={onSelect}
-            onRemoveWorktree={onRemoveWorktree}
-          />
-        ))}
+        {visibleWorktrees.length ? (
+          visibleWorktrees.map((worktree) => (
+            <WorktreeRow
+              key={worktree.id}
+              homeDirectory={homeDirectory}
+              mainClonePath={project.path}
+              worktree={worktree}
+              selected={selectedId === worktree.id}
+              status={selectedId === worktree.id ? selectedWorktreeStatus : undefined}
+              onSelect={onSelect}
+              onRemoveWorktree={onRemoveWorktree}
+            />
+          ))
+        ) : (
+          <div className={styles.emptyWorktreeList} role="status">
+            No worktrees match “{filterQuery.trim()}”
+          </div>
+        )}
       </div>
       {adding && (
         <NewWorktreeForm
@@ -73,6 +93,7 @@ function WorktreeRow({
   mainClonePath,
   worktree,
   selected,
+  status,
   onSelect,
   onRemoveWorktree,
 }: {
@@ -80,6 +101,7 @@ function WorktreeRow({
   mainClonePath: string;
   worktree: Worktree;
   selected: boolean;
+  status: WorktreeStatus | undefined;
   onSelect: (id: string) => void;
   onRemoveWorktree: (worktree: Worktree) => void;
 }): React.JSX.Element {
@@ -100,26 +122,30 @@ function WorktreeRow({
             : `${worktree.displayName}, checked out branch ${worktree.branch}`
         }
         onClick={() => onSelect(worktree.id)}
-        onPointerUp={releasePointerFocus}
+        onPointerUp={(event) => event.currentTarget.blur()}
       >
-        {worktree.isMain ? <FolderRoot size={13} /> : <FolderGit2 size={13} />}
-        <SidebarTooltip
-          className={styles.worktreeNameWrap}
-          label={worktree.displayName}
-          labelClassName={styles.worktreeName}
-          tooltip={worktree.isMain ? `Main worktree · ${displayedPath}` : displayedPath}
-          data-worktree-path={worktree.path}
-        />
-        {(!worktree.isMain || worktree.branch !== 'main') && (
+        <span className={styles.worktreeCopy}>
+          <span className={styles.worktreeTopLine}>
+            <SidebarTooltip
+              className={styles.worktreeNameWrap}
+              label={worktree.displayName}
+              labelClassName={styles.worktreeName}
+              tooltip={
+                worktree.isMain ? `Main worktree · ${displayedPath}` : displayedPath
+              }
+              data-worktree-path={worktree.path}
+            />
+            <WorktreeBadges status={status} worktree={worktree} />
+          </span>
           <SidebarTooltip
             className={styles.branchNameWrap}
             label={worktree.branch}
             labelClassName={styles.branchName}
-            onlyWhenTruncated
+            // onlyWhenTruncated
             tooltip={worktree.branch}
             data-branch-name={worktree.branch}
           />
-        )}
+        </span>
       </button>
       {!worktree.isMain && (
         <div className={styles.rowActions}>
@@ -137,6 +163,32 @@ function WorktreeRow({
   );
 }
 
-function releasePointerFocus(event: React.PointerEvent<HTMLButtonElement>): void {
-  event.currentTarget.blur();
+function WorktreeBadges({
+  status,
+  worktree,
+}: {
+  status: WorktreeStatus | undefined;
+  worktree: Worktree;
+}): React.JSX.Element {
+  if (!(status === 'dirty' || worktree.pullRequest)) return <></>;
+
+  return (
+    <span className={styles.worktreeBadges} aria-label="Worktree badges">
+      {status === 'dirty' && (
+        <span
+          className={styles.dirtyBadge}
+          role="img"
+          aria-label="Dirty worktree"
+          title="Uncommitted changes"
+        />
+      )}
+      {worktree.pullRequest && (
+        <PullRequestStateIcon
+          className={styles.pullRequestBadge}
+          state={worktree.pullRequest.state}
+          size={13}
+        />
+      )}
+    </span>
+  );
 }

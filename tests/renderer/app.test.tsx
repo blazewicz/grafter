@@ -86,7 +86,7 @@ describe('App welcome state', () => {
     expect(openRecentRepository).toHaveBeenCalledOnce();
     expect(openRecentRepository).toHaveBeenCalledWith(recent.repositoryId);
     expect(
-      await screen.findByRole('button', { name: 'Open Repository...' }),
+      await screen.findByRole('button', { name: 'Worktree list options' }),
     ).toBeVisible();
     expect(screen.queryByRole('heading', { name: 'Welcome to Grafter' })).toBeNull();
   });
@@ -275,22 +275,6 @@ describe('App welcome state', () => {
         second.repository.worktrees[0]?.id,
       );
     });
-  });
-
-  it('opens another repository through the window manager without changing this window', async () => {
-    const user = userEvent.setup();
-    stubRepositoryWindowApis(repositoryScenario.snapshot);
-    const chooseRepository = vi.spyOn(api, 'chooseRepository').mockResolvedValue(null);
-    renderApp(Promise.resolve(repositoryScenario.snapshot));
-
-    await user.click(await screen.findByRole('button', { name: 'Open Repository...' }));
-
-    expect(chooseRepository).toHaveBeenCalledOnce();
-    expect(
-      screen.getByRole('button', {
-        name: `${repositoryScenario.repository.name} repository details`,
-      }),
-    ).toBeVisible();
   });
 
   it('selects a created worktree and queues its setup approval', async () => {
