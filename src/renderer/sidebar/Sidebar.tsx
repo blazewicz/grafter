@@ -1,5 +1,5 @@
 import { FolderOpen, Plus, Search, Settings } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import type {
   GrafterApi,
   Project,
@@ -11,6 +11,7 @@ import controls from '../styles/controls.module.css';
 import styles from './sidebar.module.css';
 import { WorktreeList } from './WorktreeList';
 import { WorktreeSortMenu } from './WorktreeSortMenu';
+import { useWorktreeFilter } from './useWorktreeFilter';
 
 const minimumSidebarWidth = 230;
 const maximumSidebarWidth = 480;
@@ -47,45 +48,14 @@ export function Sidebar({
 }): React.JSX.Element {
   const [adding, setAdding] = useState(false);
   const [worktreeSortOrder, setWorktreeSortOrder] = useState<WorktreeSortOrder>('path');
-  const [filterOpen, setFilterOpen] = useState(false);
-  const [worktreeFilter, setWorktreeFilter] = useState('');
-  const filterInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (!filterOpen) return;
-    filterInputRef.current?.focus();
-    filterInputRef.current?.select();
-  }, [filterOpen]);
-
-  useEffect(() => {
-    const focusWorktreeFilter = (event: KeyboardEvent): void => {
-      if (
-        event.key.toLocaleLowerCase() !== 'f' ||
-        !event.metaKey ||
-        event.altKey ||
-        event.shiftKey ||
-        document.querySelector('dialog[open], [role="dialog"][aria-modal="true"]')
-      ) {
-        return;
-      }
-
-      event.preventDefault();
-      if (filterOpen) {
-        filterInputRef.current?.focus();
-        filterInputRef.current?.select();
-      } else {
-        setFilterOpen(true);
-      }
-    };
-
-    document.addEventListener('keydown', focusWorktreeFilter);
-    return () => document.removeEventListener('keydown', focusWorktreeFilter);
-  }, [filterOpen]);
-
-  const closeWorktreeFilter = (): void => {
-    setFilterOpen(false);
-    setWorktreeFilter('');
-  };
+  const {
+    filterOpen,
+    worktreeFilter,
+    filterInputRef,
+    setWorktreeFilter,
+    openWorktreeFilter,
+    closeWorktreeFilter,
+  } = useWorktreeFilter();
 
   return (
     <aside className={styles.sidebar} id="sidebar">
@@ -115,7 +85,7 @@ export function Sidebar({
             title="Filter worktrees (⌘F)"
             onClick={() => {
               if (filterOpen) closeWorktreeFilter();
-              else setFilterOpen(true);
+              else openWorktreeFilter();
             }}
           >
             <Search size={14} />
