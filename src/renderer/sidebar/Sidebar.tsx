@@ -152,7 +152,10 @@ export function Sidebar({
           filterQuery={worktreeFilter}
           adding={adding}
           flat
-          onSelect={onSelect}
+          onSelect={(id) => {
+            if (filterOpen) closeWorktreeFilter();
+            onSelect(id);
+          }}
           onCancelAdd={() => setAdding(false)}
           onCreated={(result, request) => {
             setAdding(false);

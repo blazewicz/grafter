@@ -208,6 +208,38 @@ describe('Sidebar', () => {
     ).toBeVisible();
   });
 
+  it('closes and clears worktree search after selecting a filtered worktree', async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    renderSidebar({ onSelect });
+
+    await user.click(screen.getByRole('button', { name: 'Filter worktrees' }));
+    await user.type(
+      screen.getByRole('searchbox', {
+        name: 'Filter worktrees by path or branch',
+      }),
+      scenario.branchFilterWorktree.branch,
+    );
+    await user.click(
+      screen.getByRole('button', {
+        name: `${scenario.branchFilterWorktree.displayName}, checked out branch ${scenario.branchFilterWorktree.branch}`,
+      }),
+    );
+
+    expect(onSelect).toHaveBeenCalledOnce();
+    expect(onSelect).toHaveBeenCalledWith(scenario.branchFilterWorktree.id);
+    expect(screen.queryByRole('searchbox')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Filter worktrees' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+    expect(
+      screen.getByRole('button', {
+        name: `Main worktree, checked out branch ${scenario.expectedWorktrees[0]?.branch}`,
+      }),
+    ).toBeVisible();
+  });
+
   it('opens and cancels the repository-level new-worktree flow with the keyboard', async () => {
     const user = userEvent.setup();
     vi.spyOn(api, 'listBranches').mockResolvedValue([]);
