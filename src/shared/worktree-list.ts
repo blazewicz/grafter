@@ -62,6 +62,20 @@ export function sortWorktrees(
   );
 }
 
+export function filterWorktrees(
+  worktrees: readonly Worktree[],
+  query: string,
+): Worktree[] {
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  if (!normalizedQuery) return [...worktrees];
+
+  return worktrees.filter(
+    (worktree) =>
+      worktree.path.toLocaleLowerCase().includes(normalizedQuery) ||
+      worktree.branch.toLocaleLowerCase().includes(normalizedQuery),
+  );
+}
+
 function shortestUniquePathSuffix(
   worktree: WorktreeWithoutDisplayName,
   matches: readonly WorktreeWithoutDisplayName[],

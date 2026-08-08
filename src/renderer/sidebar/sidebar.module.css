@@ -87,6 +87,11 @@
   position: relative;
 }
 
+.heading-action[aria-expanded='true'] {
+  background: var(--surface-strong);
+  color: var(--text);
+}
+
 .heading-actions {
   display: flex;
   align-items: center;
@@ -149,6 +154,49 @@
 
 .sort-menu-item svg {
   color: var(--accent);
+}
+
+.worktree-filter {
+  height: 30px;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 10px 6px;
+  padding: 0 8px;
+  border: 1px solid rgba(169, 173, 215, 0.18);
+  border-radius: 7px;
+  background: rgba(10, 11, 13, 0.32);
+  color: var(--faint);
+  animation: worktree-filter-in 110ms ease-out;
+}
+
+.worktree-filter:focus-within {
+  border-color: rgba(169, 173, 215, 0.42);
+  box-shadow: 0 0 0 2px rgba(169, 173, 215, 0.07);
+  color: var(--muted);
+}
+
+.worktree-filter input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 11px;
+}
+
+.worktree-filter input::placeholder {
+  color: var(--faint);
+}
+
+@keyframes worktree-filter-in {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
 }
 
 .repository-worktrees {
@@ -256,6 +304,14 @@
   margin-left: 15px;
   padding-left: 7px;
   border-left: 1px solid rgba(255, 255, 255, 0.055);
+}
+
+.empty-worktree-list {
+  padding: 18px 10px;
+  color: var(--faint);
+  font-size: 10.5px;
+  line-height: 1.4;
+  text-align: center;
 }
 
 .flat-worktree-list {

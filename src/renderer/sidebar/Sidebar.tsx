@@ -1,5 +1,5 @@
-import { FolderOpen, Plus, Settings } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { FolderOpen, Plus, Search, Settings } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import type {
   GrafterApi,
   Project,
@@ -47,6 +47,45 @@ export function Sidebar({
 }): React.JSX.Element {
   const [adding, setAdding] = useState(false);
   const [worktreeSortOrder, setWorktreeSortOrder] = useState<WorktreeSortOrder>('path');
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [worktreeFilter, setWorktreeFilter] = useState('');
+  const filterInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!filterOpen) return;
+    filterInputRef.current?.focus();
+    filterInputRef.current?.select();
+  }, [filterOpen]);
+
+  useEffect(() => {
+    const focusWorktreeFilter = (event: KeyboardEvent): void => {
+      if (
+        event.key.toLocaleLowerCase() !== 'f' ||
+        !event.metaKey ||
+        event.altKey ||
+        event.shiftKey ||
+        document.querySelector('dialog[open], [role="dialog"][aria-modal="true"]')
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      if (filterOpen) {
+        filterInputRef.current?.focus();
+        filterInputRef.current?.select();
+      } else {
+        setFilterOpen(true);
+      }
+    };
+
+    document.addEventListener('keydown', focusWorktreeFilter);
+    return () => document.removeEventListener('keydown', focusWorktreeFilter);
+  }, [filterOpen]);
+
+  const closeWorktreeFilter = (): void => {
+    setFilterOpen(false);
+    setWorktreeFilter('');
+  };
 
   return (
     <aside className={styles.sidebar} id="sidebar">
@@ -68,9 +107,41 @@ export function Sidebar({
           >
             <Plus size={15} />
           </button>
+          <button
+            className={`${controls.iconButton} ${styles.headingAction}`}
+            aria-label="Filter worktrees"
+            aria-keyshortcuts="Meta+F"
+            aria-expanded={filterOpen}
+            title="Filter worktrees (⌘F)"
+            onClick={() => {
+              if (filterOpen) closeWorktreeFilter();
+              else setFilterOpen(true);
+            }}
+          >
+            <Search size={14} />
+          </button>
           <WorktreeSortMenu value={worktreeSortOrder} onChange={setWorktreeSortOrder} />
         </div>
       </div>
+      {filterOpen && (
+        <label className={styles.worktreeFilter}>
+          <Search size={13} aria-hidden="true" />
+          <input
+            ref={filterInputRef}
+            type="search"
+            aria-label="Filter worktrees by path or branch"
+            placeholder="Filter path or branch…"
+            value={worktreeFilter}
+            onChange={(event) => setWorktreeFilter(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key !== 'Escape') return;
+              event.preventDefault();
+              event.stopPropagation();
+              closeWorktreeFilter();
+            }}
+          />
+        </label>
+      )}
       <div className={styles.repositoryWorktrees}>
         <WorktreeList
           homeDirectory={homeDirectory}
@@ -78,6 +149,7 @@ export function Sidebar({
           selectedId={selectedId}
           selectedWorktreeStatus={selectedWorktreeStatus}
           sortOrder={worktreeSortOrder}
+          filterQuery={worktreeFilter}
           adding={adding}
           flat
           onSelect={onSelect}

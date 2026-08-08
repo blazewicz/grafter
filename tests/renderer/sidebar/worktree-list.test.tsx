@@ -23,6 +23,7 @@ interface RenderWorktreeListOptions {
   selectedId?: string;
   selectedWorktreeStatus?: WorktreeStatus;
   sortOrder?: WorktreeSortOrder;
+  filterQuery?: string;
   adding?: boolean;
   onSelect?: (id: string) => void;
   onCancelAdd?: () => void;
@@ -42,6 +43,7 @@ function renderWorktreeList(options: RenderWorktreeListOptions = {}): void {
       selectedId={options.selectedId}
       selectedWorktreeStatus={options.selectedWorktreeStatus}
       sortOrder={options.sortOrder ?? 'path'}
+      filterQuery={options.filterQuery ?? ''}
       adding={options.adding ?? false}
       onSelect={options.onSelect ?? (() => undefined)}
       onCancelAdd={options.onCancelAdd ?? (() => undefined)}
@@ -64,6 +66,41 @@ describe('WorktreeList', () => {
   afterEach(() => {
     cleanup();
     vi.restoreAllMocks();
+  });
+
+  it.each([
+    {
+      field: 'path',
+      query: scenario.pathFilterWorktree.path.toLocaleUpperCase(),
+      expected: scenario.pathFilterWorktree,
+    },
+    {
+      field: 'branch',
+      query: scenario.branchFilterWorktree.branch.toLocaleUpperCase(),
+      expected: scenario.branchFilterWorktree,
+    },
+  ])('filters worktrees case-insensitively by $field', ({ query, expected }) => {
+    renderWorktreeList({ filterQuery: query });
+
+    expect(worktreeButton(expected)).toBeVisible();
+    for (const worktree of scenario.expectedWorktrees) {
+      if (worktree.id === expected.id) continue;
+      expect(
+        screen.queryByRole('button', {
+          name: worktree.isMain
+            ? `Main worktree, checked out branch ${worktree.branch}`
+            : `${worktree.displayName}, checked out branch ${worktree.branch}`,
+        }),
+      ).toBeNull();
+    }
+  });
+
+  it('shows an empty result for a filter with no matching path or branch', () => {
+    const query = 'missing-worktree-filter';
+    renderWorktreeList({ filterQuery: query });
+
+    expect(screen.getByRole('status')).toHaveTextContent(`No worktrees match “${query}”`);
+    expect(screen.queryByRole('button', { name: /checked out branch/ })).toBeNull();
   });
 
   it.each([{ sortOrder: 'path' as const }, { sortOrder: 'branch' as const }])(

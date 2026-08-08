@@ -15,6 +15,8 @@ export interface RepositoryWorktreesScenario {
   expectedWorktreesByBranch: Worktree[];
   expectedTooltips: Readonly<Record<string, string>>;
   selectableWorktree: Worktree;
+  pathFilterWorktree: Worktree;
+  branchFilterWorktree: Worktree;
 }
 
 export function buildRepositoryWorktreesScenario(): RepositoryWorktreesScenario {
@@ -71,5 +73,7 @@ export function buildRepositoryWorktreesScenario(): RepositoryWorktreesScenario 
       )}`,
     },
     selectableWorktree: firstByName,
+    pathFilterWorktree: lastByPath,
+    branchFilterWorktree: firstByName,
   };
 }

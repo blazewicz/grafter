@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Worktree } from '../../src/shared/contracts';
 import {
+  filterWorktrees,
   resolveWorktreeDisplayNames,
   sortWorktrees,
   type WorktreeWithoutDisplayName,
@@ -166,5 +167,31 @@ describe('sortWorktrees', () => {
     expect(
       sortWorktrees([lastByBranch, lastByPath, main, firstByPath], 'branch'),
     ).toEqual([main, firstByPath, lastByPath, lastByBranch]);
+  });
+});
+
+describe('filterWorktrees', () => {
+  it('matches path and branch case-insensitively without mutating the input', () => {
+    const byPath = worktree('path match', '/worktrees/Feature-Search');
+    byPath.branch = 'unrelated';
+    const byBranch = worktree('branch match', '/worktrees/unrelated');
+    byBranch.branch = 'Feature/Branch-Search';
+    const other = worktree('other', '/worktrees/other');
+    other.branch = 'feature/other';
+    const worktrees = [byPath, byBranch, other];
+
+    expect(filterWorktrees(worktrees, '  feature-search  ')).toEqual([byPath]);
+    expect(filterWorktrees(worktrees, 'BRANCH-SEARCH')).toEqual([byBranch]);
+    expect(worktrees).toEqual([byPath, byBranch, other]);
+  });
+
+  it('returns every worktree for a blank query', () => {
+    const worktrees = [
+      worktree('first', '/worktrees/first'),
+      worktree('second', '/worktrees/second'),
+    ];
+
+    expect(filterWorktrees(worktrees, '   ')).toEqual(worktrees);
+    expect(filterWorktrees(worktrees, '')).not.toBe(worktrees);
   });
 });

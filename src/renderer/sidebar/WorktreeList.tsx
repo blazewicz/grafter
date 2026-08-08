@@ -7,7 +7,7 @@ import type {
   WorktreeStatus,
 } from '../../shared/contracts';
 import { displayWorktreePath } from '../../shared/path-display';
-import { sortWorktrees } from '../../shared/worktree-list';
+import { filterWorktrees, sortWorktrees } from '../../shared/worktree-list';
 import type { WorktreeSortOrder } from '../../shared/worktree-list';
 import { PullRequestStateIcon } from '../ui/PullRequestStateIcon';
 import { NewWorktreeForm } from './NewWorktreeForm';
@@ -20,6 +20,7 @@ export function WorktreeList({
   selectedId,
   selectedWorktreeStatus,
   sortOrder,
+  filterQuery,
   adding,
   flat = false,
   onSelect,
@@ -33,6 +34,7 @@ export function WorktreeList({
   selectedId: string | undefined;
   selectedWorktreeStatus: WorktreeStatus | undefined;
   sortOrder: WorktreeSortOrder;
+  filterQuery: string;
   adding: boolean;
   flat?: boolean;
   onSelect: (id: string) => void;
@@ -44,9 +46,9 @@ export function WorktreeList({
   onRemoveWorktree: (worktree: Worktree) => void;
   onError: (message: string) => void;
 }): React.JSX.Element {
-  const sortedWorktrees = useMemo(
-    () => sortWorktrees(project.worktrees, sortOrder),
-    [project.worktrees, sortOrder],
+  const visibleWorktrees = useMemo(
+    () => filterWorktrees(sortWorktrees(project.worktrees, sortOrder), filterQuery),
+    [filterQuery, project.worktrees, sortOrder],
   );
 
   return (
@@ -55,18 +57,24 @@ export function WorktreeList({
         className={`${styles.branchList} ${flat ? styles.flatWorktreeList : ''}`}
         aria-label={`${project.name} worktrees`}
       >
-        {sortedWorktrees.map((worktree) => (
-          <WorktreeRow
-            key={worktree.id}
-            homeDirectory={homeDirectory}
-            mainClonePath={project.path}
-            worktree={worktree}
-            selected={selectedId === worktree.id}
-            status={selectedId === worktree.id ? selectedWorktreeStatus : undefined}
-            onSelect={onSelect}
-            onRemoveWorktree={onRemoveWorktree}
-          />
-        ))}
+        {visibleWorktrees.length ? (
+          visibleWorktrees.map((worktree) => (
+            <WorktreeRow
+              key={worktree.id}
+              homeDirectory={homeDirectory}
+              mainClonePath={project.path}
+              worktree={worktree}
+              selected={selectedId === worktree.id}
+              status={selectedId === worktree.id ? selectedWorktreeStatus : undefined}
+              onSelect={onSelect}
+              onRemoveWorktree={onRemoveWorktree}
+            />
+          ))
+        ) : (
+          <div className={styles.emptyWorktreeList} role="status">
+            No worktrees match “{filterQuery.trim()}”
+          </div>
+        )}
       </div>
       {adding && (
         <NewWorktreeForm
@@ -114,7 +122,7 @@ function WorktreeRow({
             : `${worktree.displayName}, checked out branch ${worktree.branch}`
         }
         onClick={() => onSelect(worktree.id)}
-        onPointerUp={releasePointerFocus}
+        onPointerUp={(event) => event.currentTarget.blur()}
       >
         <span className={styles.worktreeCopy}>
           <span className={styles.worktreeTopLine}>
@@ -127,25 +135,7 @@ function WorktreeRow({
               }
               data-worktree-path={worktree.path}
             />
-            {(status === 'dirty' || worktree.pullRequest) && (
-              <span className={styles.worktreeBadges} aria-label="Worktree badges">
-                {status === 'dirty' && (
-                  <span
-                    className={styles.dirtyBadge}
-                    role="img"
-                    aria-label="Dirty worktree"
-                    title="Uncommitted changes"
-                  />
-                )}
-                {worktree.pullRequest && (
-                  <PullRequestStateIcon
-                    className={styles.pullRequestBadge}
-                    state={worktree.pullRequest.state}
-                    size={13}
-                  />
-                )}
-              </span>
-            )}
+            <WorktreeBadges status={status} worktree={worktree} />
           </span>
           <SidebarTooltip
             className={styles.branchNameWrap}
@@ -173,6 +163,32 @@ function WorktreeRow({
   );
 }
 
-function releasePointerFocus(event: React.PointerEvent<HTMLButtonElement>): void {
-  event.currentTarget.blur();
+function WorktreeBadges({
+  status,
+  worktree,
+}: {
+  status: WorktreeStatus | undefined;
+  worktree: Worktree;
+}): React.JSX.Element {
+  if (!(status === 'dirty' || worktree.pullRequest)) return <></>;
+
+  return (
+    <span className={styles.worktreeBadges} aria-label="Worktree badges">
+      {status === 'dirty' && (
+        <span
+          className={styles.dirtyBadge}
+          role="img"
+          aria-label="Dirty worktree"
+          title="Uncommitted changes"
+        />
+      )}
+      {worktree.pullRequest && (
+        <PullRequestStateIcon
+          className={styles.pullRequestBadge}
+          state={worktree.pullRequest.state}
+          size={13}
+        />
+      )}
+    </span>
+  );
 }
