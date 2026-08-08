@@ -66,41 +66,49 @@ describe('WorktreeList', () => {
     vi.restoreAllMocks();
   });
 
-  it('sorts rows and preserves their path and branch presentation', async () => {
+  it.each([{ sortOrder: 'path' as const }, { sortOrder: 'branch' as const }])(
+    'shows worktrees sorted by $sortOrder',
+    ({ sortOrder }) => {
+      renderWorktreeList({ sortOrder });
+
+      const expected =
+        sortOrder === 'path'
+          ? scenario.expectedWorktrees
+          : scenario.expectedWorktreesByBranch;
+
+      let previous: HTMLButtonElement | undefined;
+      for (const worktree of expected) {
+        const button = worktreeButton(worktree);
+        if (previous) expect(previous).toAppearBefore(button);
+        previous = button;
+      }
+    },
+  );
+
+  it('shows worktree display name and branch name with a full version in tooltips', async () => {
     const user = userEvent.setup();
     renderWorktreeList();
 
-    let previous: HTMLButtonElement | undefined;
     for (const worktree of scenario.expectedWorktrees) {
       const button = worktreeButton(worktree);
-      if (previous) expect(previous).toAppearBefore(button);
-      previous = button;
+
       const displayName = within(button).getByText(worktree.displayName, {
         selector: '[data-worktree-path] > span',
       });
       expect(displayName).toBeVisible();
-      expect(
-        within(button).getByText(worktree.branch, {
-          selector: '[data-branch-name] > span',
-        }),
-      ).toBeVisible();
-
       await user.hover(displayName);
       expect(await screen.findByRole('tooltip')).toHaveTextContent(
         scenario.expectedTooltips[worktree.id] ?? '',
       );
       await user.unhover(displayName);
-    }
-  });
 
-  it('sorts linked worktrees by branch while keeping main first', () => {
-    renderWorktreeList({ sortOrder: 'branch' });
-
-    let previous: HTMLButtonElement | undefined;
-    for (const worktree of scenario.expectedWorktreesByBranch) {
-      const button = worktreeButton(worktree);
-      if (previous) expect(previous).toAppearBefore(button);
-      previous = button;
+      const branchName = within(button).getByText(worktree.branch, {
+        selector: '[data-branch-name] > span',
+      });
+      expect(branchName).toBeVisible();
+      await user.hover(branchName);
+      expect(await screen.findByRole('tooltip')).toHaveTextContent(worktree.branch);
+      await user.unhover(branchName);
     }
   });
 

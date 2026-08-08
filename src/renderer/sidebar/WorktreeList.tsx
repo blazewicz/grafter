@@ -151,7 +151,7 @@ function WorktreeRow({
             className={styles.branchNameWrap}
             label={worktree.branch}
             labelClassName={styles.branchName}
-            onlyWhenTruncated
+            // onlyWhenTruncated
             tooltip={worktree.branch}
             data-branch-name={worktree.branch}
           />
