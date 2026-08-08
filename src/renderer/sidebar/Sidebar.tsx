@@ -6,9 +6,11 @@ import type {
   Worktree,
   WorktreeStatus,
 } from '../../shared/contracts';
+import type { WorktreeSortOrder } from '../../shared/worktree-list';
 import controls from '../styles/controls.module.css';
 import styles from './sidebar.module.css';
 import { WorktreeList } from './WorktreeList';
+import { WorktreeSortMenu } from './WorktreeSortMenu';
 
 const minimumSidebarWidth = 230;
 const maximumSidebarWidth = 480;
@@ -22,7 +24,6 @@ export function Sidebar({
   selectedId,
   selectedWorktreeStatus,
   onSelect,
-  onOpenRepository,
   onCreated,
   onRemoveWorktree,
   onOpenSettings,
@@ -35,7 +36,6 @@ export function Sidebar({
   selectedId: string | undefined;
   selectedWorktreeStatus: WorktreeStatus | undefined;
   onSelect: (id: string) => void;
-  onOpenRepository: () => void;
   onCreated: (
     result: Awaited<ReturnType<GrafterApi['createWorktree']>>,
     request: { path: string },
@@ -46,6 +46,7 @@ export function Sidebar({
   onResize: (width: number) => void;
 }): React.JSX.Element {
   const [adding, setAdding] = useState(false);
+  const [worktreeSortOrder, setWorktreeSortOrder] = useState<WorktreeSortOrder>('path');
 
   return (
     <aside className={styles.sidebar} id="sidebar">
@@ -67,14 +68,7 @@ export function Sidebar({
           >
             <Plus size={15} />
           </button>
-          <button
-            className={`${controls.iconButton} ${styles.headingAction}`}
-            aria-label="Open Repository..."
-            title="Open Repository..."
-            onClick={onOpenRepository}
-          >
-            <FolderOpen size={15} />
-          </button>
+          <WorktreeSortMenu value={worktreeSortOrder} onChange={setWorktreeSortOrder} />
         </div>
       </div>
       <div className={styles.repositoryWorktrees}>
@@ -83,6 +77,7 @@ export function Sidebar({
           project={repository}
           selectedId={selectedId}
           selectedWorktreeStatus={selectedWorktreeStatus}
+          sortOrder={worktreeSortOrder}
           adding={adding}
           flat
           onSelect={onSelect}

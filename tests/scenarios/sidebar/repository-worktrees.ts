@@ -12,6 +12,7 @@ export interface RepositoryWorktreesScenario {
   homeDirectory: string;
   repository: Project;
   expectedWorktrees: Worktree[];
+  expectedWorktreesByBranch: Worktree[];
   expectedTooltips: Readonly<Record<string, string>>;
   selectableWorktree: Worktree;
 }
@@ -28,6 +29,7 @@ export function buildRepositoryWorktreesScenario(): RepositoryWorktreesScenario 
     projectId: repositoryConfig.id,
     displayName: `a-${fakeSlug('worktree')}`,
     path: `${repositoryConfig.path}.worktrees/${fakeSlug('first')}`,
+    branch: `z-${fakeSlug('branch')}`,
     pullRequest: pullRequestFactory.build(),
   });
   const sharedDisplayName = `m-${fakeSlug('worktree')}`;
@@ -35,13 +37,15 @@ export function buildRepositoryWorktreesScenario(): RepositoryWorktreesScenario 
     projectId: repositoryConfig.id,
     displayName: sharedDisplayName,
     path: `${repositoryConfig.path}.worktrees/a-${fakeSlug('path')}`,
+    branch: `a-${fakeSlug('branch')}`,
   });
   const lastByPath = worktreeFactory.build({
     projectId: repositoryConfig.id,
     displayName: sharedDisplayName,
     path: `${repositoryConfig.path}.worktrees/z-${fakeSlug('path')}`,
+    branch: `m-${fakeSlug('branch')}`,
   });
-  const expectedWorktrees = [mainWorktree, firstByName, firstByPath, lastByPath];
+  const expectedWorktrees = [mainWorktree, firstByPath, firstByName, lastByPath];
   const repository = projectFactory.build(repositoryConfig, {
     associations: {
       worktrees: [lastByPath, firstByPath, firstByName, mainWorktree],
@@ -53,6 +57,7 @@ export function buildRepositoryWorktreesScenario(): RepositoryWorktreesScenario 
     homeDirectory,
     repository,
     expectedWorktrees,
+    expectedWorktreesByBranch: [mainWorktree, firstByPath, lastByPath, firstByName],
     expectedTooltips: {
       [mainWorktree.id]: `Main worktree · ~/Code/${repositoryConfig.name}`,
       [firstByName.id]: `../${siblingDirectory}/${firstByName.path.slice(

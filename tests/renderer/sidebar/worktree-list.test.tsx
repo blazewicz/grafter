@@ -11,6 +11,7 @@ import type {
   Worktree,
   WorktreeStatus,
 } from '../../../src/shared/contracts';
+import type { WorktreeSortOrder } from '../../../src/shared/worktree-list';
 import { buildNewWorktreeScenario } from '../../scenarios/sidebar/new-worktree';
 import { buildRepositoryWorktreesScenario } from '../../scenarios/sidebar/repository-worktrees';
 
@@ -21,6 +22,7 @@ interface RenderWorktreeListOptions {
   project?: Project;
   selectedId?: string;
   selectedWorktreeStatus?: WorktreeStatus;
+  sortOrder?: WorktreeSortOrder;
   adding?: boolean;
   onSelect?: (id: string) => void;
   onCancelAdd?: () => void;
@@ -39,6 +41,7 @@ function renderWorktreeList(options: RenderWorktreeListOptions = {}): void {
       project={options.project ?? scenario.repository}
       selectedId={options.selectedId}
       selectedWorktreeStatus={options.selectedWorktreeStatus}
+      sortOrder={options.sortOrder ?? 'path'}
       adding={options.adding ?? false}
       onSelect={options.onSelect ?? (() => undefined)}
       onCancelAdd={options.onCancelAdd ?? (() => undefined)}
@@ -87,6 +90,17 @@ describe('WorktreeList', () => {
         scenario.expectedTooltips[worktree.id] ?? '',
       );
       await user.unhover(displayName);
+    }
+  });
+
+  it('sorts linked worktrees by branch while keeping main first', () => {
+    renderWorktreeList({ sortOrder: 'branch' });
+
+    let previous: HTMLButtonElement | undefined;
+    for (const worktree of scenario.expectedWorktreesByBranch) {
+      const button = worktreeButton(worktree);
+      if (previous) expect(previous).toAppearBefore(button);
+      previous = button;
     }
   });
 

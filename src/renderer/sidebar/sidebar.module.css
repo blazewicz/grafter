@@ -93,6 +93,64 @@
   gap: 2px;
 }
 
+.sort-menu {
+  position: relative;
+}
+
+.sort-menu-popover {
+  z-index: 30;
+  position: absolute;
+  top: calc(100% + 3px);
+  right: 0;
+  width: 132px;
+  padding: 5px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: rgba(37, 38, 42, 0.98);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.38);
+  color: #d3d3d7;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.sort-menu-label {
+  display: block;
+  padding: 3px 7px 5px;
+  color: var(--faint);
+  font-size: 9px;
+  font-weight: 680;
+  letter-spacing: 0.075em;
+  text-transform: uppercase;
+}
+
+.sort-menu-item {
+  width: 100%;
+  height: 27px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 7px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.sort-menu-item:hover,
+.sort-menu-item:focus-visible {
+  outline: 0;
+  background: rgba(255, 255, 255, 0.075);
+  color: #f0f0f2;
+}
+
+.sort-menu-item svg {
+  color: var(--accent);
+}
+
 .repository-worktrees {
   position: relative;
   flex: 1;

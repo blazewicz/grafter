@@ -8,6 +8,7 @@ import type {
 } from '../../shared/contracts';
 import { displayWorktreePath } from '../../shared/path-display';
 import { sortWorktrees } from '../../shared/worktree-list';
+import type { WorktreeSortOrder } from '../../shared/worktree-list';
 import { PullRequestStateIcon } from '../ui/PullRequestStateIcon';
 import { NewWorktreeForm } from './NewWorktreeForm';
 import { SidebarTooltip } from './SidebarTooltip';
@@ -18,6 +19,7 @@ export function WorktreeList({
   project,
   selectedId,
   selectedWorktreeStatus,
+  sortOrder,
   adding,
   flat = false,
   onSelect,
@@ -30,6 +32,7 @@ export function WorktreeList({
   project: Project;
   selectedId: string | undefined;
   selectedWorktreeStatus: WorktreeStatus | undefined;
+  sortOrder: WorktreeSortOrder;
   adding: boolean;
   flat?: boolean;
   onSelect: (id: string) => void;
@@ -42,8 +45,8 @@ export function WorktreeList({
   onError: (message: string) => void;
 }): React.JSX.Element {
   const sortedWorktrees = useMemo(
-    () => sortWorktrees(project.worktrees),
-    [project.worktrees],
+    () => sortWorktrees(project.worktrees, sortOrder),
+    [project.worktrees, sortOrder],
   );
 
   return (
