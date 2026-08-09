@@ -12,10 +12,13 @@ export function useWorktreeFilter(): {
   const [filterOpen, setFilterOpen] = useState(false);
   const filterInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (!filterOpen) return;
+  const focusFilterInput = () => {
     filterInputRef.current?.focus();
     filterInputRef.current?.select();
+  };
+
+  useEffect(() => {
+    if (filterOpen) focusFilterInput();
   }, [filterOpen]);
 
   useEffect(() => {
@@ -31,12 +34,8 @@ export function useWorktreeFilter(): {
       }
 
       event.preventDefault();
-      if (filterOpen) {
-        filterInputRef.current?.focus();
-        filterInputRef.current?.select();
-      } else {
-        setFilterOpen(true);
-      }
+      if (filterOpen) focusFilterInput();
+      else setFilterOpen(true);
     };
 
     document.addEventListener('keydown', focusWorktreeFilter);
