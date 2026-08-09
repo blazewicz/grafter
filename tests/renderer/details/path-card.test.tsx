@@ -5,7 +5,11 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PathCard } from '../../../src/renderer/details/PathCard';
 import { api } from '../../../src/renderer/grafter-api';
-import type { WorktreeStatus, EditorTool } from '../../../src/shared/contracts';
+import type {
+  WorktreeStatus,
+  EditorTool,
+  TerminalTool,
+} from '../../../src/shared/contracts';
 import {
   buildPathDisplayScenario,
   buildPathDisplayScenarios,
@@ -99,7 +103,7 @@ describe('PathCard', () => {
     expect(openWorktreeDirectory).toHaveBeenCalledWith(worktree.id);
   });
 
-  it('renders open-worktree-in-terminal button that opens the worktree in a terminal', async () => {
+  it('renders open-worktree-in-terminal button that opens the worktree in the current terminal', async () => {
     const user = userEvent.setup();
     const openWorktreeInTerminal = vi
       .spyOn(api, 'openWorktreeInTerminal')
@@ -107,13 +111,45 @@ describe('PathCard', () => {
     renderPathCard();
 
     expect(
-      screen.getByRole('button', { name: 'Open worktree in terminal' }),
+      screen.getByRole('button', { name: 'Open worktree in Terminal' }),
     ).toBeVisible();
-    await user.click(screen.getByRole('button', { name: 'Open worktree in terminal' }));
+    await user.click(screen.getByRole('button', { name: 'Open worktree in Terminal' }));
 
     expect(openWorktreeInTerminal).toHaveBeenCalledOnce();
-    expect(openWorktreeInTerminal).toHaveBeenCalledWith(worktree.id);
+    expect(openWorktreeInTerminal).toHaveBeenCalledWith(worktree.id, 'terminal');
   });
+
+  it.each([
+    { name: 'Terminal', terminal: 'terminal' },
+    { name: 'iTerm2', terminal: 'iterm2' },
+  ] satisfies { name: string; terminal: TerminalTool }[])(
+    'renders terminal picker with $name as an option and opens it when selected and sets as the current terminal',
+    async ({ name, terminal }) => {
+      const user = userEvent.setup();
+      const openWorktreeInTerminal = vi
+        .spyOn(api, 'openWorktreeInTerminal')
+        .mockResolvedValue(undefined);
+      renderPathCard();
+
+      expect(screen.getByRole('button', { name: 'Choose terminal' })).toBeVisible();
+      const terminalPickerButton = screen.getByRole('button', {
+        name: 'Choose terminal',
+      });
+      await user.click(terminalPickerButton);
+
+      expect(terminalPickerButton).toHaveAttribute('aria-expanded', 'true');
+      expect(screen.getByRole('menu')).toBeVisible();
+
+      await user.click(screen.getByRole('menuitem', { name }));
+
+      expect(openWorktreeInTerminal).toHaveBeenCalledOnce();
+      expect(openWorktreeInTerminal).toHaveBeenCalledWith(worktree.id, terminal);
+
+      expect(
+        screen.getByRole('button', { name: `Open worktree in ${name}` }),
+      ).toBeVisible();
+    },
+  );
 
   it('renders open-worktree-in-editor button that opens the worktree in the current editor', async () => {
     const user = userEvent.setup();

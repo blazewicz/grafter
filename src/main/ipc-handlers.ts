@@ -13,6 +13,7 @@ import type {
   EditorTool,
   Settings,
   SwitchBranchRequest,
+  TerminalTool,
 } from '../shared/contracts';
 import { ipc } from '../shared/ipc';
 import { editorFileUrl } from './editors';
@@ -35,7 +36,7 @@ interface IpcHandlerDependencies {
   shell: Pick<Shell, 'openPath' | 'openExternal'>;
   clipboard: Pick<Clipboard, 'writeText'>;
   launchEditor: (editor: EditorTool, directoryPath: string) => Promise<void>;
-  launchTerminal: (directoryPath: string) => Promise<void>;
+  launchTerminal: (tool: TerminalTool, directoryPath: string) => Promise<void>;
 }
 
 export function registerIpcHandlers(dependencies: IpcHandlerDependencies): void {
@@ -138,10 +139,13 @@ export function registerIpcHandlers(dependencies: IpcHandlerDependencies): void 
     const error = await shell.openPath(path.resolve(service.worktreePath(worktreeId)));
     if (error) throw new Error(error);
   });
-  ipcMain.handle(ipc.openWorktreeInTerminal, async (event, worktreeId: string) => {
-    const service = sessions.resolve(event.sender).service;
-    await launchTerminal(service.worktreePath(worktreeId));
-  });
+  ipcMain.handle(
+    ipc.openWorktreeInTerminal,
+    async (event, worktreeId: string, tool: TerminalTool) => {
+      const service = sessions.resolve(event.sender).service;
+      await launchTerminal(tool, service.worktreePath(worktreeId));
+    },
+  );
   ipcMain.handle(
     ipc.openWorktreeInEditor,
     async (event, worktreeId: string, editor: EditorTool) => {

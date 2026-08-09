@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
 import path from 'node:path';
+import type { TerminalTool } from '../shared/contracts';
 
 export interface TerminalLaunchSpec {
   executable: string;
@@ -7,6 +8,7 @@ export interface TerminalLaunchSpec {
 }
 
 export function terminalLaunchSpec(
+  tool: TerminalTool,
   directoryPath: string,
   platform: NodeJS.Platform = process.platform,
 ): TerminalLaunchSpec {
@@ -15,22 +17,32 @@ export function terminalLaunchSpec(
   }
 
   if (platform === 'darwin') {
-    return {
-      executable: '/usr/bin/open',
-      args: ['-a', 'Terminal', directoryPath],
-    };
+    if (tool === 'terminal') {
+      return {
+        executable: '/usr/bin/open',
+        args: ['-a', 'Terminal', directoryPath],
+      };
+    }
+    if (tool === 'iterm2') {
+      return {
+        executable: '/usr/bin/open',
+        args: ['-a', 'iTerm', directoryPath],
+      };
+    }
   }
-  if (platform === 'linux') {
+  if (platform === 'linux' && tool === 'terminal') {
     return {
       executable: 'x-terminal-emulator',
       args: ['--working-directory', directoryPath],
     };
   }
-  throw new Error('Opening a terminal is supported only on macOS and Linux.');
+  throw new Error(
+    'Opening a terminal is supported only with Terminal or iTerm2 on macOS, or the default terminal on Linux.',
+  );
 }
 
-export function launchTerminal(directoryPath: string): Promise<void> {
-  const spec = terminalLaunchSpec(directoryPath);
+export function launchTerminal(tool: TerminalTool, directoryPath: string): Promise<void> {
+  const spec = terminalLaunchSpec(tool, directoryPath);
 
   return new Promise((resolve, reject) => {
     const child = spawn(spec.executable, spec.args, {

@@ -1,6 +1,7 @@
 export type ToolName = 'git' | 'github' | 'shell';
 export type CommandStatus = 'running' | 'succeeded' | 'failed' | 'awaiting-approval';
 export type EditorTool = 'vscode';
+export type TerminalTool = 'terminal' | 'iterm2';
 export type DateFormatPreference =
   'system' | 'day-month-year' | 'month-day-year' | 'year-month-day';
 export type TimeFormatPreference = 'system' | '24-hour' | '12-hour';
@@ -302,7 +303,7 @@ export interface GrafterApi {
   updateSettings(settings: Settings): Promise<AppSnapshot>;
   updateRepositorySetup(script: string): Promise<AppSnapshot>;
   openWorktreeDirectory(worktreeId: string): Promise<void>;
-  openWorktreeInTerminal(worktreeId: string): Promise<void>;
+  openWorktreeInTerminal(worktreeId: string, tool: TerminalTool): Promise<void>;
   openWorktreeInEditor(worktreeId: string, editor: EditorTool): Promise<void>;
   openDiffFileInEditor(request: OpenDiffFileRequest): Promise<void>;
   openExternal(url: string): Promise<void>;

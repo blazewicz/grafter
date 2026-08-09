@@ -170,11 +170,11 @@ describe('registerIpcHandlers', () => {
       dialogParent: window,
     }));
 
-    await invoke(harness, ipc.openWorktreeInTerminal, sender, 'worktree-a');
+    await invoke(harness, ipc.openWorktreeInTerminal, sender, 'worktree-a', 'iterm2');
 
     expect(worktreePath).toHaveBeenCalledWith('worktree-a');
     expect(harness.launchTerminal).toHaveBeenCalledOnce();
-    expect(harness.launchTerminal).toHaveBeenCalledWith('/code/worktree-a');
+    expect(harness.launchTerminal).toHaveBeenCalledWith('iterm2', '/code/worktree-a');
   });
 
   it('preserves approval, URL, and clipboard validation behind session resolution', async () => {

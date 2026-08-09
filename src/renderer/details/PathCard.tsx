@@ -1,9 +1,19 @@
-import { Check, ChevronDown, Circle, TerminalSquare } from 'lucide-react';
+import { Check, ChevronDown, Circle } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import type { EditorTool, Worktree, WorktreeStatus } from '../../shared/contracts';
+import type {
+  EditorTool,
+  TerminalTool,
+  Worktree,
+  WorktreeStatus,
+} from '../../shared/contracts';
 import { displayWorktreePath } from '../../shared/path-display';
 import { api, friendlyError } from '../grafter-api';
-import { FinderMark, VisualStudioCodeMark } from '../ui/BrandMarks';
+import {
+  FinderMark,
+  ITermMark,
+  TerminalAppMark,
+  VisualStudioCodeMark,
+} from '../ui/BrandMarks';
 import { CopyButton } from '../ui/CopyButton';
 import styles from './details.module.css';
 
@@ -11,6 +21,14 @@ const editorOptions: readonly {
   id: EditorTool;
   label: string;
 }[] = [{ id: 'vscode', label: 'Visual Studio Code' }];
+
+const terminalOptions: readonly {
+  id: TerminalTool;
+  label: string;
+}[] = [
+  { id: 'terminal', label: 'Terminal' },
+  { id: 'iterm2', label: 'iTerm2' },
+];
 
 export function PathCard({
   homeDirectory,
@@ -31,25 +49,34 @@ export function PathCard({
 }): React.JSX.Element {
   const [editorMenuOpen, setEditorMenuOpen] = useState(false);
   const editorMenuRef = useRef<HTMLDivElement>(null);
+  const [terminalMenuOpen, setTerminalMenuOpen] = useState(false);
+  const terminalMenuRef = useRef<HTMLDivElement>(null);
   const copyResetTimer = useRef<number | undefined>(undefined);
   const [editor, setEditor] = useState<EditorTool>('vscode');
+  const [terminal, setTerminal] = useState<TerminalTool>('terminal');
   const selectedEditorLabel =
     editorOptions.find((option) => option.id === editor)?.label ?? 'IDE';
+  const selectedTerminalLabel =
+    terminalOptions.find((option) => option.id === terminal)?.label ?? 'Terminal';
   const mainClonePath =
     projectWorktrees.find((worktree) => worktree.isMain)?.path ?? worktree.path;
   const statusClass =
     status === 'dirty' ? styles.dirty : status === undefined ? styles.checking : '';
 
   useEffect(() => {
-    if (!editorMenuOpen) return;
-
     const closeOnOutsideClick = (event: PointerEvent): void => {
       if (!editorMenuRef.current?.contains(event.target as Node)) {
         setEditorMenuOpen(false);
       }
+      if (!terminalMenuRef.current?.contains(event.target as Node)) {
+        setTerminalMenuOpen(false);
+      }
     };
     const closeOnEscape = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') setEditorMenuOpen(false);
+      if (event.key === 'Escape') {
+        setEditorMenuOpen(false);
+        setTerminalMenuOpen(false);
+      }
     };
 
     document.addEventListener('pointerdown', closeOnOutsideClick);
@@ -58,7 +85,7 @@ export function PathCard({
       document.removeEventListener('pointerdown', closeOnOutsideClick);
       document.removeEventListener('keydown', closeOnEscape);
     };
-  }, [editorMenuOpen]);
+  }, []);
 
   useEffect(
     () => () => {
@@ -77,6 +104,12 @@ export function PathCard({
     setEditor(nextEditor);
     setEditorMenuOpen(false);
     reportActionError(api.openWorktreeInEditor(worktree.id, nextEditor));
+  };
+
+  const openInTerminal = (nextTerminal: TerminalTool): void => {
+    setTerminal(nextTerminal);
+    setTerminalMenuOpen(false);
+    reportActionError(api.openWorktreeInTerminal(worktree.id, nextTerminal));
   };
 
   return (
@@ -116,14 +149,43 @@ export function PathCard({
         >
           <FinderMark />
         </button>
-        <button
-          className={styles.sectionActionButton}
-          title="Open in terminal"
-          aria-label="Open worktree in terminal"
-          onClick={() => reportActionError(api.openWorktreeInTerminal(worktree.id))}
-        >
-          <TerminalSquare size={15} />
-        </button>
+        <div className={styles.editorPicker} ref={terminalMenuRef}>
+          <div className={styles.editorSplitButton}>
+            <button
+              className={styles.editorOpenButton}
+              title={`Open in ${selectedTerminalLabel}`}
+              aria-label={`Open worktree in ${selectedTerminalLabel}`}
+              onClick={() => openInTerminal(terminal)}
+            >
+              {terminal === 'iterm2' ? <ITermMark /> : <TerminalAppMark />}
+            </button>
+            <button
+              className={styles.editorMenuButton}
+              title="Choose terminal"
+              aria-label="Choose terminal"
+              aria-haspopup="menu"
+              aria-expanded={terminalMenuOpen}
+              onClick={() => setTerminalMenuOpen((open) => !open)}
+            >
+              <ChevronDown size={13} />
+            </button>
+          </div>
+          {terminalMenuOpen && (
+            <div className={styles.editorMenu} role="menu">
+              {terminalOptions.map((option) => (
+                <button
+                  key={option.id}
+                  role="menuitem"
+                  onClick={() => openInTerminal(option.id)}
+                >
+                  {option.id === 'iterm2' ? <ITermMark /> : <TerminalAppMark />}
+                  <span>{option.label}</span>
+                  {option.id === terminal && <Check size={13} />}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <div className={styles.editorPicker} ref={editorMenuRef}>
           <div className={styles.editorSplitButton}>
             <button
