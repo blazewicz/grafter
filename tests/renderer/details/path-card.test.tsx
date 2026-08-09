@@ -198,4 +198,28 @@ describe('PathCard', () => {
       ).toBeVisible();
     },
   );
+
+  it.each([
+    { chooseLabel: 'Choose terminal', launchMethod: 'openWorktreeInTerminal' },
+    { chooseLabel: 'Choose IDE', launchMethod: 'openWorktreeInEditor' },
+  ] as const)(
+    'closes the $chooseLabel menu with Escape without launching',
+    async ({ chooseLabel, launchMethod }) => {
+      const user = userEvent.setup();
+      const launch = vi.spyOn(api, launchMethod).mockResolvedValue(undefined);
+      renderPathCard();
+
+      const pickerButton = screen.getByRole('button', { name: chooseLabel });
+      await user.click(pickerButton);
+
+      expect(pickerButton).toHaveAttribute('aria-expanded', 'true');
+      expect(screen.getByRole('menu')).toBeVisible();
+
+      await user.keyboard('{Escape}');
+
+      expect(screen.queryByRole('menu')).toBeNull();
+      expect(pickerButton).toHaveAttribute('aria-expanded', 'false');
+      expect(launch).not.toHaveBeenCalled();
+    },
+  );
 });
