@@ -681,7 +681,7 @@
 }
 
 .section-action-button,
-.editor-split-button {
+.tool-split-button {
   height: 30px;
   border: 1px solid var(--line-strong);
   border-radius: 7px;
@@ -699,29 +699,29 @@
 
 .section-action-button:hover:not(:disabled),
 .section-action-button:focus-visible,
-.editor-split-button:hover {
+.tool-split-button:hover {
   outline: 0;
   background: var(--surface-strong);
   border-color: rgba(255, 255, 255, 0.14);
   color: var(--text);
 }
 
-.editor-picker {
+.tool-picker {
   position: relative;
 }
 
-.editor-split-button {
+.tool-split-button {
   display: flex;
   overflow: hidden;
   color: var(--muted);
 }
 
-.editor-split-button:focus-within {
+.tool-split-button:focus-within {
   outline: 1px solid var(--accent);
   outline-offset: 1px;
 }
 
-.editor-split-button button {
+.tool-split-button button {
   height: 100%;
   display: inline-flex;
   align-items: center;
@@ -730,21 +730,21 @@
   background: transparent;
 }
 
-.editor-split-button button:focus-visible {
+.tool-split-button button:focus-visible {
   outline: 0;
 }
 
-.editor-open-button {
+.tool-open-button {
   width: 31px;
 }
 
-.editor-menu-button {
+.tool-menu-button {
   width: 25px;
   position: relative;
   color: var(--muted);
 }
 
-.editor-menu-button::before {
+.tool-menu-button::before {
   content: '';
   position: absolute;
   left: 0;
@@ -754,12 +754,12 @@
   background: var(--line-strong);
 }
 
-.editor-split-button button:hover {
+.tool-split-button button:hover {
   background: rgba(255, 255, 255, 0.055);
   color: var(--text);
 }
 
-.editor-menu {
+.tool-menu {
   z-index: 20;
   position: absolute;
   top: calc(100% + 6px);
@@ -772,7 +772,7 @@
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.38);
 }
 
-.editor-menu button {
+.tool-menu button {
   width: 100%;
   height: 30px;
   display: flex;
@@ -787,11 +787,11 @@
   text-align: left;
 }
 
-.editor-menu button:hover {
+.tool-menu button:hover {
   background: rgba(255, 255, 255, 0.065);
 }
 
-.editor-menu button span {
+.tool-menu button span {
   flex: 1;
 }
 
