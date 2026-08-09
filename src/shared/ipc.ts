@@ -23,6 +23,7 @@ export const ipc = {
   refreshPullRequest: 'grafter:refresh-pull-request',
   worktreeStatus: 'grafter:worktree-status',
   updateSettings: 'grafter:update-settings',
+  setToolPreference: 'grafter:set-tool-preference',
   updateRepositorySetup: 'grafter:update-repository-setup',
   openWorktreeDirectory: 'grafter:open-worktree-directory',
   openWorktreeInTerminal: 'grafter:open-worktree-in-terminal',

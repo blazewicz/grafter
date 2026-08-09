@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react';
 import type {
   EditorTool,
   TerminalTool,
+  ToolPickerGroup,
   Worktree,
   WorktreeStatus,
 } from '../../shared/contracts';
@@ -33,6 +34,8 @@ export function PathCard({
   worktree,
   status,
   copiedText,
+  toolPreferences,
+  onSetToolPreference,
   onCopy,
   onError,
 }: {
@@ -41,6 +44,8 @@ export function PathCard({
   projectWorktrees: Worktree[];
   status: WorktreeStatus | undefined;
   copiedText: string | undefined;
+  toolPreferences: Record<ToolPickerGroup, string>;
+  onSetToolPreference: (group: ToolPickerGroup, tool: string) => void;
   onCopy: (text: string) => void;
   onError: (message: string) => void;
 }): React.JSX.Element {
@@ -64,10 +69,12 @@ export function PathCard({
   };
 
   const openInEditor = (nextEditor: EditorTool): void => {
+    onSetToolPreference('editor', nextEditor);
     reportActionError(api.openWorktreeInEditor(worktree.id, nextEditor));
   };
 
   const openInTerminal = (nextTerminal: TerminalTool): void => {
+    onSetToolPreference('terminal', nextTerminal);
     reportActionError(api.openWorktreeInTerminal(worktree.id, nextTerminal));
   };
 
@@ -110,14 +117,14 @@ export function PathCard({
         </button>
         <ToolPicker
           options={terminalOptions}
-          initialTool="terminal"
+          selectedTool={toolPreferences.terminal}
           chooseLabel="Choose terminal"
           openLabelPrefix="Open worktree in"
           onLaunch={openInTerminal}
         />
         <ToolPicker
           options={editorOptions}
-          initialTool="vscode"
+          selectedTool={toolPreferences.editor}
           chooseLabel="Choose IDE"
           openLabelPrefix="Open worktree in"
           onLaunch={openInEditor}

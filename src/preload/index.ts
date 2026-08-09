@@ -50,6 +50,8 @@ const api: GrafterApi = {
   getWorktreeStatus: (worktreeId) => ipcRenderer.invoke(ipc.worktreeStatus, worktreeId),
   updateSettings: (settings: Settings) =>
     ipcRenderer.invoke(ipc.updateSettings, settings),
+  setToolPreference: (group, tool) =>
+    ipcRenderer.invoke(ipc.setToolPreference, group, tool),
   updateRepositorySetup: (script) =>
     ipcRenderer.invoke(ipc.updateRepositorySetup, script),
   openWorktreeDirectory: (worktreeId) =>

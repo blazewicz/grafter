@@ -177,6 +177,21 @@ describe('registerIpcHandlers', () => {
     expect(harness.launchTerminal).toHaveBeenCalledWith('iterm2', '/code/worktree-a');
   });
 
+  it('persists a tool preference through the session service', async () => {
+    const sender = {} as WebContents;
+    const window = {} as BrowserWindow;
+    const setToolPreference = vi.fn().mockResolvedValue(undefined);
+    const harness = createHarness(() => ({
+      service: serviceStub({ setToolPreference }),
+      dialogParent: window,
+    }));
+
+    await invoke(harness, ipc.setToolPreference, sender, 'editor', 'vscode');
+
+    expect(setToolPreference).toHaveBeenCalledOnce();
+    expect(setToolPreference).toHaveBeenCalledWith('editor', 'vscode');
+  });
+
   it('preserves approval, URL, and clipboard validation behind session resolution', async () => {
     const sender = {} as WebContents;
     const window = {} as BrowserWindow;

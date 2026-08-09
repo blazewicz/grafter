@@ -9,6 +9,7 @@ import type {
   EditorTool,
   Settings,
   SwitchBranchRequest,
+  ToolPickerGroup,
   WorktreeComparison,
   WorktreeDetails,
   WorktreeStatus,
@@ -48,6 +49,7 @@ export interface WindowSessionService {
   ): ReturnType<RepositoryService['refreshPullRequest']>;
   worktreeStatus(worktreeId: string): Promise<WorktreeStatus>;
   updateSettings(settings: Settings): Promise<AppSnapshot>;
+  setToolPreference(group: ToolPickerGroup, tool: string): Promise<AppSnapshot>;
   updateRepositorySetup(script: string): Promise<AppSnapshot>;
   worktreePath(worktreeId: string): string;
   diffFileEditorTarget(request: unknown): {
@@ -93,6 +95,7 @@ export class RepositoryWindowSession implements WindowSessionService {
       systemLocale: this.context.systemLocale,
       repository: this.repository.snapshot(),
       settings: persisted.settings,
+      toolPreferences: persisted.toolPreferences,
       ...(this.#selectedWorktreeId
         ? {
             selectedWorktreeId: this.#selectedWorktreeId,
@@ -252,6 +255,11 @@ export class RepositoryWindowSession implements WindowSessionService {
     return this.snapshot();
   }
 
+  async setToolPreference(group: ToolPickerGroup, tool: string): Promise<AppSnapshot> {
+    await this.store.setToolPreference(group, tool);
+    return this.snapshot();
+  }
+
   async updateRepositorySetup(script: string): Promise<AppSnapshot> {
     await this.repository.updateSetup(script);
     return this.snapshot();
@@ -313,6 +321,7 @@ export class WelcomeWindowSession implements WindowSessionService {
       systemLocale: this.context.systemLocale,
       recentRepositories: persisted.recentRepositories,
       settings: persisted.settings,
+      toolPreferences: persisted.toolPreferences,
     };
   }
 
@@ -336,6 +345,11 @@ export class WelcomeWindowSession implements WindowSessionService {
 
   async updateSettings(settings: Settings): Promise<AppSnapshot> {
     await updateSettings(this.store, settings);
+    return this.snapshot();
+  }
+
+  async setToolPreference(group: ToolPickerGroup, tool: string): Promise<AppSnapshot> {
+    await this.store.setToolPreference(group, tool);
     return this.snapshot();
   }
 

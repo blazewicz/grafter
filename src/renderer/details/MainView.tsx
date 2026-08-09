@@ -3,6 +3,7 @@ import type {
   AppSnapshot,
   Project,
   Settings,
+  ToolPickerGroup,
   Worktree,
   WorktreeDetails,
   WorktreeStatus,
@@ -21,6 +22,8 @@ export function MainView({
   details,
   projectWorktrees,
   status,
+  toolPreferences,
+  onSetToolPreference,
   onSnapshot,
   onAdd,
   onSelectWorktree,
@@ -37,6 +40,8 @@ export function MainView({
   details: WorktreeDetails | undefined;
   projectWorktrees: Worktree[];
   status: WorktreeStatus | undefined;
+  toolPreferences: Record<ToolPickerGroup, string>;
+  onSetToolPreference: (group: ToolPickerGroup, tool: string) => void;
   onSnapshot: (snapshot: AppSnapshot) => void;
   onAdd: () => void;
   onSelectWorktree: (worktreeId: string) => void;
@@ -55,6 +60,8 @@ export function MainView({
           details={details}
           projectWorktrees={projectWorktrees}
           status={status}
+          toolPreferences={toolPreferences}
+          onSetToolPreference={onSetToolPreference}
           onSnapshot={onSnapshot}
           diffOpening={diffOpening}
           onOpenDiff={() => onOpenDiff(details.id)}

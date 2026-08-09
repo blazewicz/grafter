@@ -26,6 +26,7 @@ describe('StateStore', () => {
       },
       recentRepositories: [],
       repositoryPreferences: {},
+      toolPreferences: { editor: 'vscode', terminal: 'terminal' },
     });
 
     await store.update((state) => {
@@ -40,6 +41,7 @@ describe('StateStore', () => {
       settings: { defaultWorktreePath: '/worktrees/<repo_name>' },
       recentRepositories: [],
       repositoryPreferences: {},
+      toolPreferences: { editor: 'vscode', terminal: 'terminal' },
     });
     expect(saved).not.toHaveProperty('projects');
     expect(saved).not.toHaveProperty('comparisonBaseOverrides');
@@ -362,6 +364,48 @@ describe('StateStore', () => {
       expect(state).not.toHaveProperty('projects');
       expect(state).not.toHaveProperty('comparisonBaseOverrides');
     }
+  });
+
+  it('persists validated tool preferences and falls back to defaults', async () => {
+    const persisted: PersistedState[] = [];
+    const store = new StateStore('/state', {
+      persist: (_file, state) => {
+        persisted.push(structuredClone(state));
+        return Promise.resolve();
+      },
+    });
+
+    expect(store.toolPreference('editor')).toBe('vscode');
+    expect(store.toolPreference('terminal')).toBe('terminal');
+
+    await store.setToolPreference('terminal', 'iterm2');
+    await store.setToolPreference('editor', 'vscode');
+
+    expect(store.toolPreference('terminal')).toBe('iterm2');
+    expect(store.toolPreference('editor')).toBe('vscode');
+    expect(persisted.at(-1)?.toolPreferences).toEqual({
+      editor: 'vscode',
+      terminal: 'iterm2',
+    });
+  });
+
+  it('rejects invalid tool preferences without persisting', async () => {
+    const persisted: PersistedState[] = [];
+    const store = new StateStore('/state', {
+      persist: (_file, state) => {
+        persisted.push(structuredClone(state));
+        return Promise.resolve();
+      },
+    });
+
+    await expect(store.setToolPreference('editor', 'iterm2')).rejects.toThrow(
+      'Invalid tool preference.',
+    );
+    await expect(
+      store.setToolPreference('unknown' as 'editor', 'vscode'),
+    ).rejects.toThrow('Invalid tool picker group.');
+    expect(store.toolPreference('editor')).toBe('vscode');
+    expect(persisted).toHaveLength(0);
   });
 
   it('serializes simultaneous repository writes in invocation order', async () => {
