@@ -7,6 +7,7 @@ import type {
   DiffLine,
   DiffSession,
   EditorTool,
+  ToolPickerGroup,
 } from '../../shared/contracts';
 import { api, friendlyError } from '../grafter-api';
 import { DiffFile } from './DiffFile';
@@ -22,6 +23,8 @@ export function DiffFilesPane({
   filtering,
   query,
   contextLineId,
+  toolPreferences,
+  onSetToolPreference,
   scrollRoot,
   onVisible,
   onScroll,
@@ -36,6 +39,8 @@ export function DiffFilesPane({
   filtering: boolean;
   query: string;
   contextLineId: string | undefined;
+  toolPreferences: Record<ToolPickerGroup, string>;
+  onSetToolPreference: (group: ToolPickerGroup, tool: string) => void;
   scrollRoot: RefObject<HTMLDivElement | null>;
   onVisible: (file: DiffFileSummary) => void;
   onScroll: () => void;
@@ -120,6 +125,8 @@ export function DiffFilesPane({
               session.kind === 'branch' && session.sourceWorktreeId !== undefined
             }
             showEditorControls={session.kind === 'branch'}
+            toolPreferences={toolPreferences}
+            onSetToolPreference={onSetToolPreference}
             scrollRoot={scrollRoot}
             onVisible={onVisible}
             onCopy={() => copyPath(file)}

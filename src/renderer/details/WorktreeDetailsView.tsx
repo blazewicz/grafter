@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import type {
   AppSnapshot,
   Settings,
+  ToolPickerGroup,
   Worktree,
   WorktreeDetails,
   WorktreeStatus,
@@ -19,6 +20,8 @@ export function WorktreeDetailsView({
   details,
   projectWorktrees,
   status,
+  toolPreferences,
+  onSetToolPreference,
   onSnapshot,
   diffOpening = false,
   onOpenDiff,
@@ -31,6 +34,8 @@ export function WorktreeDetailsView({
   details: WorktreeDetails;
   projectWorktrees: Worktree[];
   status: WorktreeStatus | undefined;
+  toolPreferences: Record<ToolPickerGroup, string>;
+  onSetToolPreference: (group: ToolPickerGroup, tool: string) => void;
   onSnapshot: (snapshot: AppSnapshot) => void;
   diffOpening?: boolean;
   onOpenDiff?: () => void;
@@ -61,6 +66,8 @@ export function WorktreeDetailsView({
         worktree={details}
         status={status}
         copiedText={copiedText}
+        toolPreferences={toolPreferences}
+        onSetToolPreference={onSetToolPreference}
         onCopy={copyText}
         onError={onError}
       />

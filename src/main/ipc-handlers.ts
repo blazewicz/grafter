@@ -14,6 +14,7 @@ import type {
   Settings,
   SwitchBranchRequest,
   TerminalTool,
+  ToolPickerGroup,
 } from '../shared/contracts';
 import { ipc } from '../shared/ipc';
 import { editorFileUrl } from './editors';
@@ -131,6 +132,9 @@ export function registerIpcHandlers(dependencies: IpcHandlerDependencies): void 
     sessions.resolve(event.sender);
     return windowManager.updateSettings(event.sender, settings);
   });
+  ipcMain.handle(ipc.setToolPreference, (event, group: ToolPickerGroup, tool: string) =>
+    sessions.resolve(event.sender).service.setToolPreference(group, tool),
+  );
   ipcMain.handle(ipc.updateRepositorySetup, (event, script: string) =>
     sessions.resolve(event.sender).service.updateRepositorySetup(script),
   );

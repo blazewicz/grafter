@@ -42,6 +42,8 @@ export function renderDiffViewer(
       session={session}
       settings={settings}
       systemLocale="en-US"
+      toolPreferences={{ editor: 'vscode', terminal: 'terminal' }}
+      onSetToolPreference={() => undefined}
       {...callbacks}
     />,
   );

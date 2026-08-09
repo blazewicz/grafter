@@ -11,7 +11,7 @@ export interface ToolPickerOption<T extends string> {
 
 export function ToolPicker<T extends string>({
   options,
-  initialTool,
+  selectedTool,
   openLabelPrefix,
   chooseLabel,
   chooseAriaLabel = chooseLabel,
@@ -21,7 +21,7 @@ export function ToolPicker<T extends string>({
   compact = false,
 }: {
   options: readonly ToolPickerOption<T>[];
-  initialTool: T;
+  selectedTool: string;
   openLabelPrefix: string;
   chooseLabel: string;
   chooseAriaLabel?: string;
@@ -32,8 +32,8 @@ export function ToolPicker<T extends string>({
 }): React.JSX.Element {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-  const [selected, setSelected] = useState<T>(initialTool);
-  const selectedOption = options.find((option) => option.id === selected) ?? options[0];
+  const selectedOption =
+    options.find((option) => option.id === selectedTool) ?? options[0];
   const selectedLabel = selectedOption?.label ?? 'Tool';
   const disabled = disabledReason !== undefined;
   const disabledAriaLabel = disabledLabelPrefix
@@ -66,7 +66,6 @@ export function ToolPicker<T extends string>({
   };
 
   const launch = (toolId: T): void => {
-    setSelected(toolId);
     setMenuOpen(false);
     onLaunch(toolId);
   };
@@ -90,7 +89,7 @@ export function ToolPicker<T extends string>({
           disabled={disabled}
           title={openButtonTitle}
           aria-label={openButtonAriaLabel}
-          onClick={() => launch(selected)}
+          onClick={() => selectedOption && launch(selectedOption.id)}
         >
           {selectedOption?.icon}
         </button>
@@ -112,7 +111,7 @@ export function ToolPicker<T extends string>({
             <button key={option.id} role="menuitem" onClick={() => launch(option.id)}>
               {option.icon}
               <span>{option.label}</span>
-              {option.id === selected && <Check size={13} />}
+              {option.id === selectedOption?.id && <Check size={13} />}
             </button>
           ))}
         </div>

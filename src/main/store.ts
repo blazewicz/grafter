@@ -1,8 +1,19 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import pLimit from 'p-limit';
-import type { ProjectConfig, RecentRepository, Settings } from '../shared/contracts';
+import type {
+  ProjectConfig,
+  RecentRepository,
+  Settings,
+  ToolPickerGroup,
+} from '../shared/contracts';
 import { defaultSettings, normalizeSettings } from '../shared/settings';
+import {
+  defaultToolPreferences,
+  isToolPickerGroup,
+  normalizeToolPreference,
+  normalizeToolPreferences,
+} from '../shared/tool-preferences';
 
 export const currentStateSchemaVersion = 2;
 
@@ -22,6 +33,7 @@ export interface PersistedState {
   settings: Settings;
   recentRepositories: RecentRepository[];
   repositoryPreferences: Record<string, RepositoryPreferences>;
+  toolPreferences: Record<ToolPickerGroup, string>;
 }
 
 const initialState: PersistedState = {
@@ -29,6 +41,7 @@ const initialState: PersistedState = {
   settings: defaultSettings,
   recentRepositories: [],
   repositoryPreferences: {},
+  toolPreferences: defaultToolPreferences(),
 };
 
 interface StateStoreOptions {
@@ -158,6 +171,19 @@ export class StateStore {
       else delete preferences.comparisonBaseOverrides[worktreeId];
     });
   }
+
+  toolPreference(group: ToolPickerGroup): string {
+    return this.#state.toolPreferences[group];
+  }
+
+  async setToolPreference(group: ToolPickerGroup, tool: string): Promise<void> {
+    if (!isToolPickerGroup(group)) throw new Error('Invalid tool picker group.');
+    const normalized = normalizeToolPreference(group, tool);
+    if (!normalized) throw new Error('Invalid tool preference.');
+    await this.update((state) => {
+      state.toolPreferences[group] = normalized;
+    });
+  }
 }
 
 /**
@@ -193,6 +219,7 @@ export function normalizePersistedState(value: unknown, now: number): PersistedS
     settings: normalizeSettings(value.settings),
     recentRepositories,
     repositoryPreferences,
+    toolPreferences: normalizeToolPreferences(value.toolPreferences),
   };
 }
 

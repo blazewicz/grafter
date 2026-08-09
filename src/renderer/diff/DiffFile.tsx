@@ -6,6 +6,7 @@ import type {
   DiffFileSummary,
   DiffLine,
   EditorTool,
+  ToolPickerGroup,
 } from '../../shared/contracts';
 import { VisualStudioCodeMark } from '../ui/BrandMarks';
 import { CopyButton } from '../ui/CopyButton';
@@ -34,6 +35,8 @@ export function DiffFile({
   expanded,
   editorAvailable,
   showEditorControls,
+  toolPreferences,
+  onSetToolPreference,
   scrollRoot,
   onVisible,
   onCopy,
@@ -50,6 +53,8 @@ export function DiffFile({
   expanded: boolean;
   editorAvailable: boolean;
   showEditorControls: boolean;
+  toolPreferences: Record<ToolPickerGroup, string>;
+  onSetToolPreference: (group: ToolPickerGroup, tool: string) => void;
   scrollRoot: RefObject<HTMLDivElement | null>;
   onVisible: (file: DiffFileSummary) => void;
   onCopy: () => void;
@@ -138,14 +143,17 @@ export function DiffFile({
           {showEditorControls && (
             <ToolPicker
               options={editorOptions}
-              initialTool="vscode"
+              selectedTool={toolPreferences.editor}
               openLabelPrefix={`Open ${file.path} in`}
               chooseLabel="Choose IDE"
               chooseAriaLabel={`Choose IDE for ${file.path}`}
               disabledReason={editorUnavailableReason}
               disabledLabelPrefix={file.path}
               compact
-              onLaunch={onOpenInEditor}
+              onLaunch={(editor) => {
+                onSetToolPreference('editor', editor);
+                onOpenInEditor(editor);
+              }}
             />
           )}
         </div>

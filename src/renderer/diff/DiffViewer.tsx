@@ -6,6 +6,7 @@ import type {
   DiffLine,
   DiffSession,
   Settings,
+  ToolPickerGroup,
 } from '../../shared/contracts';
 import { githubFileUrl } from '../../shared/github';
 import { api, friendlyError } from '../grafter-api';
@@ -48,6 +49,8 @@ export function DiffViewer({
   onError,
   settings,
   systemLocale,
+  toolPreferences,
+  onSetToolPreference,
 }: {
   session: DiffSession;
   onSessionChange: (session: DiffSession) => void;
@@ -55,6 +58,8 @@ export function DiffViewer({
   onError: (message: string) => void;
   settings: Pick<Settings, 'dateFormat' | 'timeFormat'>;
   systemLocale: string;
+  toolPreferences: Record<ToolPickerGroup, string>;
+  onSetToolPreference: (group: ToolPickerGroup, tool: string) => void;
 }): React.JSX.Element {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [query, setQuery] = useState('');
@@ -304,6 +309,8 @@ export function DiffViewer({
             filtering={filtering}
             query={query}
             contextLineId={lineContextMenu?.lineId}
+            toolPreferences={toolPreferences}
+            onSetToolPreference={onSetToolPreference}
             scrollRoot={diffPaneRef}
             onVisible={requestPatch}
             onScroll={closeLineContextMenu}

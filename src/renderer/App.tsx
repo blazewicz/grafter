@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
-import type { AppSnapshot, CommandLogScope } from '../shared/contracts';
+import type { AppSnapshot, CommandLogScope, ToolPickerGroup } from '../shared/contracts';
 import { AuditPanel } from './audit/AuditPanel';
 import { useCommandLogs } from './audit/useCommandLogs';
 import { MainView } from './details/MainView';
@@ -165,6 +165,10 @@ export function App(): React.JSX.Element {
     void run(() => api.openRecentRepository(repositoryId), applySnapshot);
   };
 
+  const setToolPreference = (group: ToolPickerGroup, tool: string): void => {
+    void run(() => api.setToolPreference(group, tool), applySnapshot);
+  };
+
   const {
     diffSession,
     diffOpening,
@@ -246,6 +250,8 @@ export function App(): React.JSX.Element {
           details={details}
           projectWorktrees={repositoryWorktrees}
           status={worktreeStatus}
+          toolPreferences={snapshot.toolPreferences}
+          onSetToolPreference={setToolPreference}
           onSnapshot={applySnapshot}
           onAdd={chooseRepository}
           onSelectWorktree={navigate}
@@ -304,6 +310,8 @@ export function App(): React.JSX.Element {
           onError={setError}
           settings={snapshot.settings}
           systemLocale={snapshot.systemLocale}
+          toolPreferences={snapshot.toolPreferences}
+          onSetToolPreference={setToolPreference}
         />
       )}
       {error && <ErrorToast message={error} onDismiss={() => setError(undefined)} />}

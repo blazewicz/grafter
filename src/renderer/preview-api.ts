@@ -138,6 +138,7 @@ let snapshot: AppSnapshot = {
   homeDirectory: '/Users/kasia',
   systemLocale: 'en-GB',
   settings: previewSettings,
+  toolPreferences: { editor: 'vscode', terminal: 'terminal' },
   repository: {
     id: 'grafter',
     name: 'grafter-repository-scoped-windows-migration',
@@ -222,6 +223,7 @@ if (typeof window !== 'undefined') {
       homeDirectory: '/Users/kasia',
       systemLocale: 'en-GB',
       settings: previewSettings,
+      toolPreferences: { editor: 'vscode', terminal: 'terminal' },
       recentRepositories: previewRecentRepositories,
     };
   } else if (requestedState === 'loading') {
@@ -804,6 +806,7 @@ export const previewApi: GrafterApi = {
       homeDirectory: '/Users/kasia',
       systemLocale: 'en-GB',
       settings: previewSettings,
+      toolPreferences: { editor: 'vscode', terminal: 'terminal' },
       repository: structuredClone(repository),
     };
     return Promise.resolve(structuredClone(snapshot));
@@ -1070,6 +1073,15 @@ export const previewApi: GrafterApi = {
   updateSettings: (settings) => {
     if (snapshot.kind === 'loading') return Promise.resolve(snapshot);
     snapshot = { ...snapshot, settings };
+    return Promise.resolve(structuredClone(snapshot));
+  },
+  setToolPreference: (group, tool) => {
+    if (snapshot.kind === 'loading') return Promise.resolve(snapshot);
+    const current = repositorySnapshot();
+    snapshot = {
+      ...current,
+      toolPreferences: { ...current.toolPreferences, [group]: tool },
+    };
     return Promise.resolve(structuredClone(snapshot));
   },
   updateRepositorySetup: (script) => {

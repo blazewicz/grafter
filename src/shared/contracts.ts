@@ -2,6 +2,7 @@ export type ToolName = 'git' | 'github' | 'shell';
 export type CommandStatus = 'running' | 'succeeded' | 'failed' | 'awaiting-approval';
 export type EditorTool = 'vscode';
 export type TerminalTool = 'terminal' | 'iterm2';
+export type ToolPickerGroup = 'editor' | 'terminal';
 export type DateFormatPreference =
   'system' | 'day-month-year' | 'month-day-year' | 'year-month-day';
 export type TimeFormatPreference = 'system' | '24-hour' | '12-hour';
@@ -237,6 +238,7 @@ interface WindowSnapshotBase {
   homeDirectory: string;
   systemLocale: string;
   settings: Settings;
+  toolPreferences: Record<ToolPickerGroup, string>;
 }
 
 export interface LoadingWindowSnapshot {
@@ -301,6 +303,7 @@ export interface GrafterApi {
   refreshPullRequest(worktreeId: string): Promise<PullRequest | undefined>;
   getWorktreeStatus(worktreeId: string): Promise<WorktreeStatus>;
   updateSettings(settings: Settings): Promise<AppSnapshot>;
+  setToolPreference(group: ToolPickerGroup, tool: string): Promise<AppSnapshot>;
   updateRepositorySetup(script: string): Promise<AppSnapshot>;
   openWorktreeDirectory(worktreeId: string): Promise<void>;
   openWorktreeInTerminal(worktreeId: string, tool: TerminalTool): Promise<void>;

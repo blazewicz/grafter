@@ -2,6 +2,7 @@
 
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PathCard } from '../../../src/renderer/details/PathCard';
 import { api } from '../../../src/renderer/grafter-api';
@@ -9,6 +10,7 @@ import type {
   WorktreeStatus,
   EditorTool,
   TerminalTool,
+  ToolPickerGroup,
 } from '../../../src/shared/contracts';
 import {
   buildPathDisplayScenario,
@@ -19,21 +21,55 @@ import {
 const pathScenario = buildPathDisplayScenario('sibling-of-main');
 const pathScenarios = buildPathDisplayScenarios();
 const worktree = pathScenario.details;
+const defaultToolPreferences = { editor: 'vscode', terminal: 'terminal' };
 
-function renderPathCard(
-  scenario: PathDisplayScenario = pathScenario,
-  status?: WorktreeStatus,
-  onCopy: (text: string) => void = () => undefined,
-): void {
-  render(
+function PathCardHarness({
+  scenario = pathScenario,
+  status,
+  toolPreferences: initialToolPreferences = defaultToolPreferences,
+  onSetToolPreference,
+  onCopy = () => undefined,
+}: {
+  scenario?: PathDisplayScenario | undefined;
+  status?: WorktreeStatus | undefined;
+  toolPreferences?: Record<ToolPickerGroup, string> | undefined;
+  onSetToolPreference?: ((group: ToolPickerGroup, tool: string) => void) | undefined;
+  onCopy?: ((text: string) => void) | undefined;
+}): React.JSX.Element {
+  const [toolPreferences, setToolPreferences] = useState(initialToolPreferences);
+
+  return (
     <PathCard
       homeDirectory={scenario.homeDirectory}
       projectWorktrees={scenario.project.worktrees}
       worktree={scenario.details}
       status={status}
       copiedText={undefined}
+      toolPreferences={toolPreferences}
+      onSetToolPreference={(group, tool) => {
+        onSetToolPreference?.(group, tool);
+        setToolPreferences((current) => ({ ...current, [group]: tool }));
+      }}
       onCopy={onCopy}
       onError={() => undefined}
+    />
+  );
+}
+
+function renderPathCard(
+  scenario: PathDisplayScenario = pathScenario,
+  status?: WorktreeStatus,
+  onCopy: (text: string) => void = () => undefined,
+  toolPreferences?: Record<ToolPickerGroup, string>,
+  onSetToolPreference?: (group: ToolPickerGroup, tool: string) => void,
+): void {
+  render(
+    <PathCardHarness
+      scenario={scenario}
+      status={status}
+      toolPreferences={toolPreferences}
+      onSetToolPreference={onSetToolPreference}
+      onCopy={onCopy}
     />,
   );
 }
@@ -198,6 +234,37 @@ describe('PathCard', () => {
       ).toBeVisible();
     },
   );
+
+  it('persists a tool preference and reflects it as the current terminal', async () => {
+    const user = userEvent.setup();
+    const openWorktreeInTerminal = vi
+      .spyOn(api, 'openWorktreeInTerminal')
+      .mockResolvedValue(undefined);
+    const onSetToolPreference = vi.fn();
+    renderPathCard(
+      pathScenario,
+      undefined,
+      () => undefined,
+      defaultToolPreferences,
+      onSetToolPreference,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Choose terminal' }));
+    await user.click(screen.getByRole('menuitem', { name: 'iTerm2' }));
+
+    expect(onSetToolPreference).toHaveBeenCalledWith('terminal', 'iterm2');
+    expect(openWorktreeInTerminal).toHaveBeenCalledWith(worktree.id, 'iterm2');
+    expect(screen.getByRole('button', { name: 'Open worktree in iTerm2' })).toBeVisible();
+  });
+
+  it('renders the persisted terminal as the current tool', () => {
+    renderPathCard(pathScenario, undefined, () => undefined, {
+      editor: 'vscode',
+      terminal: 'iterm2',
+    });
+
+    expect(screen.getByRole('button', { name: 'Open worktree in iTerm2' })).toBeVisible();
+  });
 
   it.each([
     { chooseLabel: 'Choose terminal', launchMethod: 'openWorktreeInTerminal' },

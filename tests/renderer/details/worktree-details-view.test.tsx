@@ -24,6 +24,8 @@ function renderWorktreeDetailsView(
       details={details}
       projectWorktrees={[mainWorktree, details]}
       status="clean"
+      toolPreferences={{ editor: 'vscode', terminal: 'terminal' }}
+      onSetToolPreference={() => undefined}
       onSnapshot={() => undefined}
       onOpenDiff={() => undefined}
       onOpenCommitDiff={() => undefined}

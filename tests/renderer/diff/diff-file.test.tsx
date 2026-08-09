@@ -72,6 +72,8 @@ function renderDiffFile({
         expanded={expanded}
         editorAvailable={editorAvailable}
         showEditorControls={showEditorControls}
+        toolPreferences={{ editor: 'vscode', terminal: 'terminal' }}
+        onSetToolPreference={() => undefined}
         scrollRoot={scrollRoot}
         {...nextCallbacks}
       />
@@ -300,6 +302,8 @@ describe('DiffFile', () => {
         expanded
         editorAvailable
         showEditorControls
+        toolPreferences={{ editor: 'vscode', terminal: 'terminal' }}
+        onSetToolPreference={() => undefined}
         scrollRoot={createRef<HTMLDivElement>()}
         {...callbacks()}
       />,
