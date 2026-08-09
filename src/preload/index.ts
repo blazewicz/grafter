@@ -54,6 +54,8 @@ const api: GrafterApi = {
     ipcRenderer.invoke(ipc.updateRepositorySetup, script),
   openWorktreeDirectory: (worktreeId) =>
     ipcRenderer.invoke(ipc.openWorktreeDirectory, worktreeId),
+  openWorktreeInTerminal: (worktreeId) =>
+    ipcRenderer.invoke(ipc.openWorktreeInTerminal, worktreeId),
   openWorktreeInEditor: (worktreeId, editor) =>
     ipcRenderer.invoke(ipc.openWorktreeInEditor, worktreeId, editor),
   openDiffFileInEditor: (request: OpenDiffFileRequest) =>

@@ -302,6 +302,7 @@ export interface GrafterApi {
   updateSettings(settings: Settings): Promise<AppSnapshot>;
   updateRepositorySetup(script: string): Promise<AppSnapshot>;
   openWorktreeDirectory(worktreeId: string): Promise<void>;
+  openWorktreeInTerminal(worktreeId: string): Promise<void>;
   openWorktreeInEditor(worktreeId: string, editor: EditorTool): Promise<void>;
   openDiffFileInEditor(request: OpenDiffFileRequest): Promise<void>;
   openExternal(url: string): Promise<void>;

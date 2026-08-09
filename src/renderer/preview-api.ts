@@ -1081,6 +1081,7 @@ export const previewApi: GrafterApi = {
     return Promise.resolve(structuredClone(snapshot));
   },
   openWorktreeDirectory: () => Promise.resolve(),
+  openWorktreeInTerminal: () => Promise.resolve(),
   openWorktreeInEditor: () => Promise.resolve(),
   openDiffFileInEditor: () => Promise.resolve(),
   openExternal: () => Promise.resolve(),

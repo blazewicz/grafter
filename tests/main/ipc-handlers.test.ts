@@ -19,6 +19,7 @@ interface Harness {
   openExternal: ReturnType<typeof vi.fn>;
   writeText: ReturnType<typeof vi.fn>;
   launchEditor: ReturnType<typeof vi.fn>;
+  launchTerminal: ReturnType<typeof vi.fn>;
   openRepository: ReturnType<typeof vi.fn>;
   openRecentRepository: ReturnType<typeof vi.fn>;
   updateSettings: ReturnType<typeof vi.fn>;
@@ -41,6 +42,7 @@ function createHarness(
   const openExternal = vi.fn().mockResolvedValue(undefined);
   const writeText = vi.fn();
   const launchEditor = vi.fn().mockResolvedValue(undefined);
+  const launchTerminal = vi.fn().mockResolvedValue(undefined);
   const openRepository = vi.fn().mockResolvedValue(undefined);
   const openRecentRepository = vi.fn().mockResolvedValue(undefined);
   const updateSettings = vi.fn().mockResolvedValue(undefined);
@@ -53,6 +55,7 @@ function createHarness(
     shell: { openPath, openExternal },
     clipboard: { writeText },
     launchEditor,
+    launchTerminal,
   });
 
   return {
@@ -63,6 +66,7 @@ function createHarness(
     openExternal,
     writeText,
     launchEditor,
+    launchTerminal,
     openRepository,
     openRecentRepository,
     updateSettings,
@@ -155,6 +159,22 @@ describe('registerIpcHandlers', () => {
       properties: ['openDirectory'],
     });
     expect(harness.openRepository).toHaveBeenCalledWith(sender, '/repository');
+  });
+
+  it('opens the worktree in a terminal at its resolved path', async () => {
+    const sender = {} as WebContents;
+    const window = {} as BrowserWindow;
+    const worktreePath = vi.fn(() => '/code/worktree-a');
+    const harness = createHarness(() => ({
+      service: serviceStub({ worktreePath }),
+      dialogParent: window,
+    }));
+
+    await invoke(harness, ipc.openWorktreeInTerminal, sender, 'worktree-a');
+
+    expect(worktreePath).toHaveBeenCalledWith('worktree-a');
+    expect(harness.launchTerminal).toHaveBeenCalledOnce();
+    expect(harness.launchTerminal).toHaveBeenCalledWith('/code/worktree-a');
   });
 
   it('preserves approval, URL, and clipboard validation behind session resolution', async () => {

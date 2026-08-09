@@ -99,6 +99,22 @@ describe('PathCard', () => {
     expect(openWorktreeDirectory).toHaveBeenCalledWith(worktree.id);
   });
 
+  it('renders open-worktree-in-terminal button that opens the worktree in a terminal', async () => {
+    const user = userEvent.setup();
+    const openWorktreeInTerminal = vi
+      .spyOn(api, 'openWorktreeInTerminal')
+      .mockResolvedValue(undefined);
+    renderPathCard();
+
+    expect(
+      screen.getByRole('button', { name: 'Open worktree in terminal' }),
+    ).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Open worktree in terminal' }));
+
+    expect(openWorktreeInTerminal).toHaveBeenCalledOnce();
+    expect(openWorktreeInTerminal).toHaveBeenCalledWith(worktree.id);
+  });
+
   it('renders open-worktree-in-editor button that opens the worktree in the current editor', async () => {
     const user = userEvent.setup();
     const openWorktreeInEditor = vi

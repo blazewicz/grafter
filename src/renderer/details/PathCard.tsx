@@ -1,4 +1,4 @@
-import { Check, ChevronDown, Circle } from 'lucide-react';
+import { Check, ChevronDown, Circle, TerminalSquare } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { EditorTool, Worktree, WorktreeStatus } from '../../shared/contracts';
 import { displayWorktreePath } from '../../shared/path-display';
@@ -115,6 +115,14 @@ export function PathCard({
           onClick={() => reportActionError(api.openWorktreeDirectory(worktree.id))}
         >
           <FinderMark />
+        </button>
+        <button
+          className={styles.sectionActionButton}
+          title="Open in terminal"
+          aria-label="Open worktree in terminal"
+          onClick={() => reportActionError(api.openWorktreeInTerminal(worktree.id))}
+        >
+          <TerminalSquare size={15} />
         </button>
         <div className={styles.editorPicker} ref={editorMenuRef}>
           <div className={styles.editorSplitButton}>
