@@ -1,9 +1,17 @@
-import { FolderOpen, Plus, Settings } from 'lucide-react';
+import { FolderOpen, Plus, Search, Settings } from 'lucide-react';
 import { useRef, useState } from 'react';
-import type { GrafterApi, Project, Worktree } from '../../shared/contracts';
+import type {
+  GrafterApi,
+  Project,
+  Worktree,
+  WorktreeStatus,
+} from '../../shared/contracts';
+import type { WorktreeSortOrder } from '../../shared/worktree-list';
 import controls from '../styles/controls.module.css';
 import styles from './sidebar.module.css';
 import { WorktreeList } from './WorktreeList';
+import { WorktreeSortMenu } from './WorktreeSortMenu';
+import { useWorktreeFilter } from './useWorktreeFilter';
 
 const minimumSidebarWidth = 230;
 const maximumSidebarWidth = 480;
@@ -15,8 +23,8 @@ export function Sidebar({
   repository,
   width,
   selectedId,
+  selectedWorktreeStatus,
   onSelect,
-  onOpenRepository,
   onCreated,
   onRemoveWorktree,
   onOpenSettings,
@@ -27,8 +35,8 @@ export function Sidebar({
   repository: Project;
   width: number;
   selectedId: string | undefined;
+  selectedWorktreeStatus: WorktreeStatus | undefined;
   onSelect: (id: string) => void;
-  onOpenRepository: () => void;
   onCreated: (
     result: Awaited<ReturnType<GrafterApi['createWorktree']>>,
     request: { path: string },
@@ -39,6 +47,15 @@ export function Sidebar({
   onResize: (width: number) => void;
 }): React.JSX.Element {
   const [adding, setAdding] = useState(false);
+  const [worktreeSortOrder, setWorktreeSortOrder] = useState<WorktreeSortOrder>('path');
+  const {
+    filterOpen,
+    worktreeFilter,
+    filterInputRef,
+    setWorktreeFilter,
+    openWorktreeFilter,
+    closeWorktreeFilter,
+  } = useWorktreeFilter();
 
   return (
     <aside className={styles.sidebar} id="sidebar">
@@ -62,22 +79,53 @@ export function Sidebar({
           </button>
           <button
             className={`${controls.iconButton} ${styles.headingAction}`}
-            aria-label="Open Repository..."
-            title="Open Repository..."
-            onClick={onOpenRepository}
+            aria-label="Filter worktrees"
+            aria-keyshortcuts="Meta+F"
+            aria-expanded={filterOpen}
+            title="Filter worktrees (⌘F)"
+            onClick={() => {
+              if (filterOpen) closeWorktreeFilter();
+              else openWorktreeFilter();
+            }}
           >
-            <FolderOpen size={15} />
+            <Search size={14} />
           </button>
+          <WorktreeSortMenu value={worktreeSortOrder} onChange={setWorktreeSortOrder} />
         </div>
       </div>
+      {filterOpen && (
+        <label className={styles.worktreeFilter}>
+          <Search size={13} aria-hidden="true" />
+          <input
+            ref={filterInputRef}
+            type="search"
+            aria-label="Filter worktrees by path or branch"
+            placeholder="Filter path or branch…"
+            value={worktreeFilter}
+            onChange={(event) => setWorktreeFilter(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key !== 'Escape') return;
+              event.preventDefault();
+              event.stopPropagation();
+              closeWorktreeFilter();
+            }}
+          />
+        </label>
+      )}
       <div className={styles.repositoryWorktrees}>
         <WorktreeList
           homeDirectory={homeDirectory}
           project={repository}
           selectedId={selectedId}
+          selectedWorktreeStatus={selectedWorktreeStatus}
+          sortOrder={worktreeSortOrder}
+          filterQuery={worktreeFilter}
           adding={adding}
           flat
-          onSelect={onSelect}
+          onSelect={(id) => {
+            if (filterOpen) closeWorktreeFilter();
+            onSelect(id);
+          }}
           onCancelAdd={() => setAdding(false)}
           onCreated={(result, request) => {
             setAdding(false);

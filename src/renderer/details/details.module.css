@@ -891,27 +891,7 @@
 }
 
 .pr-state-icon {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   margin-top: 1px;
-}
-
-.pr-state-icon[data-state='OPEN'] {
-  color: #3fb950;
-}
-
-.pr-state-icon[data-state='DRAFT'] {
-  color: #8b949e;
-}
-
-.pr-state-icon[data-state='MERGED'] {
-  color: #a371f7;
-}
-
-.pr-state-icon[data-state='CLOSED'] {
-  color: #f85149;
 }
 
 .pr-title-copy {

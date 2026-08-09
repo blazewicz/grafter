@@ -1,6 +1,7 @@
 import type { Worktree } from './contracts';
 
 export type WorktreeWithoutDisplayName = Omit<Worktree, 'displayName'>;
+export type WorktreeSortOrder = 'path' | 'branch';
 
 export function resolveWorktreeDisplayNames(
   worktrees: readonly WorktreeWithoutDisplayName[],
@@ -37,12 +38,41 @@ export function resolveWorktreeDisplayNames(
   });
 }
 
-export function sortWorktrees(worktrees: readonly Worktree[]): Worktree[] {
+export function sortWorktrees(
+  worktrees: readonly Worktree[],
+  order?: WorktreeSortOrder,
+): Worktree[] {
   return [...worktrees].sort(
     (left, right) =>
       Number(right.isMain) - Number(left.isMain) ||
-      compareText(left.displayName, right.displayName) ||
-      compareText(left.path, right.path),
+      compareText(
+        order === 'branch'
+          ? left.branch
+          : order === 'path'
+            ? left.path
+            : left.displayName,
+        order === 'branch'
+          ? right.branch
+          : order === 'path'
+            ? right.path
+            : right.displayName,
+      ) ||
+      compareText(left.path, right.path) ||
+      compareText(left.id, right.id),
+  );
+}
+
+export function filterWorktrees(
+  worktrees: readonly Worktree[],
+  query: string,
+): Worktree[] {
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  if (!normalizedQuery) return [...worktrees];
+
+  return worktrees.filter(
+    (worktree) =>
+      worktree.path.toLocaleLowerCase().includes(normalizedQuery) ||
+      worktree.branch.toLocaleLowerCase().includes(normalizedQuery),
   );
 }
 
