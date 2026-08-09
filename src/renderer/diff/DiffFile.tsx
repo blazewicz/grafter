@@ -1,5 +1,5 @@
-import { Check, ChevronDown, ChevronRight, FileCode2, LoaderCircle } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { ChevronRight, FileCode2, LoaderCircle } from 'lucide-react';
+import { useEffect, useRef } from 'react';
 import type { MouseEvent as ReactMouseEvent, RefObject } from 'react';
 import type {
   DiffFilePatch,
@@ -9,6 +9,7 @@ import type {
 } from '../../shared/contracts';
 import { VisualStudioCodeMark } from '../ui/BrandMarks';
 import { CopyButton } from '../ui/CopyButton';
+import { ToolPicker, type ToolPickerOption } from '../details/ToolPicker';
 import {
   diffLineRowId,
   selectedDiffLines,
@@ -19,8 +20,8 @@ import { DiffFileStatusIcon } from './DiffFileStatusIcon';
 import { diffFileElementId } from './useDiffNavigation';
 import styles from './DiffViewer.module.css';
 
-const editorOptions: readonly { id: EditorTool; label: string }[] = [
-  { id: 'vscode', label: 'Visual Studio Code' },
+const editorOptions: readonly ToolPickerOption<EditorTool>[] = [
+  { id: 'vscode', label: 'Visual Studio Code', icon: <VisualStudioCodeMark /> },
 ];
 
 export function DiffFile({
@@ -61,17 +62,12 @@ export function DiffFile({
   ) => void;
 }): React.JSX.Element {
   const fileRef = useRef<HTMLElement>(null);
-  const editorMenuRef = useRef<HTMLDivElement>(null);
-  const [editorMenuOpen, setEditorMenuOpen] = useState(false);
-  const [editor, setEditor] = useState<EditorTool>('vscode');
   const editorUnavailableReason =
     file.status === 'deleted'
       ? 'Deleted files cannot be opened in an editor'
       : !editorAvailable
         ? 'Check out the source branch in a worktree to open files in an editor'
         : undefined;
-  const selectedEditorLabel =
-    editorOptions.find((option) => option.id === editor)?.label ?? 'IDE';
 
   useEffect(() => {
     if (!expanded) return;
@@ -94,32 +90,6 @@ export function DiffFile({
       preloadObserver.disconnect();
     };
   }, [expanded, file, onVisible, scrollRoot]);
-
-  useEffect(() => {
-    if (!editorMenuOpen) return;
-
-    const closeOnOutsideClick = (event: PointerEvent): void => {
-      if (!editorMenuRef.current?.contains(event.target as Node)) {
-        setEditorMenuOpen(false);
-      }
-    };
-    const closeOnEscape = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') setEditorMenuOpen(false);
-    };
-
-    document.addEventListener('pointerdown', closeOnOutsideClick);
-    document.addEventListener('keydown', closeOnEscape);
-    return () => {
-      document.removeEventListener('pointerdown', closeOnOutsideClick);
-      document.removeEventListener('keydown', closeOnEscape);
-    };
-  }, [editorMenuOpen]);
-
-  const openInEditor = (nextEditor: EditorTool): void => {
-    setEditor(nextEditor);
-    setEditorMenuOpen(false);
-    onOpenInEditor(nextEditor);
-  };
 
   return (
     <section
@@ -166,62 +136,17 @@ export function DiffFile({
             )}
           </div>
           {showEditorControls && (
-            <div
-              className={styles.editorPicker}
-              ref={editorMenuRef}
-              onKeyDown={(event) => {
-                if (event.key !== 'Escape' || !editorMenuOpen) return;
-                event.preventDefault();
-                event.stopPropagation();
-                setEditorMenuOpen(false);
-              }}
-            >
-              <div className={styles.editorSplitButton}>
-                <button
-                  className={styles.editorOpenButton}
-                  disabled={editorUnavailableReason !== undefined}
-                  title={editorUnavailableReason ?? `Open in ${selectedEditorLabel}`}
-                  aria-label={
-                    editorUnavailableReason === undefined
-                      ? `Open ${file.path} in ${selectedEditorLabel}`
-                      : `${file.path}: ${editorUnavailableReason}`
-                  }
-                  onClick={() => openInEditor(editor)}
-                >
-                  <VisualStudioCodeMark />
-                </button>
-                <button
-                  className={styles.editorMenuButton}
-                  disabled={editorUnavailableReason !== undefined}
-                  title={editorUnavailableReason ?? 'Choose IDE'}
-                  aria-label={
-                    editorUnavailableReason
-                      ? `${file.path}: ${editorUnavailableReason}`
-                      : `Choose IDE for ${file.path}`
-                  }
-                  aria-haspopup="menu"
-                  aria-expanded={editorMenuOpen}
-                  onClick={() => setEditorMenuOpen((menuOpen) => !menuOpen)}
-                >
-                  <ChevronDown size={11} />
-                </button>
-              </div>
-              {editorMenuOpen && (
-                <div className={styles.editorMenu} role="menu">
-                  {editorOptions.map((option) => (
-                    <button
-                      key={option.id}
-                      role="menuitem"
-                      onClick={() => openInEditor(option.id)}
-                    >
-                      <VisualStudioCodeMark />
-                      <span>{option.label}</span>
-                      {option.id === editor && <Check size={13} />}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            <ToolPicker
+              options={editorOptions}
+              initialTool="vscode"
+              openLabelPrefix={`Open ${file.path} in`}
+              chooseLabel="Choose IDE"
+              chooseAriaLabel={`Choose IDE for ${file.path}`}
+              disabledReason={editorUnavailableReason}
+              disabledLabelPrefix={file.path}
+              compact
+              onLaunch={onOpenInEditor}
+            />
           )}
         </div>
       </header>
