@@ -15,6 +15,7 @@ import { launchEditor } from './editors';
 import { registerIpcHandlers } from './ipc-handlers';
 import { openRepositoryFromNativeMenu } from './native-open-repository';
 import { StateStore } from './store';
+import { launchTerminal } from './terminal';
 import { WindowManager } from './window-manager';
 import type { WindowSessionService } from './window-session-services';
 import { WindowSessionRegistry } from './window-sessions';
@@ -86,6 +87,7 @@ async function startApplication(): Promise<void> {
     shell,
     clipboard,
     launchEditor,
+    launchTerminal,
   });
   Menu.setApplicationMenu(
     buildApplicationMenu(() => {

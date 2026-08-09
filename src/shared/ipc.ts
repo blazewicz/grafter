@@ -25,6 +25,7 @@ export const ipc = {
   updateSettings: 'grafter:update-settings',
   updateRepositorySetup: 'grafter:update-repository-setup',
   openWorktreeDirectory: 'grafter:open-worktree-directory',
+  openWorktreeInTerminal: 'grafter:open-worktree-in-terminal',
   openWorktreeInEditor: 'grafter:open-worktree-in-editor',
   openDiffFileInEditor: 'grafter:open-diff-file-in-editor',
   openExternal: 'grafter:open-external',

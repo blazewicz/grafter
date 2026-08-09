@@ -1,16 +1,31 @@
-import { Check, ChevronDown, Circle } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
-import type { EditorTool, Worktree, WorktreeStatus } from '../../shared/contracts';
+import { Circle } from 'lucide-react';
+import { useEffect, useRef } from 'react';
+import type {
+  EditorTool,
+  TerminalTool,
+  Worktree,
+  WorktreeStatus,
+} from '../../shared/contracts';
 import { displayWorktreePath } from '../../shared/path-display';
 import { api, friendlyError } from '../grafter-api';
-import { FinderMark, VisualStudioCodeMark } from '../ui/BrandMarks';
+import {
+  FinderMark,
+  ITermMark,
+  TerminalAppMark,
+  VisualStudioCodeMark,
+} from '../ui/BrandMarks';
 import { CopyButton } from '../ui/CopyButton';
 import styles from './details.module.css';
+import { ToolPicker, type ToolPickerOption } from './ToolPicker';
 
-const editorOptions: readonly {
-  id: EditorTool;
-  label: string;
-}[] = [{ id: 'vscode', label: 'Visual Studio Code' }];
+const editorOptions: readonly ToolPickerOption<EditorTool>[] = [
+  { id: 'vscode', label: 'Visual Studio Code', icon: <VisualStudioCodeMark /> },
+];
+
+const terminalOptions: readonly ToolPickerOption<TerminalTool>[] = [
+  { id: 'terminal', label: 'Terminal', icon: <TerminalAppMark /> },
+  { id: 'iterm2', label: 'iTerm2', icon: <ITermMark /> },
+];
 
 export function PathCard({
   homeDirectory,
@@ -29,36 +44,11 @@ export function PathCard({
   onCopy: (text: string) => void;
   onError: (message: string) => void;
 }): React.JSX.Element {
-  const [editorMenuOpen, setEditorMenuOpen] = useState(false);
-  const editorMenuRef = useRef<HTMLDivElement>(null);
   const copyResetTimer = useRef<number | undefined>(undefined);
-  const [editor, setEditor] = useState<EditorTool>('vscode');
-  const selectedEditorLabel =
-    editorOptions.find((option) => option.id === editor)?.label ?? 'IDE';
   const mainClonePath =
     projectWorktrees.find((worktree) => worktree.isMain)?.path ?? worktree.path;
   const statusClass =
     status === 'dirty' ? styles.dirty : status === undefined ? styles.checking : '';
-
-  useEffect(() => {
-    if (!editorMenuOpen) return;
-
-    const closeOnOutsideClick = (event: PointerEvent): void => {
-      if (!editorMenuRef.current?.contains(event.target as Node)) {
-        setEditorMenuOpen(false);
-      }
-    };
-    const closeOnEscape = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') setEditorMenuOpen(false);
-    };
-
-    document.addEventListener('pointerdown', closeOnOutsideClick);
-    document.addEventListener('keydown', closeOnEscape);
-    return () => {
-      document.removeEventListener('pointerdown', closeOnOutsideClick);
-      document.removeEventListener('keydown', closeOnEscape);
-    };
-  }, [editorMenuOpen]);
 
   useEffect(
     () => () => {
@@ -74,9 +64,11 @@ export function PathCard({
   };
 
   const openInEditor = (nextEditor: EditorTool): void => {
-    setEditor(nextEditor);
-    setEditorMenuOpen(false);
     reportActionError(api.openWorktreeInEditor(worktree.id, nextEditor));
+  };
+
+  const openInTerminal = (nextTerminal: TerminalTool): void => {
+    reportActionError(api.openWorktreeInTerminal(worktree.id, nextTerminal));
   };
 
   return (
@@ -116,43 +108,20 @@ export function PathCard({
         >
           <FinderMark />
         </button>
-        <div className={styles.editorPicker} ref={editorMenuRef}>
-          <div className={styles.editorSplitButton}>
-            <button
-              className={styles.editorOpenButton}
-              title={`Open in ${selectedEditorLabel}`}
-              aria-label={`Open worktree in ${selectedEditorLabel}`}
-              onClick={() => openInEditor(editor)}
-            >
-              <VisualStudioCodeMark />
-            </button>
-            <button
-              className={styles.editorMenuButton}
-              title="Choose IDE"
-              aria-label="Choose IDE"
-              aria-haspopup="menu"
-              aria-expanded={editorMenuOpen}
-              onClick={() => setEditorMenuOpen((open) => !open)}
-            >
-              <ChevronDown size={13} />
-            </button>
-          </div>
-          {editorMenuOpen && (
-            <div className={styles.editorMenu} role="menu">
-              {editorOptions.map((option) => (
-                <button
-                  key={option.id}
-                  role="menuitem"
-                  onClick={() => openInEditor(option.id)}
-                >
-                  <VisualStudioCodeMark />
-                  <span>{option.label}</span>
-                  {option.id === editor && <Check size={13} />}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        <ToolPicker
+          options={terminalOptions}
+          initialTool="terminal"
+          chooseLabel="Choose terminal"
+          openLabelPrefix="Open worktree in"
+          onLaunch={openInTerminal}
+        />
+        <ToolPicker
+          options={editorOptions}
+          initialTool="vscode"
+          chooseLabel="Choose IDE"
+          openLabelPrefix="Open worktree in"
+          onLaunch={openInEditor}
+        />
       </div>
     </section>
   );

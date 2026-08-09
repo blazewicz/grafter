@@ -36,6 +36,62 @@ export function VisualStudioCodeMark(): React.JSX.Element {
   );
 }
 
+export function TerminalAppMark(): React.JSX.Element {
+  return (
+    <svg
+      className={styles.brandMark}
+      width="17"
+      height="17"
+      viewBox="0 0 20 20"
+      fill="none"
+      data-brand-mark="terminal"
+      aria-hidden="true"
+    >
+      <rect width="20" height="20" rx="4" fill="#1f2127" />
+      <path
+        d="M5.6 6.6 8.7 9.4 5.6 12.2"
+        stroke="#e6e7eb"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M11.5 12.2h2.6" stroke="#e6e7eb" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function ITermMark(): React.JSX.Element {
+  return (
+    <svg
+      className={styles.brandMark}
+      width="17"
+      height="17"
+      viewBox="0 0 20 20"
+      fill="none"
+      data-brand-mark="iterm"
+      aria-hidden="true"
+    >
+      <rect width="20" height="20" rx="4" fill="#0b0d11" />
+      <rect
+        x="4.5"
+        y="5.5"
+        width="11"
+        height="9"
+        rx="1.5"
+        stroke="#f1f2f4"
+        strokeWidth="1.3"
+      />
+      <path
+        d="M7.5 8.2 9.8 10 7.5 11.8"
+        stroke="#f1f2f4"
+        strokeWidth="1.3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export function FinderMark(): React.JSX.Element {
   return (
     <svg
