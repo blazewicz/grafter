@@ -1,5 +1,12 @@
 import { ChevronDown, LoaderCircle, Plus } from 'lucide-react';
-import { useEffect, useEffectEvent, useId, useRef, useState } from 'react';
+import {
+  useEffect,
+  useEffectEvent,
+  useLayoutEffect,
+  useId,
+  useRef,
+  useState,
+} from 'react';
 import type { GrafterApi, Project } from '../../shared/contracts';
 import { api, friendlyError } from '../grafter-api';
 import { BranchPicker } from '../branches/BranchPicker';
@@ -32,7 +39,7 @@ export function NewWorktreeDialog({
 
   const onErrorEvent = useEffectEvent(onError);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (chosen) pathInputRef.current?.focus();
   }, [chosen]);
 
