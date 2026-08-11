@@ -35,17 +35,20 @@ describe('NewWorktreeForm', () => {
     vi.restoreAllMocks();
   });
 
-  it('renders as a centered modal dialog with a heading', () => {
+  it('renders as a centered modal dialog with the picker open at (none)', () => {
     vi.spyOn(api, 'listBranches').mockResolvedValue([]);
     renderNewWorktreeForm();
 
     const dialog = screen.getByRole('dialog', { name: 'New worktree' });
     expect(dialog).toHaveAttribute('aria-modal', 'true');
     expect(screen.getByRole('heading', { name: 'New worktree' })).toBeVisible();
+    const trigger = screen.getByRole('button', { name: 'Choose branch' });
+    expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    expect(trigger).toHaveTextContent('(none)');
     expect(screen.getByRole('textbox', { name: 'Filter branches' })).toHaveFocus();
   });
 
-  it('cancels on Escape', async () => {
+  it('closes the picker on Escape before canceling the dialog', async () => {
     const user = userEvent.setup();
     vi.spyOn(api, 'listBranches').mockResolvedValue([]);
     const onCancel = vi.fn();
@@ -53,7 +56,46 @@ describe('NewWorktreeForm', () => {
 
     await user.keyboard('{Escape}');
 
+    expect(onCancel).not.toHaveBeenCalled();
+    expect(screen.queryByRole('textbox', { name: 'Filter branches' })).toBeNull();
+
+    await user.keyboard('{Escape}');
+
     expect(onCancel).toHaveBeenCalledOnce();
+  });
+
+  it('toggles the picker from the branch trigger', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(api, 'listBranches').mockResolvedValue(scenario.branches);
+    renderNewWorktreeForm();
+
+    const trigger = screen.getByRole('button', { name: 'Choose branch' });
+    expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('textbox', { name: 'Filter branches' })).toBeVisible();
+
+    await user.click(trigger);
+
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('textbox', { name: 'Filter branches' })).toBeNull();
+
+    await user.click(trigger);
+
+    expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('textbox', { name: 'Filter branches' })).toBeVisible();
+  });
+
+  it('closes the picker when clicking elsewhere inside the dialog', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(api, 'listBranches').mockResolvedValue([]);
+    const onCancel = vi.fn();
+    renderNewWorktreeForm(onCancel);
+
+    expect(screen.getByRole('textbox', { name: 'Filter branches' })).toBeVisible();
+    await user.click(screen.getByRole('heading', { name: 'New worktree' }));
+
+    expect(screen.queryByRole('textbox', { name: 'Filter branches' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeVisible();
+    expect(onCancel).not.toHaveBeenCalled();
   });
 
   it('cancels on backdrop click but not on clicks inside the dialog', async () => {
@@ -159,6 +201,7 @@ describe('NewWorktreeForm', () => {
       scenario.suggestedPath,
     );
 
+    await user.click(screen.getByRole('button', { name: 'Choose branch' }));
     await user.type(
       screen.getByRole('textbox', { name: 'Filter branches' }),
       'different',
@@ -166,6 +209,48 @@ describe('NewWorktreeForm', () => {
 
     expect(screen.queryByRole('textbox', { name: 'Path' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Create' })).toBeDisabled();
+  });
+
+  it('clears the selection back to (none) from the picker', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(api, 'listBranches').mockResolvedValue(scenario.branches);
+    vi.spyOn(api, 'suggestWorktreePath').mockResolvedValue(scenario.suggestedPath);
+    renderNewWorktreeForm();
+
+    await user.click(
+      await screen.findByRole('button', { name: scenario.availableBranch }),
+    );
+    expect(await screen.findByRole('textbox', { name: 'Path' })).toHaveValue(
+      scenario.suggestedPath,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Choose branch' }));
+    await user.click(screen.getByRole('button', { name: '(none)' }));
+
+    expect(screen.queryByRole('textbox', { name: 'Path' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Create' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Choose branch' })).toHaveTextContent(
+      '(none)',
+    );
+  });
+
+  it('hides the branch results after selection and focuses the path input', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(api, 'listBranches').mockResolvedValue(scenario.branches);
+    vi.spyOn(api, 'suggestWorktreePath').mockResolvedValue(scenario.suggestedPath);
+    renderNewWorktreeForm();
+
+    expect(
+      await screen.findByRole('button', { name: scenario.availableBranch }),
+    ).toBeVisible();
+    await user.click(
+      await screen.findByRole('button', { name: scenario.availableBranch }),
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: scenario.availableBranch })).toBeNull();
+    });
+    expect(screen.getByRole('textbox', { name: 'Path' })).toHaveFocus();
   });
 
   it('reports path-suggestion and creation failures', async () => {
@@ -189,7 +274,11 @@ describe('NewWorktreeForm', () => {
       expect(onError).toHaveBeenCalledWith('could not suggest a path');
     });
 
-    await user.click(branchButton);
+    await user.click(screen.getByRole('button', { name: 'Choose branch' }));
+    const reopenedBranchButton = await screen.findByRole('button', {
+      name: scenario.availableBranch,
+    });
+    await user.click(reopenedBranchButton);
     const pathInput = await screen.findByRole('textbox', { name: 'Path' });
     await waitFor(() => {
       expect(pathInput).toHaveValue(scenario.suggestedPath);

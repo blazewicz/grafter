@@ -18,6 +18,7 @@ interface RenderBranchPickerOptions {
   disableCheckedOut?: boolean;
   disabledBranches?: readonly string[];
   loading?: boolean;
+  allowNone?: boolean;
   onQueryChange?: () => void;
   onSelect?: (branch: string) => void;
 }
@@ -39,6 +40,7 @@ function renderBranchPicker(options: RenderBranchPickerOptions = {}): void {
         ? {}
         : { disabledBranches: options.disabledBranches })}
       {...(options.loading === undefined ? {} : { loading: options.loading })}
+      {...(options.allowNone === undefined ? {} : { allowNone: options.allowNone })}
       {...(options.onQueryChange === undefined
         ? {}
         : { onQueryChange: options.onQueryChange })}
@@ -179,5 +181,48 @@ describe('BranchPicker', () => {
     rerender(<BranchPicker branches={[]} onSelect={() => undefined} />);
 
     expect(screen.getByText('No matching branches')).toBeVisible();
+  });
+
+  it('shows the (none) option only when allowNone is set', () => {
+    renderBranchPicker();
+
+    expect(screen.queryByRole('button', { name: '(none)' })).toBeNull();
+
+    cleanup();
+    renderBranchPicker({ allowNone: true });
+
+    expect(screen.getByRole('button', { name: '(none)' })).toBeVisible();
+  });
+
+  it('selects (none) with a click', async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    renderBranchPicker({
+      branches: ['feature/one'],
+      worktrees: [],
+      allowNone: true,
+      onSelect,
+    });
+
+    await user.click(screen.getByRole('button', { name: '(none)' }));
+
+    expect(onSelect).toHaveBeenCalledOnce();
+    expect(onSelect).toHaveBeenCalledWith('');
+  });
+
+  it('selects (none) from the keyboard', async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    renderBranchPicker({
+      branches: ['feature/one', 'feature/two'],
+      worktrees: [],
+      allowNone: true,
+      onSelect,
+    });
+
+    await user.keyboard('{ArrowUp}{Enter}');
+
+    expect(onSelect).toHaveBeenCalledOnce();
+    expect(onSelect).toHaveBeenCalledWith('');
   });
 });

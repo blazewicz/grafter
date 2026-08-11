@@ -27,6 +27,52 @@
   margin-top: 14px;
 }
 
+.branch-picker-wrap {
+  position: relative;
+}
+
+.branch-trigger {
+  width: 100%;
+  height: 31px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 0 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.18);
+  color: var(--text);
+  font-size: 11.5px;
+}
+
+.branch-trigger:hover,
+.branch-trigger[aria-expanded='true'] {
+  border-color: rgba(154, 167, 255, 0.65);
+}
+
+.branch-trigger span {
+  color: var(--faint);
+}
+
+.branch-trigger svg {
+  flex: 0 0 auto;
+  color: var(--muted);
+}
+
+.branch-menu {
+  z-index: 20;
+  position: absolute;
+  top: calc(100% + 5px);
+  left: 0;
+  right: 0;
+  padding: 7px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: rgba(38, 39, 44, 0.98);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.38);
+}
+
 .modal-icon {
   width: 37px;
   height: 37px;

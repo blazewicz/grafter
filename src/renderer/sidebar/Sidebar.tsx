@@ -50,7 +50,6 @@ export function Sidebar({
   const [adding, setAdding] = useState(false);
   const [worktreeSortOrder, setWorktreeSortOrder] = useState<WorktreeSortOrder>('path');
   const addWorktreeButtonRef = useRef<HTMLButtonElement>(null);
-  const newWorktreePickerRef = useRef<HTMLInputElement>(null);
   const {
     filterOpen,
     worktreeFilter,
@@ -72,11 +71,7 @@ export function Sidebar({
       }
 
       event.preventDefault();
-      if (adding) {
-        newWorktreePickerRef.current?.focus();
-        newWorktreePickerRef.current?.select();
-        return;
-      }
+      if (adding) return;
       if (document.querySelector('dialog[open], [role="dialog"][aria-modal="true"]')) {
         return;
       }
@@ -172,7 +167,6 @@ export function Sidebar({
       {adding && (
         <NewWorktreeForm
           project={repository}
-          pickerInputRef={newWorktreePickerRef}
           onCancel={() => setAdding(false)}
           onCreated={(result, request) => {
             setAdding(false);

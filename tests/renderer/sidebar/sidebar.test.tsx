@@ -271,28 +271,25 @@ describe('Sidebar', () => {
     expect(screen.getByRole('textbox', { name: 'Filter branches' })).toHaveFocus();
   });
 
-  it('refocuses the branch picker when Command-N is pressed while the dialog is open', async () => {
+  it('keeps the dialog open when Command-N is pressed while it is already open', async () => {
     const user = userEvent.setup();
     vi.spyOn(api, 'listBranches').mockResolvedValue([]);
     renderSidebar();
 
     await user.keyboard('{Meta>}n{/Meta}');
-    const input = screen.getByRole<HTMLInputElement>('textbox', {
-      name: 'Filter branches',
-    });
-    screen.getByRole('button', { name: 'Create' }).focus();
-
     await user.keyboard('{Meta>}n{/Meta}');
 
-    expect(input).toHaveFocus();
+    expect(screen.getByRole('dialog', { name: 'New worktree' })).toBeVisible();
   });
 
-  it('closes the new-worktree dialog on Escape and restores focus to the add button', async () => {
+  it('closes the picker and then the dialog on Escape, restoring focus to the add button', async () => {
     const user = userEvent.setup();
     vi.spyOn(api, 'listBranches').mockResolvedValue([]);
     renderSidebar();
 
     await user.keyboard('{Meta>}n{/Meta}');
+    await user.keyboard('{Escape}');
+    expect(screen.getByRole('dialog', { name: 'New worktree' })).toBeVisible();
     await user.keyboard('{Escape}');
 
     expect(screen.queryByRole('dialog', { name: 'New worktree' })).toBeNull();
