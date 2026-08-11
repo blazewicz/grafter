@@ -25,7 +25,7 @@ function RepositorySetupOverride({
   return (
     <div>
       <label htmlFor={inputId}>
-        <span>{repository.name}</span>
+        <span className={controls.fieldLabel}>{repository.name}</span>
       </label>
       <div className={styles.inlineSave}>
         <input
@@ -92,7 +92,7 @@ export function SettingsDialog({
             <code>&lt;repo_name&gt;</code> as a placeholder.
           </p>
           <label>
-            <span>Default path</span>
+            <span className={controls.fieldLabel}>Default path</span>
             <input
               value={pathTemplate}
               onChange={(event) => setPathTemplate(event.target.value)}
@@ -107,7 +107,7 @@ export function SettingsDialog({
           </p>
           <div className={styles.settingsGrid}>
             <label>
-              <span>Date format</span>
+              <span className={controls.fieldLabel}>Date format</span>
               <select
                 value={dateFormat}
                 onChange={(event) =>
@@ -121,7 +121,7 @@ export function SettingsDialog({
               </select>
             </label>
             <label>
-              <span>Clock</span>
+              <span className={controls.fieldLabel}>Clock</span>
               <select
                 value={timeFormat}
                 onChange={(event) =>

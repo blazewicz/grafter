@@ -23,22 +23,28 @@
   width: min(440px, 100%);
 }
 
+.path-input {
+  display: block;
+  margin-top: 3px;
+}
+
+.path-input input {
+  width: 100%;
+  height: 29px;
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+  background: rgba(0, 0, 0, 0.18);
+  color: var(--text);
+  padding: 0 8px;
+  font-size: 11px;
+}
+
 .new-worktree-path {
   margin-top: 14px;
 }
 
 .branch-picker-field {
   margin-top: 14px;
-}
-
-.branch-picker-field > span {
-  display: block;
-  color: var(--faint);
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.07em;
-  margin: 0 0 4px 2px;
-  text-transform: uppercase;
 }
 
 .branch-picker-wrap {
@@ -226,16 +232,6 @@
 .settings-section label {
   display: block;
   margin-top: 11px;
-}
-
-.settings-section label > span {
-  display: block;
-  color: var(--faint);
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.07em;
-  margin: 0 0 4px 2px;
-  text-transform: uppercase;
 }
 
 .settings-section input,

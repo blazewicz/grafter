@@ -1,12 +1,11 @@
 import { ChevronDown, LoaderCircle, Plus } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { GrafterApi, Project } from '../../shared/contracts';
 import { api, friendlyError } from '../grafter-api';
 import { BranchPicker } from '../branches/BranchPicker';
 import controls from '../styles/controls.module.css';
 import dialogStyles from '../dialogs/dialogs.module.css';
-import styles from './sidebar.module.css';
 
 export function NewWorktreeForm({
   project,
@@ -31,6 +30,7 @@ export function NewWorktreeForm({
   const onErrorRef = useRef(onError);
   const pickerWrapRef = useRef<HTMLDivElement>(null);
   const pathInputRef = useRef<HTMLInputElement>(null);
+  const branchMenuId = useId();
 
   useEffect(() => {
     onErrorRef.current = onError;
@@ -107,14 +107,24 @@ export function NewWorktreeForm({
           <h2 id="new-worktree-title">New worktree</h2>
         </div>
         <div className={dialogStyles.branchPickerField}>
-          <span>Branch</span>
-          <div className={dialogStyles.branchPickerWrap} ref={pickerWrapRef}>
+          <span className={controls.fieldLabel}>Branch</span>
+          <div
+            className={dialogStyles.branchPickerWrap}
+            ref={pickerWrapRef}
+            onKeyDown={(event) => {
+              if (event.key !== 'Escape' || !pickerOpen || !chosen) return;
+              event.preventDefault();
+              event.stopPropagation();
+              setPickerOpen(false);
+            }}
+          >
             <button
               className={dialogStyles.branchTrigger}
               type="button"
               aria-label="Choose branch"
-              aria-haspopup="dialog"
+              aria-haspopup="menu"
               aria-expanded={pickerOpen}
+              aria-controls={branchMenuId}
               onClick={() => {
                 if (!chosen) return;
                 setPickerOpen((open) => !open);
@@ -125,9 +135,10 @@ export function NewWorktreeForm({
             </button>
             {pickerOpen && (
               <div
+                id={branchMenuId}
                 className={dialogStyles.branchMenu}
-                role="dialog"
-                aria-label="Choose branch"
+                role="menu"
+                aria-label="Branches"
               >
                 <BranchPicker
                   branches={branches}
@@ -145,8 +156,8 @@ export function NewWorktreeForm({
           </div>
         </div>
         {chosen && (
-          <label className={`${styles.pathInput} ${dialogStyles.newWorktreePath}`}>
-            <span>Path</span>
+          <label className={`${dialogStyles.pathInput} ${dialogStyles.newWorktreePath}`}>
+            <span className={controls.fieldLabel}>Path</span>
             <input
               ref={pathInputRef}
               value={worktreePath}

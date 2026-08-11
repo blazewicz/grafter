@@ -49,7 +49,7 @@ export function Sidebar({
   onResize: (width: number) => void;
 }): React.JSX.Element {
   const [worktreeSortOrder, setWorktreeSortOrder] = useState<WorktreeSortOrder>('path');
-  const { adding, addWorktreeButtonRef, openNewWorktree, closeNewWorktree } =
+  const { isOpen, addWorktreeButtonRef, openDialog, closeDialog } =
     useNewWorktreeDialog();
   const {
     filterOpen,
@@ -78,7 +78,7 @@ export function Sidebar({
             aria-label={`Add worktree to ${repository.name}`}
             aria-keyshortcuts="Meta+N"
             title="New worktree (⌘N)"
-            onClick={openNewWorktree}
+            onClick={openDialog}
           >
             <Plus size={15} />
           </button>
@@ -137,12 +137,12 @@ export function Sidebar({
         <Settings size={15} /> Settings
       </button>
       <ResizeHandle width={width} onResize={onResize} />
-      {adding && (
+      {isOpen && (
         <NewWorktreeForm
           project={repository}
-          onCancel={closeNewWorktree}
+          onCancel={closeDialog}
           onCreated={(result, request) => {
-            closeNewWorktree();
+            closeDialog();
             onCreated(result, request);
           }}
           onError={onError}

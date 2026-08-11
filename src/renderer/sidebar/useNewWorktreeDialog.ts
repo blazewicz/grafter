@@ -1,50 +1,45 @@
 import { type RefObject, useEffect, useRef, useState } from 'react';
 
 export function useNewWorktreeDialog(): {
-  adding: boolean;
+  isOpen: boolean;
   addWorktreeButtonRef: RefObject<HTMLButtonElement | null>;
-  openNewWorktree: () => void;
-  closeNewWorktree: () => void;
+  openDialog: () => void;
+  closeDialog: () => void;
 } {
-  const [adding, setAdding] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
   const addWorktreeButtonRef = useRef<HTMLButtonElement>(null);
-  const wasAdding = useRef(false);
+  const wasOpen = useRef(false);
 
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent): void => {
       if (
-        event.key.toLocaleLowerCase() !== 'n' ||
+        event.key.toLowerCase() !== 'n' ||
         !event.metaKey ||
+        event.ctrlKey ||
         event.altKey ||
-        event.shiftKey
+        event.shiftKey ||
+        event.repeat
       ) {
         return;
       }
-
-      event.preventDefault();
-      if (adding) return;
       if (document.querySelector('dialog[open], [role="dialog"][aria-modal="true"]')) {
         return;
       }
-      setAdding(true);
+      event.preventDefault();
+      setIsOpen(true);
     };
 
     document.addEventListener('keydown', handleShortcut);
     return () => document.removeEventListener('keydown', handleShortcut);
-  }, [adding]);
+  }, []);
 
   useEffect(() => {
-    if (wasAdding.current && !adding) addWorktreeButtonRef.current?.focus();
-    wasAdding.current = adding;
-  }, [adding]);
+    if (wasOpen.current && !isOpen) addWorktreeButtonRef.current?.focus();
+    wasOpen.current = isOpen;
+  }, [isOpen]);
 
-  const openNewWorktree = (): void => setAdding(true);
-  const closeNewWorktree = (): void => setAdding(false);
+  const openDialog = (): void => setIsOpen(true);
+  const closeDialog = (): void => setIsOpen(false);
 
-  return {
-    adding,
-    addWorktreeButtonRef,
-    openNewWorktree,
-    closeNewWorktree,
-  };
+  return { isOpen, addWorktreeButtonRef, openDialog, closeDialog };
 }
