@@ -340,3 +340,46 @@ describe('App welcome state', () => {
     ).toHaveAttribute('aria-current', 'page');
   });
 });
+
+/*
+  it('opens the new-worktree dialog with Command-N', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(api, 'listBranches').mockResolvedValue([]);
+    renderSidebar();
+
+    await user.keyboard('{Meta>}n{/Meta}');
+
+    expect(screen.getByRole('dialog', { name: 'New worktree' })).toHaveAttribute(
+      'aria-modal',
+      'true',
+    );
+    expect(screen.getByRole('textbox', { name: 'Filter branches' })).toHaveFocus();
+  });
+
+  it('keeps the dialog open when Command-N is pressed while it is already open', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(api, 'listBranches').mockResolvedValue([]);
+    renderSidebar();
+
+    await user.keyboard('{Meta>}n{/Meta}');
+    await user.keyboard('{Meta>}n{/Meta}');
+
+    expect(screen.getByRole('dialog', { name: 'New worktree' })).toBeVisible();
+  });
+
+  it('closes the dialog on Escape and restores focus to the add button', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(api, 'listBranches').mockResolvedValue([]);
+    renderSidebar();
+
+    await user.keyboard('{Meta>}n{/Meta}');
+    await user.keyboard('{Escape}');
+
+    expect(screen.queryByRole('dialog', { name: 'New worktree' })).toBeNull();
+    expect(
+      screen.getByRole('button', {
+        name: `Add worktree to ${scenario.repository.name}`,
+      }),
+    ).toHaveFocus();
+  });
+*/

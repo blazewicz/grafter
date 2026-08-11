@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { api } from '../../../src/renderer/grafter-api';
 import { defaultSidebarWidth, Sidebar } from '../../../src/renderer/sidebar/Sidebar';
-import type { GrafterApi, Worktree } from '../../../src/shared/contracts';
+import type { Worktree } from '../../../src/shared/contracts';
 import { buildRepositoryWorktreesScenario } from '../../scenarios/sidebar/repository-worktrees';
 
 const scenario = buildRepositoryWorktreesScenario();
@@ -14,10 +14,7 @@ interface RenderSidebarOptions {
   width?: number;
   selectedId?: string;
   onSelect?: (id: string) => void;
-  onCreated?: (
-    result: Awaited<ReturnType<GrafterApi['createWorktree']>>,
-    request: { path: string },
-  ) => void;
+  onAddWorktree?: () => void;
   onRemoveWorktree?: (worktree: Worktree) => void;
   onOpenSettings?: () => void;
   onResize?: (width: number) => void;
@@ -32,10 +29,9 @@ function renderSidebar(options: RenderSidebarOptions = {}): void {
       selectedId={options.selectedId}
       selectedWorktreeStatus={undefined}
       onSelect={options.onSelect ?? (() => undefined)}
-      onCreated={options.onCreated ?? (() => undefined)}
+      onAddWorktree={options.onAddWorktree ?? (() => undefined)}
       onRemoveWorktree={options.onRemoveWorktree ?? (() => undefined)}
       onOpenSettings={options.onOpenSettings ?? (() => undefined)}
-      onError={() => undefined}
       onResize={options.onResize ?? (() => undefined)}
     />,
   );
@@ -240,65 +236,23 @@ describe('Sidebar', () => {
     ).toBeVisible();
   });
 
-  it('opens and cancels the repository-level new-worktree flow with the keyboard', async () => {
+  it('opens new worktree dialog with the button', async () => {
     const user = userEvent.setup();
     vi.spyOn(api, 'listBranches').mockResolvedValue([]);
-    renderSidebar();
+    const onAddWorktree = vi.fn();
+    renderSidebar({ onAddWorktree });
 
     const addWorktree = screen.getByRole('button', {
       name: `Add worktree to ${scenario.repository.name}`,
     });
-    addWorktree.focus();
-    expect(addWorktree).toHaveFocus();
-    await user.keyboard('{Enter}');
+    expect(addWorktree).toBeVisible();
 
-    expect(await screen.findByRole('textbox', { name: 'Filter branches' })).toBeVisible();
-    await user.click(screen.getByRole('button', { name: 'Cancel' }));
-    expect(screen.queryByRole('textbox', { name: 'Filter branches' })).toBeNull();
+    await user.click(addWorktree);
+
+    expect(onAddWorktree).toHaveBeenCalledOnce();
   });
 
-  it('opens the new-worktree dialog with Command-N', async () => {
-    const user = userEvent.setup();
-    vi.spyOn(api, 'listBranches').mockResolvedValue([]);
-    renderSidebar();
-
-    await user.keyboard('{Meta>}n{/Meta}');
-
-    expect(screen.getByRole('dialog', { name: 'New worktree' })).toHaveAttribute(
-      'aria-modal',
-      'true',
-    );
-    expect(screen.getByRole('textbox', { name: 'Filter branches' })).toHaveFocus();
-  });
-
-  it('keeps the dialog open when Command-N is pressed while it is already open', async () => {
-    const user = userEvent.setup();
-    vi.spyOn(api, 'listBranches').mockResolvedValue([]);
-    renderSidebar();
-
-    await user.keyboard('{Meta>}n{/Meta}');
-    await user.keyboard('{Meta>}n{/Meta}');
-
-    expect(screen.getByRole('dialog', { name: 'New worktree' })).toBeVisible();
-  });
-
-  it('closes the dialog on Escape and restores focus to the add button', async () => {
-    const user = userEvent.setup();
-    vi.spyOn(api, 'listBranches').mockResolvedValue([]);
-    renderSidebar();
-
-    await user.keyboard('{Meta>}n{/Meta}');
-    await user.keyboard('{Escape}');
-
-    expect(screen.queryByRole('dialog', { name: 'New worktree' })).toBeNull();
-    expect(
-      screen.getByRole('button', {
-        name: `Add worktree to ${scenario.repository.name}`,
-      }),
-    ).toHaveFocus();
-  });
-
-  it('opens settings from the global sidebar actions', async () => {
+  it('opens settings dialog with the button', async () => {
     const user = userEvent.setup();
     const onOpenSettings = vi.fn();
     renderSidebar({ onOpenSettings });

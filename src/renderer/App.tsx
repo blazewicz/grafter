@@ -9,6 +9,7 @@ import { DiffViewer } from './diff/DiffViewer';
 import { ApprovalDialog } from './dialogs/ApprovalDialog';
 import { SettingsDialog } from './dialogs/SettingsDialog';
 import { useCommandApproval } from './dialogs/useCommandApproval';
+import { NewWorktreeDialog } from './dialogs/NewWorktreeDialog';
 import { ErrorToast } from './feedback/ErrorToast';
 import { AppTitlebar } from './shell/AppTitlebar';
 import { Splash } from './shell/Splash';
@@ -18,9 +19,10 @@ import { useRepositoryRefresh } from './sidebar/useRepositoryRefresh';
 import { useDiffViewer } from './diff/useDiffViewer';
 import { api, friendlyError } from './grafter-api';
 import { Welcome } from './welcome/Welcome';
+import { useHotKey } from './useHotKey';
 import styles from './App.module.css';
 
-type DialogName = 'settings' | null;
+type DialogName = 'settings' | 'new-worktree' | null;
 
 interface AppShellStyle extends CSSProperties {
   '--sidebar-width': string;
@@ -181,6 +183,8 @@ export function App(): React.JSX.Element {
   const { approval, approvalRunning, enqueueApproval, resolveApproval } =
     useCommandApproval(api, run, applySnapshot);
 
+  useHotKey('n', () => setDialog('new-worktree'));
+
   if (snapshot.kind === 'loading') return <Splash />;
 
   if (snapshot.kind === 'welcome') {
@@ -222,22 +226,11 @@ export function App(): React.JSX.Element {
           selectedId={selectedId}
           selectedWorktreeStatus={worktreeStatus}
           onSelect={navigate}
-          onCreated={(next, request) => {
-            applySnapshot(next.snapshot);
-            const created =
-              next.snapshot.kind === 'repository'
-                ? next.snapshot.repository.worktrees.find(
-                    (worktree) => worktree.path === request.path,
-                  )
-                : undefined;
-            if (created) navigate(created.id);
-            if (next.setupApproval) enqueueApproval(next.setupApproval);
-          }}
+          onAddWorktree={() => setDialog('new-worktree')}
           onRemoveWorktree={(worktree) =>
             void run(() => api.prepareRemoveWorktree(worktree.id), enqueueApproval)
           }
           onOpenSettings={() => setDialog('settings')}
-          onError={setError}
           onResize={setSidebarWidth}
         />
 
@@ -282,6 +275,7 @@ export function App(): React.JSX.Element {
           onApprove={() => resolveApproval('approve')}
         />
       )}
+
       {dialog === 'settings' && (
         <SettingsDialog
           settings={snapshot.settings}
@@ -301,6 +295,27 @@ export function App(): React.JSX.Element {
           }
         />
       )}
+
+      {dialog === 'new-worktree' && (
+        <NewWorktreeDialog
+          project={activeRepository}
+          onCancel={() => setDialog(null)}
+          onCreated={(next, request) => {
+            setDialog(null);
+            applySnapshot(next.snapshot);
+            const created =
+              next.snapshot.kind === 'repository'
+                ? next.snapshot.repository.worktrees.find(
+                    (worktree) => worktree.path === request.path,
+                  )
+                : undefined;
+            if (created) navigate(created.id);
+            if (next.setupApproval) enqueueApproval(next.setupApproval);
+          }}
+          onError={setError}
+        />
+      )}
+
       {diffSession && (
         <DiffViewer
           key={diffSession.id}
@@ -314,6 +329,7 @@ export function App(): React.JSX.Element {
           onSetToolPreference={setToolPreference}
         />
       )}
+
       {error && <ErrorToast message={error} onDismiss={() => setError(undefined)} />}
     </div>
   );

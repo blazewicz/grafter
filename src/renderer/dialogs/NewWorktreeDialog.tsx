@@ -1,13 +1,12 @@
 import { ChevronDown, LoaderCircle, Plus } from 'lucide-react';
 import { useEffect, useId, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import type { GrafterApi, Project } from '../../shared/contracts';
 import { api, friendlyError } from '../grafter-api';
 import { BranchPicker } from '../branches/BranchPicker';
 import controls from '../styles/controls.module.css';
 import dialogStyles from '../dialogs/dialogs.module.css';
 
-export function NewWorktreeForm({
+export function NewWorktreeDialog({
   project,
   onCancel,
   onCreated,
@@ -93,7 +92,7 @@ export function NewWorktreeForm({
     }
   };
 
-  return createPortal(
+  return (
     <div className={dialogStyles.modalBackdrop} onClick={onCancel}>
       <div
         className={`${dialogStyles.modal} ${dialogStyles.newWorktreeModal}`}
@@ -179,7 +178,6 @@ export function NewWorktreeForm({
           </button>
         </div>
       </div>
-    </div>,
-    document.body,
+    </div>
   );
 }

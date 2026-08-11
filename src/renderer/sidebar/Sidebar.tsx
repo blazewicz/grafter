@@ -1,16 +1,9 @@
 import { FolderOpen, Plus, Search, Settings } from 'lucide-react';
 import { useRef, useState } from 'react';
-import type {
-  GrafterApi,
-  Project,
-  Worktree,
-  WorktreeStatus,
-} from '../../shared/contracts';
+import type { Project, Worktree, WorktreeStatus } from '../../shared/contracts';
 import type { WorktreeSortOrder } from '../../shared/worktree-list';
 import controls from '../styles/controls.module.css';
 import styles from './sidebar.module.css';
-import { NewWorktreeForm } from './NewWorktreeForm';
-import { useNewWorktreeDialog } from './useNewWorktreeDialog';
 import { WorktreeList } from './WorktreeList';
 import { WorktreeSortMenu } from './WorktreeSortMenu';
 import { useWorktreeFilter } from './useWorktreeFilter';
@@ -27,10 +20,9 @@ export function Sidebar({
   selectedId,
   selectedWorktreeStatus,
   onSelect,
-  onCreated,
+  onAddWorktree,
   onRemoveWorktree,
   onOpenSettings,
-  onError,
   onResize,
 }: {
   homeDirectory: string;
@@ -39,18 +31,12 @@ export function Sidebar({
   selectedId: string | undefined;
   selectedWorktreeStatus: WorktreeStatus | undefined;
   onSelect: (id: string) => void;
-  onCreated: (
-    result: Awaited<ReturnType<GrafterApi['createWorktree']>>,
-    request: { path: string },
-  ) => void;
+  onAddWorktree: () => void;
   onRemoveWorktree: (worktree: Worktree) => void;
   onOpenSettings: () => void;
-  onError: (message: string) => void;
   onResize: (width: number) => void;
 }): React.JSX.Element {
   const [worktreeSortOrder, setWorktreeSortOrder] = useState<WorktreeSortOrder>('path');
-  const { isOpen, addWorktreeButtonRef, openDialog, closeDialog } =
-    useNewWorktreeDialog();
   const {
     filterOpen,
     worktreeFilter,
@@ -73,12 +59,11 @@ export function Sidebar({
         <span>Worktrees</span>
         <div className={styles.headingActions}>
           <button
-            ref={addWorktreeButtonRef}
             className={`${controls.iconButton} ${styles.headingAction}`}
             aria-label={`Add worktree to ${repository.name}`}
             aria-keyshortcuts="Meta+N"
             title="New worktree (⌘N)"
-            onClick={openDialog}
+            onClick={onAddWorktree}
           >
             <Plus size={15} />
           </button>
@@ -137,17 +122,6 @@ export function Sidebar({
         <Settings size={15} /> Settings
       </button>
       <ResizeHandle width={width} onResize={onResize} />
-      {isOpen && (
-        <NewWorktreeForm
-          project={repository}
-          onCancel={closeDialog}
-          onCreated={(result, request) => {
-            closeDialog();
-            onCreated(result, request);
-          }}
-          onError={onError}
-        />
-      )}
     </aside>
   );
 }

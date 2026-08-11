@@ -3,7 +3,7 @@
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { NewWorktreeForm } from '../../../src/renderer/sidebar/NewWorktreeForm';
+import { NewWorktreeDialog } from '../../../src/renderer/dialogs/NewWorktreeDialog';
 import { api } from '../../../src/renderer/grafter-api';
 import type { GrafterApi } from '../../../src/shared/contracts';
 import { buildNewWorktreeScenario } from '../../scenarios/sidebar/new-worktree';
@@ -20,7 +20,7 @@ function renderNewWorktreeForm(
   onError: (message: string) => void = () => undefined,
 ): void {
   render(
-    <NewWorktreeForm
+    <NewWorktreeDialog
       project={scenario.project}
       onCancel={onCancel}
       onCreated={onCreated}
