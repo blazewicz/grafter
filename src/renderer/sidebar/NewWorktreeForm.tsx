@@ -107,50 +107,53 @@ export function NewWorktreeForm({
         onClick={(event) => event.stopPropagation()}
       >
         <div className={dialogStyles.modalHeading}>
-          <span>NEW WORKTREE</span>
+          <span>WORKTREES</span>
           <h2 id="new-worktree-title">New worktree</h2>
         </div>
-        <div
-          className={dialogStyles.branchPickerWrap}
-          ref={pickerWrapRef}
-          onKeyDown={(event) => {
-            if (event.key !== 'Escape' || !pickerOpen) return;
-            event.preventDefault();
-            event.stopPropagation();
-            setPickerOpen(false);
-          }}
-        >
-          <button
-            className={dialogStyles.branchTrigger}
-            type="button"
-            aria-label="Choose branch"
-            aria-haspopup="dialog"
-            aria-expanded={pickerOpen}
-            onClick={() => setPickerOpen((open) => !open)}
+        <div className={dialogStyles.branchPickerField}>
+          <span>Branch</span>
+          <div
+            className={dialogStyles.branchPickerWrap}
+            ref={pickerWrapRef}
+            onKeyDown={(event) => {
+              if (event.key !== 'Escape' || !pickerOpen) return;
+              event.preventDefault();
+              event.stopPropagation();
+              setPickerOpen(false);
+            }}
           >
-            {chosen ? <code>{chosen}</code> : <span>(none)</span>}
-            <ChevronDown size={13} />
-          </button>
-          {pickerOpen && (
-            <div
-              className={dialogStyles.branchMenu}
-              role="dialog"
+            <button
+              className={dialogStyles.branchTrigger}
+              type="button"
               aria-label="Choose branch"
+              aria-haspopup="dialog"
+              aria-expanded={pickerOpen}
+              onClick={() => setPickerOpen((open) => !open)}
             >
-              <BranchPicker
-                branches={branches}
-                worktrees={project.worktrees}
-                selectedBranch={chosen}
-                loading={loadingBranches}
-                allowNone
-                onQueryChange={() => {
-                  setChosen('');
-                  setWorktreePath('');
-                }}
-                onSelect={choose}
-              />
-            </div>
-          )}
+              {chosen ? <code>{chosen}</code> : <span>(none)</span>}
+              <ChevronDown size={13} />
+            </button>
+            {pickerOpen && (
+              <div
+                className={dialogStyles.branchMenu}
+                role="dialog"
+                aria-label="Choose branch"
+              >
+                <BranchPicker
+                  branches={branches}
+                  worktrees={project.worktrees}
+                  selectedBranch={chosen}
+                  loading={loadingBranches}
+                  allowNone
+                  onQueryChange={() => {
+                    setChosen('');
+                    setWorktreePath('');
+                  }}
+                  onSelect={choose}
+                />
+              </div>
+            )}
+          </div>
         </div>
         {chosen && (
           <label className={`${styles.pathInput} ${dialogStyles.newWorktreePath}`}>
