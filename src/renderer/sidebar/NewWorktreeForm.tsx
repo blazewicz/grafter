@@ -52,13 +52,13 @@ export function NewWorktreeForm({
   }, [onCancel]);
 
   useEffect(() => {
-    if (!pickerOpen) return;
+    if (!pickerOpen || !chosen) return;
     const closeOnOutsideClick = (event: PointerEvent): void => {
       if (!pickerWrapRef.current?.contains(event.target as Node)) setPickerOpen(false);
     };
     document.addEventListener('pointerdown', closeOnOutsideClick);
     return () => document.removeEventListener('pointerdown', closeOnOutsideClick);
-  }, [pickerOpen]);
+  }, [pickerOpen, chosen]);
 
   useEffect(() => {
     void api
@@ -71,10 +71,6 @@ export function NewWorktreeForm({
   const choose = (branch: string): void => {
     setChosen(branch);
     setPickerOpen(false);
-    if (!branch) {
-      setWorktreePath('');
-      return;
-    }
     void api
       .suggestWorktreePath(branch)
       .then(setWorktreePath)
@@ -112,25 +108,19 @@ export function NewWorktreeForm({
         </div>
         <div className={dialogStyles.branchPickerField}>
           <span>Branch</span>
-          <div
-            className={dialogStyles.branchPickerWrap}
-            ref={pickerWrapRef}
-            onKeyDown={(event) => {
-              if (event.key !== 'Escape' || !pickerOpen) return;
-              event.preventDefault();
-              event.stopPropagation();
-              setPickerOpen(false);
-            }}
-          >
+          <div className={dialogStyles.branchPickerWrap} ref={pickerWrapRef}>
             <button
               className={dialogStyles.branchTrigger}
               type="button"
               aria-label="Choose branch"
               aria-haspopup="dialog"
               aria-expanded={pickerOpen}
-              onClick={() => setPickerOpen((open) => !open)}
+              onClick={() => {
+                if (!chosen) return;
+                setPickerOpen((open) => !open);
+              }}
             >
-              {chosen ? <code>{chosen}</code> : <span>(none)</span>}
+              {chosen ? <code>{chosen}</code> : <span>Select a branch</span>}
               <ChevronDown size={13} />
             </button>
             {pickerOpen && (
@@ -144,7 +134,6 @@ export function NewWorktreeForm({
                   worktrees={project.worktrees}
                   selectedBranch={chosen}
                   loading={loadingBranches}
-                  allowNone
                   onQueryChange={() => {
                     setChosen('');
                     setWorktreePath('');

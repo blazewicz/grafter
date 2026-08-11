@@ -1,4 +1,4 @@
-import { Check, GitBranch, LoaderCircle, Minus, Search } from 'lucide-react';
+import { Check, GitBranch, LoaderCircle, Search } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Worktree } from '../../shared/contracts';
 import styles from './BranchPicker.module.css';
@@ -13,7 +13,6 @@ export function BranchPicker({
   disableCheckedOut = true,
   disabledBranches = [],
   loading = false,
-  allowNone = false,
   onQueryChange,
   onSelect,
 }: {
@@ -24,12 +23,11 @@ export function BranchPicker({
   disableCheckedOut?: boolean;
   disabledBranches?: readonly string[];
   loading?: boolean;
-  allowNone?: boolean;
   onQueryChange?: () => void;
   onSelect: (branch: string) => void;
 }): React.JSX.Element {
   const [query, setQuery] = useState('');
-  const [activeOption, setActiveOption] = useState<string | undefined>(undefined);
+  const [activeBranch, setActiveBranch] = useState<string>();
   const inputRef = useRef<HTMLInputElement>(null);
   const filtered = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase();
@@ -46,43 +44,34 @@ export function BranchPicker({
       ),
     [disableCheckedOut, disabledBranches, filtered, worktrees],
   );
-  const options = useMemo(
-    () => (allowNone ? ['', ...available] : available),
-    [allowNone, available],
-  );
 
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
 
-  const effectiveActiveOption =
-    activeOption !== undefined &&
-    (activeOption === '' || available.includes(activeOption))
-      ? activeOption
-      : options[0];
+  const effectiveActiveBranch =
+    activeBranch && available.includes(activeBranch) ? activeBranch : available[0];
 
-  const choose = (option: string): void => {
-    if (option === '') {
-      onSelect('');
-      return;
-    }
+  const choose = (branch: string): void => {
     if (
-      disabledBranches.includes(option) ||
-      (disableCheckedOut && checkedOutWorktree(worktrees, option))
+      disabledBranches.includes(branch) ||
+      (disableCheckedOut && checkedOutWorktree(worktrees, branch))
     ) {
       return;
     }
-    onSelect(option);
+    onSelect(branch);
   };
 
   const moveActive = (offset: number): void => {
-    if (!options.length) return;
-    const currentIndex = effectiveActiveOption
-      ? options.indexOf(effectiveActiveOption)
+    if (!available.length) return;
+    const currentIndex = effectiveActiveBranch
+      ? available.indexOf(effectiveActiveBranch)
       : -1;
     const nextIndex =
-      currentIndex === -1 ? 0 : (currentIndex + offset + options.length) % options.length;
-    setActiveOption(options[nextIndex]);
+      currentIndex === -1
+        ? 0
+        : (currentIndex + offset + available.length) % available.length;
+    setActiveBranch(available[nextIndex]);
   };
 
   return (
@@ -104,30 +93,15 @@ export function BranchPicker({
             } else if (event.key === 'ArrowUp') {
               event.preventDefault();
               moveActive(-1);
-            } else if (event.key === 'Enter' && effectiveActiveOption !== undefined) {
+            } else if (event.key === 'Enter' && effectiveActiveBranch) {
               event.preventDefault();
-              choose(effectiveActiveOption);
+              choose(effectiveActiveBranch);
             }
           }}
           placeholder="Filter branches…"
         />
       </div>
       <div className={styles.results}>
-        {allowNone && (
-          <button
-            type="button"
-            aria-label="(none)"
-            className={
-              selectedBranch === '' || effectiveActiveOption === '' ? styles.chosen : ''
-            }
-            onPointerMove={() => setActiveOption('')}
-            onClick={() => choose('')}
-          >
-            <Minus size={12} />
-            <span>(none)</span>
-            {selectedBranch === '' && <Check size={12} />}
-          </button>
-        )}
         {filtered.map((branch) => {
           const checkedOut = checkedOutWorktree(worktrees, branch);
           const disabledReason = disabledBranches.includes(branch)
@@ -145,12 +119,12 @@ export function BranchPicker({
               title={disabledReason}
               aria-label={disabledReason ? `${branch}: ${disabledReason}` : branch}
               className={
-                selectedBranch === branch || effectiveActiveOption === branch
+                selectedBranch === branch || effectiveActiveBranch === branch
                   ? styles.chosen
                   : ''
               }
               onPointerMove={() => {
-                if (!disabledReason) setActiveOption(branch);
+                if (!disabledReason) setActiveBranch(branch);
               }}
               onClick={() => choose(branch)}
             >

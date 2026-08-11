@@ -282,14 +282,12 @@ describe('Sidebar', () => {
     expect(screen.getByRole('dialog', { name: 'New worktree' })).toBeVisible();
   });
 
-  it('closes the picker and then the dialog on Escape, restoring focus to the add button', async () => {
+  it('closes the dialog on Escape and restores focus to the add button', async () => {
     const user = userEvent.setup();
     vi.spyOn(api, 'listBranches').mockResolvedValue([]);
     renderSidebar();
 
     await user.keyboard('{Meta>}n{/Meta}');
-    await user.keyboard('{Escape}');
-    expect(screen.getByRole('dialog', { name: 'New worktree' })).toBeVisible();
     await user.keyboard('{Escape}');
 
     expect(screen.queryByRole('dialog', { name: 'New worktree' })).toBeNull();
