@@ -1,5 +1,5 @@
 import { Check, GitBranch, LoaderCircle, Search } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { type RefObject, useEffect, useMemo, useRef, useState } from 'react';
 import type { Worktree } from '../../shared/contracts';
 import styles from './BranchPicker.module.css';
 
@@ -13,6 +13,7 @@ export function BranchPicker({
   disableCheckedOut = true,
   disabledBranches = [],
   loading = false,
+  inputRef,
   onQueryChange,
   onSelect,
 }: {
@@ -23,12 +24,14 @@ export function BranchPicker({
   disableCheckedOut?: boolean;
   disabledBranches?: readonly string[];
   loading?: boolean;
+  inputRef?: RefObject<HTMLInputElement | null>;
   onQueryChange?: () => void;
   onSelect: (branch: string) => void;
 }): React.JSX.Element {
   const [query, setQuery] = useState('');
   const [activeBranch, setActiveBranch] = useState<string>();
-  const inputRef = useRef<HTMLInputElement>(null);
+  const internalInputRef = useRef<HTMLInputElement>(null);
+  const effectiveInputRef = inputRef ?? internalInputRef;
   const filtered = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase();
     return branches
@@ -46,8 +49,8 @@ export function BranchPicker({
   );
 
   useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
+    effectiveInputRef.current?.focus();
+  }, [effectiveInputRef]);
 
   const effectiveActiveBranch =
     activeBranch && available.includes(activeBranch) ? activeBranch : available[0];
@@ -79,7 +82,7 @@ export function BranchPicker({
       <div className={styles.inputWithIcon}>
         <Search size={13} />
         <input
-          ref={inputRef}
+          ref={effectiveInputRef}
           value={query}
           aria-label="Filter branches"
           onChange={(event) => {

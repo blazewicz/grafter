@@ -257,6 +257,52 @@ describe('Sidebar', () => {
     expect(screen.queryByRole('textbox', { name: 'Filter branches' })).toBeNull();
   });
 
+  it('opens the new-worktree dialog with Command-N', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(api, 'listBranches').mockResolvedValue([]);
+    renderSidebar();
+
+    await user.keyboard('{Meta>}n{/Meta}');
+
+    expect(screen.getByRole('dialog', { name: 'New worktree' })).toHaveAttribute(
+      'aria-modal',
+      'true',
+    );
+    expect(screen.getByRole('textbox', { name: 'Filter branches' })).toHaveFocus();
+  });
+
+  it('refocuses the branch picker when Command-N is pressed while the dialog is open', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(api, 'listBranches').mockResolvedValue([]);
+    renderSidebar();
+
+    await user.keyboard('{Meta>}n{/Meta}');
+    const input = screen.getByRole<HTMLInputElement>('textbox', {
+      name: 'Filter branches',
+    });
+    screen.getByRole('button', { name: 'Create' }).focus();
+
+    await user.keyboard('{Meta>}n{/Meta}');
+
+    expect(input).toHaveFocus();
+  });
+
+  it('closes the new-worktree dialog on Escape and restores focus to the add button', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(api, 'listBranches').mockResolvedValue([]);
+    renderSidebar();
+
+    await user.keyboard('{Meta>}n{/Meta}');
+    await user.keyboard('{Escape}');
+
+    expect(screen.queryByRole('dialog', { name: 'New worktree' })).toBeNull();
+    expect(
+      screen.getByRole('button', {
+        name: `Add worktree to ${scenario.repository.name}`,
+      }),
+    ).toHaveFocus();
+  });
+
   it('opens settings from the global sidebar actions', async () => {
     const user = userEvent.setup();
     const onOpenSettings = vi.fn();

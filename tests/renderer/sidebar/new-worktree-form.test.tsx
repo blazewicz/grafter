@@ -35,6 +35,45 @@ describe('NewWorktreeForm', () => {
     vi.restoreAllMocks();
   });
 
+  it('renders as a centered modal dialog with a heading', () => {
+    vi.spyOn(api, 'listBranches').mockResolvedValue([]);
+    renderNewWorktreeForm();
+
+    const dialog = screen.getByRole('dialog', { name: 'New worktree' });
+    expect(dialog).toHaveAttribute('aria-modal', 'true');
+    expect(screen.getByRole('heading', { name: 'New worktree' })).toBeVisible();
+    expect(screen.getByRole('textbox', { name: 'Filter branches' })).toHaveFocus();
+  });
+
+  it('cancels on Escape', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(api, 'listBranches').mockResolvedValue([]);
+    const onCancel = vi.fn();
+    renderNewWorktreeForm(onCancel);
+
+    await user.keyboard('{Escape}');
+
+    expect(onCancel).toHaveBeenCalledOnce();
+  });
+
+  it('cancels on backdrop click but not on clicks inside the dialog', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(api, 'listBranches').mockResolvedValue([]);
+    const onCancel = vi.fn();
+    renderNewWorktreeForm(onCancel);
+
+    const dialog = screen.getByRole('dialog', { name: 'New worktree' });
+    await user.click(dialog);
+
+    expect(onCancel).not.toHaveBeenCalled();
+
+    const backdrop = dialog.parentElement;
+    if (!backdrop) throw new Error('Expected a modal backdrop.');
+    await user.click(backdrop);
+
+    expect(onCancel).toHaveBeenCalledOnce();
+  });
+
   it('loads available branches and cancels creation', async () => {
     const user = userEvent.setup();
     const listBranches = vi

@@ -512,19 +512,6 @@
   background: rgba(255, 255, 255, 0.025);
 }
 
-.new-worktree-card {
-  margin: 4px 4px 7px 22px;
-  padding: 8px;
-  border: 1px solid var(--line-strong);
-  border-radius: 8px;
-  background: rgba(13, 14, 17, 0.65);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
-}
-
-.flat-worktree-list + .new-worktree-card {
-  margin-left: 4px;
-}
-
 .path-input {
   display: block;
   margin-top: 3px;
@@ -549,13 +536,6 @@
   color: var(--text);
   padding: 0 8px;
   font-size: 11px;
-}
-
-.form-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 5px;
-  margin-top: 8px;
 }
 
 .empty-tree {

@@ -1,9 +1,11 @@
 import { LoaderCircle, Plus } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { type RefObject, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { GrafterApi, Project } from '../../shared/contracts';
 import { api, friendlyError } from '../grafter-api';
-import controls from '../styles/controls.module.css';
 import { BranchPicker } from '../branches/BranchPicker';
+import controls from '../styles/controls.module.css';
+import dialogStyles from '../dialogs/dialogs.module.css';
 import styles from './sidebar.module.css';
 
 export function NewWorktreeForm({
@@ -11,6 +13,7 @@ export function NewWorktreeForm({
   onCancel,
   onCreated,
   onError,
+  pickerInputRef,
 }: {
   project: Project;
   onCancel: () => void;
@@ -19,6 +22,7 @@ export function NewWorktreeForm({
     request: { path: string },
   ) => void;
   onError: (message: string) => void;
+  pickerInputRef?: RefObject<HTMLInputElement | null>;
 }): React.JSX.Element {
   const [branches, setBranches] = useState<string[]>([]);
   const [chosen, setChosen] = useState('');
@@ -30,6 +34,17 @@ export function NewWorktreeForm({
   useEffect(() => {
     onErrorRef.current = onError;
   }, [onError]);
+
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onCancel();
+      }
+    };
+    document.addEventListener('keydown', closeOnEscape);
+    return () => document.removeEventListener('keydown', closeOnEscape);
+  }, [onCancel]);
 
   useEffect(() => {
     void api
@@ -63,41 +78,55 @@ export function NewWorktreeForm({
     }
   };
 
-  return (
-    <div className={styles.newWorktreeCard}>
-      <BranchPicker
-        branches={branches}
-        worktrees={project.worktrees}
-        selectedBranch={chosen}
-        loading={loadingBranches}
-        onQueryChange={() => {
-          setChosen('');
-          setWorktreePath('');
-        }}
-        onSelect={choose}
-      />
-      {chosen && (
-        <label className={styles.pathInput}>
-          <span>Path</span>
-          <input
-            value={worktreePath}
-            onChange={(event) => setWorktreePath(event.target.value)}
-          />
-        </label>
-      )}
-      <div className={styles.formActions}>
-        <button className={`${controls.button} ${controls.ghost}`} onClick={onCancel}>
-          Cancel
-        </button>
-        <button
-          className={`${controls.button} ${controls.primary}`}
-          disabled={!chosen || creating}
-          onClick={() => void create()}
-        >
-          {creating ? <LoaderCircle className="spin" size={13} /> : <Plus size={13} />}{' '}
-          Create
-        </button>
+  return createPortal(
+    <div className={dialogStyles.modalBackdrop} onClick={onCancel}>
+      <div
+        className={`${dialogStyles.modal} ${dialogStyles.newWorktreeModal}`}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="new-worktree-title"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className={dialogStyles.modalHeading}>
+          <span>NEW WORKTREE</span>
+          <h2 id="new-worktree-title">New worktree</h2>
+        </div>
+        <BranchPicker
+          branches={branches}
+          worktrees={project.worktrees}
+          selectedBranch={chosen}
+          loading={loadingBranches}
+          {...(pickerInputRef ? { inputRef: pickerInputRef } : {})}
+          onQueryChange={() => {
+            setChosen('');
+            setWorktreePath('');
+          }}
+          onSelect={choose}
+        />
+        {chosen && (
+          <label className={`${styles.pathInput} ${dialogStyles.newWorktreePath}`}>
+            <span>Path</span>
+            <input
+              value={worktreePath}
+              onChange={(event) => setWorktreePath(event.target.value)}
+            />
+          </label>
+        )}
+        <div className={dialogStyles.modalActions}>
+          <button className={`${controls.button} ${controls.ghost}`} onClick={onCancel}>
+            Cancel
+          </button>
+          <button
+            className={`${controls.button} ${controls.primary}`}
+            disabled={!chosen || creating}
+            onClick={() => void create()}
+          >
+            {creating ? <LoaderCircle className="spin" size={13} /> : <Plus size={13} />}{' '}
+            Create
+          </button>
+        </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

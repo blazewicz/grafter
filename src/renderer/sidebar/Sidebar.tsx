@@ -1,5 +1,5 @@
 import { FolderOpen, Plus, Search, Settings } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type {
   GrafterApi,
   Project,
@@ -9,6 +9,7 @@ import type {
 import type { WorktreeSortOrder } from '../../shared/worktree-list';
 import controls from '../styles/controls.module.css';
 import styles from './sidebar.module.css';
+import { NewWorktreeForm } from './NewWorktreeForm';
 import { WorktreeList } from './WorktreeList';
 import { WorktreeSortMenu } from './WorktreeSortMenu';
 import { useWorktreeFilter } from './useWorktreeFilter';
@@ -48,6 +49,8 @@ export function Sidebar({
 }): React.JSX.Element {
   const [adding, setAdding] = useState(false);
   const [worktreeSortOrder, setWorktreeSortOrder] = useState<WorktreeSortOrder>('path');
+  const addWorktreeButtonRef = useRef<HTMLButtonElement>(null);
+  const newWorktreePickerRef = useRef<HTMLInputElement>(null);
   const {
     filterOpen,
     worktreeFilter,
@@ -57,6 +60,38 @@ export function Sidebar({
     closeWorktreeFilter,
   } = useWorktreeFilter();
 
+  useEffect(() => {
+    const openNewWorktree = (event: KeyboardEvent): void => {
+      if (
+        event.key.toLocaleLowerCase() !== 'n' ||
+        !event.metaKey ||
+        event.altKey ||
+        event.shiftKey
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      if (adding) {
+        newWorktreePickerRef.current?.focus();
+        newWorktreePickerRef.current?.select();
+        return;
+      }
+      if (document.querySelector('dialog[open], [role="dialog"][aria-modal="true"]')) {
+        return;
+      }
+      setAdding(true);
+    };
+
+    document.addEventListener('keydown', openNewWorktree);
+    return () => document.removeEventListener('keydown', openNewWorktree);
+  }, [adding]);
+
+  const wasAdding = useRef(false);
+  useEffect(() => {
+    if (wasAdding.current && !adding) addWorktreeButtonRef.current?.focus();
+    wasAdding.current = adding;
+  }, [adding]);
   return (
     <aside className={styles.sidebar} id="sidebar">
       <div className={styles.sidebarChrome} aria-hidden="true" />
@@ -70,9 +105,11 @@ export function Sidebar({
         <span>Worktrees</span>
         <div className={styles.headingActions}>
           <button
+            ref={addWorktreeButtonRef}
             className={`${controls.iconButton} ${styles.headingAction}`}
             aria-label={`Add worktree to ${repository.name}`}
-            title="New worktree"
+            aria-keyshortcuts="Meta+N"
+            title="New worktree (⌘N)"
             onClick={() => setAdding(true)}
           >
             <Plus size={15} />
@@ -120,25 +157,30 @@ export function Sidebar({
           selectedWorktreeStatus={selectedWorktreeStatus}
           sortOrder={worktreeSortOrder}
           filterQuery={worktreeFilter}
-          adding={adding}
           flat
           onSelect={(id) => {
             if (filterOpen) closeWorktreeFilter();
             onSelect(id);
           }}
-          onCancelAdd={() => setAdding(false)}
-          onCreated={(result, request) => {
-            setAdding(false);
-            onCreated(result, request);
-          }}
           onRemoveWorktree={onRemoveWorktree}
-          onError={onError}
         />
       </div>
       <button className={styles.sidebarSettings} onClick={onOpenSettings}>
         <Settings size={15} /> Settings
       </button>
       <ResizeHandle width={width} onResize={onResize} />
+      {adding && (
+        <NewWorktreeForm
+          project={repository}
+          pickerInputRef={newWorktreePickerRef}
+          onCancel={() => setAdding(false)}
+          onCreated={(result, request) => {
+            setAdding(false);
+            onCreated(result, request);
+          }}
+          onError={onError}
+        />
+      )}
     </aside>
   );
 }
