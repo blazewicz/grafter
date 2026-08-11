@@ -1,5 +1,5 @@
 import { ChevronDown, LoaderCircle, Plus } from 'lucide-react';
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useId, useRef, useState } from 'react';
 import type { GrafterApi, Project } from '../../shared/contracts';
 import { api, friendlyError } from '../grafter-api';
 import { BranchPicker } from '../branches/BranchPicker';
@@ -26,14 +26,11 @@ export function NewWorktreeDialog({
   const [creating, setCreating] = useState(false);
   const [loadingBranches, setLoadingBranches] = useState(true);
   const [pickerOpen, setPickerOpen] = useState(true);
-  const onErrorRef = useRef(onError);
   const pickerWrapRef = useRef<HTMLDivElement>(null);
   const pathInputRef = useRef<HTMLInputElement>(null);
   const branchMenuId = useId();
 
-  useEffect(() => {
-    onErrorRef.current = onError;
-  }, [onError]);
+  const onErrorEvent = useEffectEvent(onError);
 
   useEffect(() => {
     if (chosen) pathInputRef.current?.focus();
@@ -63,7 +60,7 @@ export function NewWorktreeDialog({
     void api
       .listBranches()
       .then(setBranches)
-      .catch((error: unknown) => onErrorRef.current(friendlyError(error)))
+      .catch((error: unknown) => onErrorEvent(friendlyError(error)))
       .finally(() => setLoadingBranches(false));
   }, [project.id]);
 
