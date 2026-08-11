@@ -37,6 +37,7 @@ export function NewWorktreeDialog({
   const pathInputRef = useRef<HTMLInputElement>(null);
   const branchMenuId = useId();
 
+  const onCancelEvent = useEffectEvent(onCancel);
   const onErrorEvent = useEffectEvent(onError);
 
   useLayoutEffect(() => {
@@ -47,12 +48,12 @@ export function NewWorktreeDialog({
     const closeOnEscape = (event: KeyboardEvent): void => {
       if (event.key === 'Escape') {
         event.preventDefault();
-        onCancel();
+        onCancelEvent();
       }
     };
     document.addEventListener('keydown', closeOnEscape);
     return () => document.removeEventListener('keydown', closeOnEscape);
-  }, [onCancel]);
+  }, []);
 
   useEffect(() => {
     if (!pickerOpen || !chosen) return;
