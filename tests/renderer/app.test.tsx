@@ -340,3 +340,43 @@ describe('App welcome state', () => {
     ).toHaveAttribute('aria-current', 'page');
   });
 });
+
+/* TODO: Refactor App component tests. Add tests for all snapshot types.
+describe('App repository state', () => {
+  it('opens the new-worktree dialog with Command-N', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(api, 'listBranches').mockResolvedValue([]);
+    renderApp();
+
+    await user.keyboard('{Meta>}n{/Meta}');
+
+    expect(screen.getByRole('dialog', { name: 'New worktree' })).toHaveAttribute(
+      'aria-modal',
+      'true',
+    );
+    expect(screen.getByRole('textbox', { name: 'Filter branches' })).toHaveFocus();
+  });
+
+  it('keeps the dialog open when Command-N is pressed while it is already open', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(api, 'listBranches').mockResolvedValue([]);
+    renderApp();
+
+    await user.keyboard('{Meta>}n{/Meta}');
+    await user.keyboard('{Meta>}n{/Meta}');
+
+    expect(screen.getByRole('dialog', { name: 'New worktree' })).toBeVisible();
+  });
+
+  it('closes the dialog on Escape', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(api, 'listBranches').mockResolvedValue([]);
+    renderApp();
+
+    await user.keyboard('{Meta>}n{/Meta}');
+    await user.keyboard('{Escape}');
+
+    expect(screen.queryByRole('dialog', { name: 'New worktree' })).toBeNull();
+  });
+});
+*/

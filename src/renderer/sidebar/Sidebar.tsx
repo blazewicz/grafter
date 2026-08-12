@@ -1,11 +1,6 @@
 import { FolderOpen, Plus, Search, Settings } from 'lucide-react';
 import { useRef, useState } from 'react';
-import type {
-  GrafterApi,
-  Project,
-  Worktree,
-  WorktreeStatus,
-} from '../../shared/contracts';
+import type { Project, Worktree, WorktreeStatus } from '../../shared/contracts';
 import type { WorktreeSortOrder } from '../../shared/worktree-list';
 import controls from '../styles/controls.module.css';
 import styles from './sidebar.module.css';
@@ -25,10 +20,9 @@ export function Sidebar({
   selectedId,
   selectedWorktreeStatus,
   onSelect,
-  onCreated,
+  onAddWorktree,
   onRemoveWorktree,
   onOpenSettings,
-  onError,
   onResize,
 }: {
   homeDirectory: string;
@@ -37,16 +31,11 @@ export function Sidebar({
   selectedId: string | undefined;
   selectedWorktreeStatus: WorktreeStatus | undefined;
   onSelect: (id: string) => void;
-  onCreated: (
-    result: Awaited<ReturnType<GrafterApi['createWorktree']>>,
-    request: { path: string },
-  ) => void;
+  onAddWorktree: () => void;
   onRemoveWorktree: (worktree: Worktree) => void;
   onOpenSettings: () => void;
-  onError: (message: string) => void;
   onResize: (width: number) => void;
 }): React.JSX.Element {
-  const [adding, setAdding] = useState(false);
   const [worktreeSortOrder, setWorktreeSortOrder] = useState<WorktreeSortOrder>('path');
   const {
     filterOpen,
@@ -72,8 +61,9 @@ export function Sidebar({
           <button
             className={`${controls.iconButton} ${styles.headingAction}`}
             aria-label={`Add worktree to ${repository.name}`}
-            title="New worktree"
-            onClick={() => setAdding(true)}
+            aria-keyshortcuts="Meta+N"
+            title="New worktree (⌘N)"
+            onClick={onAddWorktree}
           >
             <Plus size={15} />
           </button>
@@ -120,19 +110,12 @@ export function Sidebar({
           selectedWorktreeStatus={selectedWorktreeStatus}
           sortOrder={worktreeSortOrder}
           filterQuery={worktreeFilter}
-          adding={adding}
           flat
           onSelect={(id) => {
             if (filterOpen) closeWorktreeFilter();
             onSelect(id);
           }}
-          onCancelAdd={() => setAdding(false)}
-          onCreated={(result, request) => {
-            setAdding(false);
-            onCreated(result, request);
-          }}
           onRemoveWorktree={onRemoveWorktree}
-          onError={onError}
         />
       </div>
       <button className={styles.sidebarSettings} onClick={onOpenSettings}>

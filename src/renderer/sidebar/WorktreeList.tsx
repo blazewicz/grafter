@@ -1,16 +1,10 @@
 import { Trash2 } from 'lucide-react';
 import { useMemo } from 'react';
-import type {
-  GrafterApi,
-  Project,
-  Worktree,
-  WorktreeStatus,
-} from '../../shared/contracts';
+import type { Project, Worktree, WorktreeStatus } from '../../shared/contracts';
 import { displayWorktreePath } from '../../shared/path-display';
 import { filterWorktrees, sortWorktrees } from '../../shared/worktree-list';
 import type { WorktreeSortOrder } from '../../shared/worktree-list';
 import { PullRequestStateIcon } from '../ui/PullRequestStateIcon';
-import { NewWorktreeForm } from './NewWorktreeForm';
 import { SidebarTooltip } from './SidebarTooltip';
 import styles from './sidebar.module.css';
 
@@ -21,13 +15,9 @@ export function WorktreeList({
   selectedWorktreeStatus,
   sortOrder,
   filterQuery,
-  adding,
   flat = false,
   onSelect,
-  onCancelAdd,
-  onCreated,
   onRemoveWorktree,
-  onError,
 }: {
   homeDirectory: string;
   project: Project;
@@ -35,16 +25,9 @@ export function WorktreeList({
   selectedWorktreeStatus: WorktreeStatus | undefined;
   sortOrder: WorktreeSortOrder;
   filterQuery: string;
-  adding: boolean;
   flat?: boolean;
   onSelect: (id: string) => void;
-  onCancelAdd: () => void;
-  onCreated: (
-    result: Awaited<ReturnType<GrafterApi['createWorktree']>>,
-    request: { path: string },
-  ) => void;
   onRemoveWorktree: (worktree: Worktree) => void;
-  onError: (message: string) => void;
 }): React.JSX.Element {
   const visibleWorktrees = useMemo(
     () => filterWorktrees(sortWorktrees(project.worktrees, sortOrder), filterQuery),
@@ -76,14 +59,6 @@ export function WorktreeList({
           </div>
         )}
       </div>
-      {adding && (
-        <NewWorktreeForm
-          project={project}
-          onCancel={onCancelAdd}
-          onCreated={onCreated}
-          onError={onError}
-        />
-      )}
     </div>
   );
 }
