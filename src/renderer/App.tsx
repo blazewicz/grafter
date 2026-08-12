@@ -183,7 +183,9 @@ export function App(): React.JSX.Element {
   const { approval, approvalRunning, enqueueApproval, resolveApproval } =
     useCommandApproval(api, run, applySnapshot);
 
-  useHotKey('n', () => setDialog('new-worktree'));
+  useHotKey('n', () => {
+    if (snapshot.kind === 'repository') setDialog('new-worktree');
+  });
 
   if (snapshot.kind === 'loading') return <Splash />;
 

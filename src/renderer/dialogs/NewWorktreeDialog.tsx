@@ -175,7 +175,7 @@ export function NewWorktreeDialog({
           </button>
           <button
             className={`${controls.button} ${controls.primary}`}
-            disabled={!chosen || creating}
+            disabled={!chosen || !worktreePath || creating}
             onClick={() => void create()}
           >
             {creating ? <LoaderCircle className="spin" size={13} /> : <Plus size={13} />}{' '}

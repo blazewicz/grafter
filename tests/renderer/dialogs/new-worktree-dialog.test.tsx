@@ -11,25 +11,27 @@ import { deferred } from '../../support/deferred';
 
 const scenario = buildNewWorktreeScenario();
 
-function renderNewWorktreeForm(
-  onCancel: () => void = () => undefined,
-  onCreated: (
+interface RenderNewWorktreeDialogOptions {
+  onCancel?: () => void;
+  onCreated?: (
     result: Awaited<ReturnType<GrafterApi['createWorktree']>>,
     request: { path: string },
-  ) => void = () => undefined,
-  onError: (message: string) => void = () => undefined,
-): void {
+  ) => void;
+  onError?: (message: string) => void;
+}
+
+function renderNewWorktreeDialog(options: RenderNewWorktreeDialogOptions = {}): void {
   render(
     <NewWorktreeDialog
       project={scenario.project}
-      onCancel={onCancel}
-      onCreated={onCreated}
-      onError={onError}
+      onCancel={options.onCancel ?? (() => undefined)}
+      onCreated={options.onCreated ?? (() => undefined)}
+      onError={options.onError ?? (() => undefined)}
     />,
   );
 }
 
-describe('NewWorktreeForm', () => {
+describe('NewWorktreeDialog', () => {
   afterEach(() => {
     cleanup();
     vi.restoreAllMocks();
@@ -37,7 +39,7 @@ describe('NewWorktreeForm', () => {
 
   it('renders as a centered modal dialog with the picker open', () => {
     vi.spyOn(api, 'listBranches').mockResolvedValue([]);
-    renderNewWorktreeForm();
+    renderNewWorktreeDialog();
 
     const dialog = screen.getByRole('dialog', { name: 'New worktree' });
     expect(dialog).toHaveAttribute('aria-modal', 'true');
@@ -52,7 +54,7 @@ describe('NewWorktreeForm', () => {
     const user = userEvent.setup();
     vi.spyOn(api, 'listBranches').mockResolvedValue([]);
     const onCancel = vi.fn();
-    renderNewWorktreeForm(onCancel);
+    renderNewWorktreeDialog({ onCancel });
 
     await user.keyboard('{Escape}');
 
@@ -62,7 +64,7 @@ describe('NewWorktreeForm', () => {
   it('keeps the picker locked open until a branch is picked', async () => {
     const user = userEvent.setup();
     vi.spyOn(api, 'listBranches').mockResolvedValue(scenario.branches);
-    renderNewWorktreeForm();
+    renderNewWorktreeDialog();
 
     const trigger = screen.getByRole('button', { name: 'Choose branch' });
     expect(trigger).toHaveAttribute('aria-expanded', 'true');
@@ -86,7 +88,7 @@ describe('NewWorktreeForm', () => {
     const user = userEvent.setup();
     vi.spyOn(api, 'listBranches').mockResolvedValue(scenario.branches);
     vi.spyOn(api, 'suggestWorktreePath').mockResolvedValue(scenario.suggestedPath);
-    renderNewWorktreeForm();
+    renderNewWorktreeDialog();
 
     await user.click(
       await screen.findByRole('button', { name: scenario.availableBranch }),
@@ -109,7 +111,7 @@ describe('NewWorktreeForm', () => {
     const user = userEvent.setup();
     vi.spyOn(api, 'listBranches').mockResolvedValue(scenario.branches);
     vi.spyOn(api, 'suggestWorktreePath').mockResolvedValue(scenario.suggestedPath);
-    renderNewWorktreeForm();
+    renderNewWorktreeDialog();
 
     await user.click(
       await screen.findByRole('button', { name: scenario.availableBranch }),
@@ -126,7 +128,7 @@ describe('NewWorktreeForm', () => {
     const user = userEvent.setup();
     vi.spyOn(api, 'listBranches').mockResolvedValue([]);
     const onCancel = vi.fn();
-    renderNewWorktreeForm(onCancel);
+    renderNewWorktreeDialog({ onCancel });
 
     const dialog = screen.getByRole('dialog', { name: 'New worktree' });
     await user.click(dialog);
@@ -146,7 +148,7 @@ describe('NewWorktreeForm', () => {
       .spyOn(api, 'listBranches')
       .mockResolvedValue(scenario.branches);
     const onCancel = vi.fn();
-    renderNewWorktreeForm(onCancel);
+    renderNewWorktreeDialog({ onCancel });
 
     expect(screen.getByText('Loading branches…')).toBeVisible();
     expect(listBranches).toHaveBeenCalledOnce();
@@ -176,7 +178,7 @@ describe('NewWorktreeForm', () => {
       .spyOn(api, 'createWorktree')
       .mockReturnValue(createResult.promise);
     const onCreated = vi.fn();
-    renderNewWorktreeForm(undefined, onCreated);
+    renderNewWorktreeDialog({ onCreated });
 
     const createButton = screen.getByRole('button', { name: 'Create' });
     expect(createButton).toBeDisabled();
@@ -216,7 +218,7 @@ describe('NewWorktreeForm', () => {
     const user = userEvent.setup();
     vi.spyOn(api, 'listBranches').mockResolvedValue(scenario.branches);
     vi.spyOn(api, 'suggestWorktreePath').mockResolvedValue(scenario.suggestedPath);
-    renderNewWorktreeForm();
+    renderNewWorktreeDialog();
 
     await user.click(
       await screen.findByRole('button', { name: scenario.availableBranch }),
@@ -244,7 +246,7 @@ describe('NewWorktreeForm', () => {
     vi.spyOn(api, 'listBranches').mockResolvedValue(scenario.branches);
     vi.spyOn(api, 'suggestWorktreePath').mockResolvedValue(scenario.suggestedPath);
     const onCancel = vi.fn();
-    renderNewWorktreeForm(onCancel);
+    renderNewWorktreeDialog({ onCancel });
 
     await user.click(
       await screen.findByRole('button', { name: scenario.availableBranch }),
@@ -266,7 +268,7 @@ describe('NewWorktreeForm', () => {
     const user = userEvent.setup();
     vi.spyOn(api, 'listBranches').mockResolvedValue(scenario.branches);
     vi.spyOn(api, 'suggestWorktreePath').mockResolvedValue(scenario.suggestedPath);
-    renderNewWorktreeForm();
+    renderNewWorktreeDialog();
 
     expect(
       await screen.findByRole('button', { name: scenario.availableBranch }),
@@ -292,7 +294,7 @@ describe('NewWorktreeForm', () => {
       .spyOn(api, 'createWorktree')
       .mockRejectedValue(new Error('could not create the worktree'));
     const onError = vi.fn();
-    renderNewWorktreeForm(undefined, undefined, onError);
+    renderNewWorktreeDialog({ onError });
 
     const branchButton = await screen.findByRole('button', {
       name: scenario.availableBranch,
@@ -329,7 +331,7 @@ describe('NewWorktreeForm', () => {
         new Error("Error invoking remote method 'grafter:list-branches': Error: failed"),
       );
     const onError = vi.fn();
-    renderNewWorktreeForm(undefined, undefined, onError);
+    renderNewWorktreeDialog({ onError });
 
     await waitFor(() => {
       expect(onError).toHaveBeenCalledOnce();
