@@ -3,6 +3,7 @@ import { useRef, useState } from 'react';
 import type { Project, Worktree, WorktreeStatus } from '../../shared/contracts';
 import type { WorktreeSortOrder } from '../../shared/worktree-list';
 import controls from '../styles/controls.module.css';
+import { QuickTooltip } from '../ui/QuickTooltip';
 import styles from './sidebar.module.css';
 import { WorktreeList } from './WorktreeList';
 import { WorktreeSortMenu } from './WorktreeSortMenu';
@@ -58,28 +59,34 @@ export function Sidebar({
       <div className={styles.sidebarHeading}>
         <span>Worktrees</span>
         <div className={styles.headingActions}>
-          <button
-            className={`${controls.iconButton} ${styles.headingAction}`}
-            aria-label={`Add worktree to ${repository.name}`}
-            aria-keyshortcuts="Meta+N"
-            title="New worktree (⌘N)"
-            onClick={onAddWorktree}
+          <QuickTooltip label="New worktree (⌘N)" showDelay={0} align="right">
+            <button
+              className={`${controls.iconButton} ${styles.headingAction}`}
+              aria-label={`Add worktree to ${repository.name}`}
+              aria-keyshortcuts="Meta+N"
+              onClick={onAddWorktree}
+            >
+              <Plus size={15} />
+            </button>
+          </QuickTooltip>
+          <QuickTooltip
+            label={filterOpen ? undefined : 'Filter worktrees (⌘F)'}
+            showDelay={0}
+            align="right"
           >
-            <Plus size={15} />
-          </button>
-          <button
-            className={`${controls.iconButton} ${styles.headingAction}`}
-            aria-label="Filter worktrees"
-            aria-keyshortcuts="Meta+F"
-            aria-expanded={filterOpen}
-            title="Filter worktrees (⌘F)"
-            onClick={() => {
-              if (filterOpen) closeWorktreeFilter();
-              else openWorktreeFilter();
-            }}
-          >
-            <Search size={14} />
-          </button>
+            <button
+              className={`${controls.iconButton} ${styles.headingAction}`}
+              aria-label="Filter worktrees"
+              aria-keyshortcuts="Meta+F"
+              aria-expanded={filterOpen}
+              onClick={() => {
+                if (filterOpen) closeWorktreeFilter();
+                else openWorktreeFilter();
+              }}
+            >
+              <Search size={14} />
+            </button>
+          </QuickTooltip>
           <WorktreeSortMenu value={worktreeSortOrder} onChange={setWorktreeSortOrder} />
         </div>
       </div>

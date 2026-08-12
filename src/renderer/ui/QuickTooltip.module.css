@@ -21,15 +21,23 @@
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
   color: #d6d6d8;
   font-size: 10.5px;
+  font-weight: 400;
   line-height: 1.35;
+  letter-spacing: normal;
+  text-transform: none;
   pointer-events: none;
   transition:
     opacity 120ms ease,
     visibility 0s linear 120ms;
 }
 
+.align-right {
+  left: auto;
+  right: 0;
+}
+
 .wrapper:hover .tooltip,
-.wrapper:focus-within .tooltip {
+.wrapper:has(:focus-visible) .tooltip {
   visibility: visible;
   opacity: 1;
   transition:

@@ -6,6 +6,7 @@ import { filterWorktrees, sortWorktrees } from '../../shared/worktree-list';
 import type { WorktreeSortOrder } from '../../shared/worktree-list';
 import { PullRequestStateIcon } from '../ui/PullRequestStateIcon';
 import { HighlightedText } from '../ui/HighlightedText';
+import { QuickTooltip } from '../ui/QuickTooltip';
 import styles from './sidebar.module.css';
 
 export function WorktreeList({
@@ -134,14 +135,15 @@ function WorktreeRow({
       </button>
       {!worktree.isMain && (
         <div className={styles.rowActions}>
-          <button
-            className={styles.dangerAction}
-            aria-label={`Remove ${worktree.displayName} worktree`}
-            title="Remove worktree"
-            onClick={() => onRemoveWorktree(worktree)}
-          >
-            <Trash2 size={13} />
-          </button>
+          <QuickTooltip label="Remove worktree" showDelay={0} align="right">
+            <button
+              className={styles.dangerAction}
+              aria-label={`Remove ${worktree.displayName} worktree`}
+              onClick={() => onRemoveWorktree(worktree)}
+            >
+              <Trash2 size={13} />
+            </button>
+          </QuickTooltip>
         </div>
       )}
     </div>

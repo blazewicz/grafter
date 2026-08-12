@@ -3,11 +3,13 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { QuickTooltip } from '../../../src/renderer/ui/QuickTooltip';
+import styles from '../../../src/renderer/ui/QuickTooltip.module.css';
 
 function renderQuickTooltip(
   options: {
     label?: string | undefined;
     showDelay?: number;
+    align?: 'left' | 'right';
     className?: string;
   } = {},
 ): HTMLElement {
@@ -67,5 +69,21 @@ describe('QuickTooltip', () => {
     const trigger = renderQuickTooltip({ className: 'custom-wrapper' });
 
     expect(trigger.parentElement).toHaveClass('custom-wrapper');
+  });
+
+  it('aligns the tooltip to the right edge when requested', () => {
+    const alignRight = styles.alignRight;
+    if (!alignRight) throw new Error('Expected the alignRight class to exist.');
+    renderQuickTooltip({ label: 'Remove worktree', align: 'right' });
+
+    expect(screen.getByRole('tooltip')).toHaveClass(alignRight);
+  });
+
+  it('keeps the tooltip left-aligned by default', () => {
+    const alignRight = styles.alignRight;
+    if (!alignRight) throw new Error('Expected the alignRight class to exist.');
+    renderQuickTooltip({ label: 'Switch branch' });
+
+    expect(screen.getByRole('tooltip')).not.toHaveClass(alignRight);
   });
 });

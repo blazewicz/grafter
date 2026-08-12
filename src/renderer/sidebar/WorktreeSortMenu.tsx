@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import type { WorktreeSortOrder } from '../../shared/worktree-list';
 import controls from '../styles/controls.module.css';
+import { QuickTooltip } from '../ui/QuickTooltip';
 import styles from './sidebar.module.css';
 
 const sortOptions = [
@@ -69,17 +70,22 @@ export function WorktreeSortMenu({
 
   return (
     <div className={styles.sortMenu} ref={containerRef}>
-      <button
-        ref={triggerRef}
-        className={`${controls.iconButton} ${styles.headingAction}`}
-        aria-label="Worktree list options"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        title="Worktree list options"
-        onClick={() => setOpen((current) => !current)}
+      <QuickTooltip
+        label={open ? undefined : 'Worktree list options'}
+        showDelay={0}
+        align="right"
       >
-        <Ellipsis size={16} />
-      </button>
+        <button
+          ref={triggerRef}
+          className={`${controls.iconButton} ${styles.headingAction}`}
+          aria-label="Worktree list options"
+          aria-haspopup="menu"
+          aria-expanded={open}
+          onClick={() => setOpen((current) => !current)}
+        >
+          <Ellipsis size={16} />
+        </button>
+      </QuickTooltip>
       {open && (
         <div
           ref={menuRef}
