@@ -5,7 +5,6 @@
 .tool-split-button {
   height: 30px;
   display: flex;
-  overflow: hidden;
   border: 1px solid var(--line-strong);
   border-radius: 7px;
   background: rgba(255, 255, 255, 0.025);
@@ -39,11 +38,15 @@
 
 .tool-open-button {
   width: 31px;
+  border-radius: 6px 0 0 6px;
+  overflow: hidden;
 }
 
 .tool-menu-button {
   width: 25px;
   position: relative;
+  border-radius: 0 6px 6px 0;
+  overflow: hidden;
   color: var(--muted);
 }
 
@@ -110,10 +113,12 @@
 
 .compact .tool-open-button {
   width: 29px;
+  border-radius: 5px 0 0 5px;
 }
 
 .compact .tool-menu-button {
   width: 21px;
+  border-radius: 0 5px 5px 0;
 }
 
 .compact .tool-menu-button::before {

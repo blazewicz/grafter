@@ -16,6 +16,7 @@ import type {
 import { api, friendlyError } from '../grafter-api';
 import { BranchPicker } from '../branches/BranchPicker';
 import { CopyButton } from '../ui/CopyButton';
+import { QuickTooltip } from '../ui/QuickTooltip';
 import { CommitHistoryCard } from './CommitHistoryCard';
 import styles from './details.module.css';
 
@@ -283,19 +284,20 @@ export function BranchChangesCard({
             )}
           </div>
           {targetBranch && diffStats && onOpenDiff && (
-            <button
-              className={styles.sectionActionButton}
-              aria-label="View branch diff"
-              title="View branch diff"
-              disabled={diffOpening || updatingComparison}
-              onClick={onOpenDiff}
-            >
-              {diffOpening ? (
-                <LoaderCircle className="spin" size={14} />
-              ) : (
-                <FileDiff size={14} />
-              )}
-            </button>
+            <QuickTooltip label="View branch diff" showDelay={0} align="right">
+              <button
+                className={styles.sectionActionButton}
+                aria-label="View branch diff"
+                disabled={diffOpening || updatingComparison}
+                onClick={onOpenDiff}
+              >
+                {diffOpening ? (
+                  <LoaderCircle className="spin" size={14} />
+                ) : (
+                  <FileDiff size={14} />
+                )}
+              </button>
+            </QuickTooltip>
           )}
           {updatingComparison ? (
             <span className={styles.comparisonLoading}>

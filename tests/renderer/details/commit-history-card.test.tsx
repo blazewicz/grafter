@@ -204,7 +204,12 @@ describe('CommitHistoryCard', () => {
       name: `View changes in ${newest.hash.slice(0, 7)}`,
     });
     expect(viewChangesButton).toBeVisible();
-    expect(viewChangesButton).toHaveAttribute('title', 'View commit changes');
+    const viewChangesWrapper = viewChangesButton.parentElement;
+    if (!viewChangesWrapper)
+      throw new Error('Expected the view-changes button to be wrapped.');
+    expect(within(viewChangesWrapper).getByRole('tooltip')).toHaveTextContent(
+      'View commit changes',
+    );
     await user.click(viewChangesButton);
 
     expect(onViewChanges).toHaveBeenCalledOnce();

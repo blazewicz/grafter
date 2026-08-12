@@ -4,6 +4,7 @@ import type { Commit, CommitPage, Settings } from '../../shared/contracts';
 import { formatDate, formatTime } from '../date-time';
 import { api, friendlyError } from '../grafter-api';
 import { CopyButton } from '../ui/CopyButton';
+import { QuickTooltip } from '../ui/QuickTooltip';
 import styles from './details.module.css';
 
 const initialCommitLimit = 5;
@@ -224,15 +225,16 @@ function CommitRow({
         {formatTime(commit.authoredAt, settings.timeFormat, false, systemLocale)}
       </time>
       {onViewChanges && (
-        <button
-          className={styles.commitHistoryDiffButton}
-          disabled={opening}
-          aria-label={`View changes in ${commit.hash.slice(0, 7)}`}
-          title="View commit changes"
-          onClick={onViewChanges}
-        >
-          <FileDiff size={13} />
-        </button>
+        <QuickTooltip label="View commit changes" showDelay={0} align="right">
+          <button
+            className={styles.commitHistoryDiffButton}
+            disabled={opening}
+            aria-label={`View changes in ${commit.hash.slice(0, 7)}`}
+            onClick={onViewChanges}
+          >
+            <FileDiff size={13} />
+          </button>
+        </QuickTooltip>
       )}
     </div>
   );
