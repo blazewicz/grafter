@@ -171,6 +171,10 @@ describe('sortWorktrees', () => {
 });
 
 describe('filterWorktrees', () => {
+  function matchedWorktrees(worktrees: readonly Worktree[], query: string): Worktree[] {
+    return filterWorktrees(worktrees, query).map((match) => match.worktree);
+  }
+
   it('matches path and branch case-insensitively without mutating the input', () => {
     const byPath = worktree('path match', '/worktrees/Feature-Search');
     byPath.branch = 'unrelated';
@@ -180,18 +184,21 @@ describe('filterWorktrees', () => {
     other.branch = 'feature/other';
     const worktrees = [byPath, byBranch, other];
 
-    expect(filterWorktrees(worktrees, '  worktrees/feature-search  ')).toEqual([byPath]);
-    expect(filterWorktrees(worktrees, 'BRANCH-SEARCH')).toEqual([byBranch]);
+    expect(matchedWorktrees(worktrees, '  worktrees/feature-search  ')).toEqual([byPath]);
+    expect(matchedWorktrees(worktrees, 'BRANCH-SEARCH')).toEqual([byBranch]);
     expect(worktrees).toEqual([byPath, byBranch, other]);
   });
 
-  it('returns every worktree for a blank query', () => {
+  it('returns every worktree with empty indexes for a blank query', () => {
     const worktrees = [
       worktree('first', '/worktrees/first'),
       worktree('second', '/worktrees/second'),
     ];
 
-    expect(filterWorktrees(worktrees, '   ')).toEqual(worktrees);
+    expect(filterWorktrees(worktrees, '   ')).toEqual([
+      { worktree: worktrees[0], displayNameIndexes: [], branchIndexes: [] },
+      { worktree: worktrees[1], displayNameIndexes: [], branchIndexes: [] },
+    ]);
     expect(filterWorktrees(worktrees, '')).not.toBe(worktrees);
   });
 
@@ -201,23 +208,23 @@ describe('filterWorktrees', () => {
     const other = worktree('other', '/worktrees/other');
     other.branch = 'feature/other';
 
-    expect(filterWorktrees([byPath, other], 'rpo')).toEqual([byPath]);
-    expect(filterWorktrees([byPath, other], 'scopedwin')).toEqual([byPath]);
+    expect(matchedWorktrees([byPath, other], 'rpo')).toEqual([byPath]);
+    expect(matchedWorktrees([byPath, other], 'scopedwin')).toEqual([byPath]);
   });
 
   it('rejects queries whose characters are out of order', () => {
     const byPath = worktree('path match', '/x/repo-scoped-windows');
     byPath.branch = 'unrelated';
 
-    expect(filterWorktrees([byPath], 'orp')).toEqual([]);
-    expect(filterWorktrees([byPath], 'sela')).toEqual([]);
+    expect(matchedWorktrees([byPath], 'orp')).toEqual([]);
+    expect(matchedWorktrees([byPath], 'sela')).toEqual([]);
   });
 
   it('splits the query on spaces and matches the parts in order', () => {
     const byPath = worktree('path match', '/worktrees/repo-scoped-windows');
     byPath.branch = 'unrelated';
 
-    expect(filterWorktrees([byPath], 'repo window')).toEqual([byPath]);
+    expect(matchedWorktrees([byPath], 'repo window')).toEqual([byPath]);
   });
 
   it('ranks tighter matches ahead of scattered ones', () => {
@@ -226,7 +233,7 @@ describe('filterWorktrees', () => {
     const scattered = worktree('scattered', '/worktrees/win-d-ow');
     scattered.branch = 'feature/x';
 
-    expect(filterWorktrees([scattered, tight], 'window')).toEqual([tight, scattered]);
+    expect(matchedWorktrees([scattered, tight], 'window')).toEqual([tight, scattered]);
   });
 
   it('pins the main worktree above better-scoring linked worktrees', () => {
@@ -238,10 +245,32 @@ describe('filterWorktrees', () => {
     const scattered = worktree('scattered', '/worktrees/g-x-r-a-f-t-e-r');
     scattered.branch = 'feature/zz';
 
-    expect(filterWorktrees([exact, scattered, main], 'grafter')).toEqual([
+    expect(matchedWorktrees([exact, scattered, main], 'grafter')).toEqual([
       main,
       exact,
       scattered,
+    ]);
+  });
+
+  it('reports matched character indexes for the visible labels', () => {
+    const byName = worktree('repo-scoped-windows', '/worktrees/repo-scoped-windows');
+    byName.branch = 'feature/windows';
+    const other = worktree('other', '/worktrees/other');
+    other.branch = 'main/other';
+
+    expect(filterWorktrees([byName, other], 'scopedwin')).toEqual([
+      {
+        worktree: byName,
+        displayNameIndexes: [5, 6, 7, 8, 9, 10, 12, 13, 14],
+        branchIndexes: [],
+      },
+    ]);
+    expect(filterWorktrees([byName, other], 'feature')).toEqual([
+      {
+        worktree: byName,
+        displayNameIndexes: [],
+        branchIndexes: [0, 1, 2, 3, 4, 5, 6],
+      },
     ]);
   });
 });

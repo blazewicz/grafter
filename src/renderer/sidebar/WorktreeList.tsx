@@ -41,14 +41,18 @@ export function WorktreeList({
         aria-label={`${project.name} worktrees`}
       >
         {visibleWorktrees.length ? (
-          visibleWorktrees.map((worktree) => (
+          visibleWorktrees.map((match) => (
             <WorktreeRow
-              key={worktree.id}
+              key={match.worktree.id}
               homeDirectory={homeDirectory}
               mainClonePath={project.path}
-              worktree={worktree}
-              selected={selectedId === worktree.id}
-              status={selectedId === worktree.id ? selectedWorktreeStatus : undefined}
+              worktree={match.worktree}
+              displayNameIndexes={match.displayNameIndexes}
+              branchIndexes={match.branchIndexes}
+              selected={selectedId === match.worktree.id}
+              status={
+                selectedId === match.worktree.id ? selectedWorktreeStatus : undefined
+              }
               onSelect={onSelect}
               onRemoveWorktree={onRemoveWorktree}
             />
@@ -67,6 +71,8 @@ function WorktreeRow({
   homeDirectory,
   mainClonePath,
   worktree,
+  displayNameIndexes,
+  branchIndexes,
   selected,
   status,
   onSelect,
@@ -75,6 +81,8 @@ function WorktreeRow({
   homeDirectory: string;
   mainClonePath: string;
   worktree: Worktree;
+  displayNameIndexes: readonly number[];
+  branchIndexes: readonly number[];
   selected: boolean;
   status: WorktreeStatus | undefined;
   onSelect: (id: string) => void;
@@ -103,7 +111,12 @@ function WorktreeRow({
           <span className={styles.worktreeTopLine}>
             <SidebarTooltip
               className={styles.worktreeNameWrap}
-              label={worktree.displayName}
+              label={
+                <HighlightedText
+                  text={worktree.displayName}
+                  indexes={displayNameIndexes}
+                />
+              }
               labelClassName={styles.worktreeName}
               tooltip={
                 worktree.isMain ? `Main worktree · ${displayedPath}` : displayedPath
@@ -114,7 +127,7 @@ function WorktreeRow({
           </span>
           <SidebarTooltip
             className={styles.branchNameWrap}
-            label={worktree.branch}
+            label={<HighlightedText text={worktree.branch} indexes={branchIndexes} />}
             labelClassName={styles.branchName}
             // onlyWhenTruncated
             tooltip={worktree.branch}
@@ -165,5 +178,44 @@ function WorktreeBadges({
         />
       )}
     </span>
+  );
+}
+
+function HighlightedText({
+  text,
+  indexes,
+}: {
+  text: string;
+  indexes: readonly number[];
+}): React.JSX.Element {
+  if (!indexes.length) return <>{text}</>;
+
+  const matched = new Set(indexes);
+  const segments: { text: string; matched: boolean }[] = [];
+  let current = '';
+  let currentMatched = false;
+  for (let index = 0; index < text.length; index += 1) {
+    const isMatched = matched.has(index);
+    if (isMatched !== currentMatched) {
+      if (current) segments.push({ text: current, matched: currentMatched });
+      current = '';
+      currentMatched = isMatched;
+    }
+    current += text[index];
+  }
+  if (current) segments.push({ text: current, matched: currentMatched });
+
+  return (
+    <>
+      {segments.map((segment, index) =>
+        segment.matched ? (
+          <mark key={index} className={styles.matchHighlight}>
+            {segment.text}
+          </mark>
+        ) : (
+          <span key={index}>{segment.text}</span>
+        ),
+      )}
+    </>
   );
 }

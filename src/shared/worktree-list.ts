@@ -4,6 +4,12 @@ import type { Worktree } from './contracts';
 export type WorktreeWithoutDisplayName = Omit<Worktree, 'displayName'>;
 export type WorktreeSortOrder = 'path' | 'branch';
 
+export interface WorktreeFilterMatch {
+  worktree: Worktree;
+  displayNameIndexes: readonly number[];
+  branchIndexes: readonly number[];
+}
+
 export function resolveWorktreeDisplayNames(
   worktrees: readonly WorktreeWithoutDisplayName[],
 ): Worktree[] {
@@ -66,9 +72,15 @@ export function sortWorktrees(
 export function filterWorktrees(
   worktrees: readonly Worktree[],
   query: string,
-): Worktree[] {
+): WorktreeFilterMatch[] {
   const normalizedQuery = query.trim().toLocaleLowerCase();
-  if (!normalizedQuery) return [...worktrees];
+  if (!normalizedQuery) {
+    return worktrees.map((worktree) => ({
+      worktree,
+      displayNameIndexes: [],
+      branchIndexes: [],
+    }));
+  }
 
   const results = fuzzysort.go(normalizedQuery, worktrees, {
     keys: ['path', 'branch'],
@@ -77,10 +89,20 @@ export function filterWorktrees(
   });
   if (!results.length) return [];
 
-  return [
-    ...results.filter((result) => result.obj.isMain).map((result) => result.obj),
-    ...results.filter((result) => !result.obj.isMain).map((result) => result.obj),
+  const ordered = [
+    ...results.filter((result) => result.obj.isMain),
+    ...results.filter((result) => !result.obj.isMain),
   ];
+
+  return ordered.map(({ obj }) => {
+    const displayNameMatch = fuzzysort.single(normalizedQuery, obj.displayName);
+    const branchMatch = fuzzysort.single(normalizedQuery, obj.branch);
+    return {
+      worktree: obj,
+      displayNameIndexes: displayNameMatch?.indexes ?? [],
+      branchIndexes: branchMatch?.indexes ?? [],
+    };
+  });
 }
 
 function shortestUniquePathSuffix(

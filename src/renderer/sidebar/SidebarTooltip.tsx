@@ -48,7 +48,7 @@ export function SidebarTooltip({
   ...spanProps
 }: {
   className: string | undefined;
-  label: string;
+  label: React.ReactNode;
   labelClassName: string | undefined;
   onlyWhenTruncated?: boolean;
   tooltip: string;

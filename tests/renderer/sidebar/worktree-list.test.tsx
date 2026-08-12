@@ -49,6 +49,41 @@ function worktreeButton(worktree: Worktree): HTMLButtonElement {
   });
 }
 
+function buildFuzzyProject(): { project: Project; tight: Worktree; scattered: Worktree } {
+  const projectId = 'grafter';
+  const projectConfig = projectConfigFactory.build({
+    id: projectId,
+    name: projectId,
+    path: `/Users/developer/Code/${projectId}`,
+  });
+  const mainWorktree = mainWorktreeFactory.build({
+    id: `${projectId}:main`,
+    projectId,
+    path: projectConfig.path,
+  });
+  const tight = worktreeFactory.build({
+    id: `${projectId}:tight`,
+    projectId,
+    displayName: 'project-windows',
+    path: `/Users/developer/Code/${projectId}.worktrees/project-windows`,
+    branch: 'feature/win',
+  });
+  const scattered = worktreeFactory.build({
+    id: `${projectId}:scattered`,
+    projectId,
+    displayName: 'win-d-ow',
+    path: `/Users/developer/Code/${projectId}.worktrees/win-d-ow`,
+    branch: 'feature/x',
+  });
+  return {
+    project: projectFactory.build(projectConfig, {
+      associations: { worktrees: [mainWorktree, tight, scattered] },
+    }),
+    tight,
+    scattered,
+  };
+}
+
 describe('WorktreeList', () => {
   afterEach(() => {
     cleanup();
@@ -91,40 +126,31 @@ describe('WorktreeList', () => {
   });
 
   it('ranks tighter fuzzy matches ahead of scattered ones', () => {
-    const projectId = 'grafter';
-    const projectConfig = projectConfigFactory.build({
-      id: projectId,
-      name: projectId,
-      path: `/Users/developer/Code/${projectId}`,
-    });
-    const mainWorktree = mainWorktreeFactory.build({
-      id: `${projectId}:main`,
-      projectId,
-      path: projectConfig.path,
-    });
-    const tight = worktreeFactory.build({
-      id: `${projectId}:tight`,
-      projectId,
-      displayName: 'project-windows',
-      path: `/Users/developer/Code/${projectId}.worktrees/project-windows`,
-      branch: 'feature/win',
-    });
-    const scattered = worktreeFactory.build({
-      id: `${projectId}:scattered`,
-      projectId,
-      displayName: 'win-d-ow',
-      path: `/Users/developer/Code/${projectId}.worktrees/win-d-ow`,
-      branch: 'feature/x',
-    });
-    const project = projectFactory.build(projectConfig, {
-      associations: { worktrees: [mainWorktree, tight, scattered] },
-    });
+    const { project, tight, scattered } = buildFuzzyProject();
 
     renderWorktreeList({ project, filterQuery: 'window' });
 
     expect(worktreeButton(tight)).toBeVisible();
     expect(worktreeButton(scattered)).toBeVisible();
     expect(worktreeButton(tight)).toAppearBefore(worktreeButton(scattered));
+  });
+
+  it('highlights the matched characters in worktree names and branches', () => {
+    const { project, tight, scattered } = buildFuzzyProject();
+
+    renderWorktreeList({ project, filterQuery: 'window' });
+
+    expect(
+      within(worktreeButton(tight)).getByText('window', { selector: 'mark' }),
+    ).toBeVisible();
+    expect(
+      within(worktreeButton(scattered)).getByText('win', { selector: 'mark' }),
+    ).toBeVisible();
+
+    cleanup();
+    renderWorktreeList({ project });
+
+    expect(screen.queryByText('window', { selector: 'mark' })).toBeNull();
   });
 
   it.each([{ sortOrder: 'path' as const }, { sortOrder: 'branch' as const }])(
