@@ -172,8 +172,7 @@ describe('WorktreeList', () => {
     },
   );
 
-  it('shows worktree display name and branch name with a full version in tooltips', async () => {
-    const user = userEvent.setup();
+  it('shows worktree display name and branch name with a full version in titles', () => {
     renderWorktreeList();
 
     for (const worktree of scenario.expectedWorktrees) {
@@ -183,19 +182,16 @@ describe('WorktreeList', () => {
         selector: '[data-worktree-path] > span',
       });
       expect(displayName).toBeVisible();
-      await user.hover(displayName);
-      expect(await screen.findByRole('tooltip')).toHaveTextContent(
+      expect(displayName.parentElement).toHaveAttribute(
+        'title',
         scenario.expectedTooltips[worktree.id] ?? '',
       );
-      await user.unhover(displayName);
 
       const branchName = within(button).getByText(worktree.branch, {
         selector: '[data-branch-name] > span',
       });
       expect(branchName).toBeVisible();
-      await user.hover(branchName);
-      expect(await screen.findByRole('tooltip')).toHaveTextContent(worktree.branch);
-      await user.unhover(branchName);
+      expect(branchName.parentElement).toHaveAttribute('title', worktree.branch);
     }
   });
 
