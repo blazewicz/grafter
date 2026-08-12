@@ -11,6 +11,7 @@ import type { GrafterApi, Project } from '../../shared/contracts';
 import { api, friendlyError } from '../grafter-api';
 import { BranchPicker } from '../branches/BranchPicker';
 import controls from '../styles/controls.module.css';
+import { useDismissOutside } from '../ui/useDismissOutside';
 import dialogStyles from '../dialogs/dialogs.module.css';
 
 export function NewWorktreeDialog({
@@ -55,14 +56,12 @@ export function NewWorktreeDialog({
     return () => document.removeEventListener('keydown', closeOnEscape);
   }, []);
 
-  useEffect(() => {
-    if (!pickerOpen || !chosen) return;
-    const closeOnOutsideClick = (event: PointerEvent): void => {
-      if (!pickerWrapRef.current?.contains(event.target as Node)) setPickerOpen(false);
-    };
-    document.addEventListener('pointerdown', closeOnOutsideClick);
-    return () => document.removeEventListener('pointerdown', closeOnOutsideClick);
-  }, [pickerOpen, chosen]);
+  useDismissOutside({
+    open: pickerOpen && chosen !== '',
+    onClose: () => setPickerOpen(false),
+    refs: [pickerWrapRef],
+    closeOnEscape: false,
+  });
 
   useEffect(() => {
     void api

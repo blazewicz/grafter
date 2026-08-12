@@ -4,6 +4,7 @@ import type { KeyboardEvent } from 'react';
 import type { WorktreeSortOrder } from '../../shared/worktree-list';
 import controls from '../styles/controls.module.css';
 import { QuickTooltip } from '../ui/QuickTooltip';
+import { useDismissOutside } from '../ui/useDismissOutside';
 import styles from './sidebar.module.css';
 
 const sortOptions = [
@@ -26,18 +27,15 @@ export function WorktreeSortMenu({
   useEffect(() => {
     if (!open) return;
     menuRef.current?.querySelector<HTMLButtonElement>('[aria-checked="true"]')?.focus();
-
-    const closeOnPointerDown = (event: PointerEvent): void => {
-      if (!containerRef.current?.contains(event.target as Node)) setOpen(false);
-    };
-    const closeOnWindowBlur = (): void => setOpen(false);
-    document.addEventListener('pointerdown', closeOnPointerDown);
-    window.addEventListener('blur', closeOnWindowBlur);
-    return () => {
-      document.removeEventListener('pointerdown', closeOnPointerDown);
-      window.removeEventListener('blur', closeOnWindowBlur);
-    };
   }, [open]);
+
+  useDismissOutside({
+    open,
+    onClose: () => setOpen(false),
+    refs: [containerRef],
+    closeOnBlur: true,
+    closeOnEscape: false,
+  });
 
   const closeAndRestoreFocus = (): void => {
     setOpen(false);

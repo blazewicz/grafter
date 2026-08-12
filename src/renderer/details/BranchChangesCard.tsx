@@ -5,7 +5,7 @@ import {
   GitCompareArrows,
   LoaderCircle,
 } from 'lucide-react';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type {
   Settings,
@@ -17,6 +17,8 @@ import { api, friendlyError } from '../grafter-api';
 import { BranchPicker } from '../branches/BranchPicker';
 import { CopyButton } from '../ui/CopyButton';
 import { QuickTooltip } from '../ui/QuickTooltip';
+import { useAnchoredPosition } from '../ui/useAnchoredPosition';
+import { useDismissOutside } from '../ui/useDismissOutside';
 import { CommitHistoryCard } from './CommitHistoryCard';
 import styles from './details.module.css';
 
@@ -27,14 +29,6 @@ interface LocalComparison extends WorktreeComparison {
   sourceAutomaticBaseBranch?: string;
   sourceAutomaticBaseBranchUnavailable?: boolean;
 }
-
-interface ComparisonMenuPosition {
-  left: number;
-  top: number;
-}
-
-const comparisonMenuWidth = 292;
-const comparisonMenuViewportMargin = 8;
 
 export function isLocalComparisonCurrent(
   comparison: LocalComparison | undefined,
@@ -78,7 +72,6 @@ export function BranchChangesCard({
   const [loadingBranches, setLoadingBranches] = useState(false);
   const [updatingComparison, setUpdatingComparison] = useState(false);
   const [localComparison, setLocalComparison] = useState<LocalComparison>();
-  const [menuPosition, setMenuPosition] = useState<ComparisonMenuPosition>();
   const comparisonPickerRef = useRef<HTMLDivElement>(null);
   const comparisonMenuRef = useRef<HTMLDivElement>(null);
   const comparison = isLocalComparisonCurrent(localComparison, details)
@@ -99,55 +92,20 @@ export function BranchChangesCard({
     ? 'Pull request base'
     : 'Repository default';
 
-  useEffect(() => {
-    if (!menuOpen) return;
-    const closeOnOutsideClick = (event: PointerEvent): void => {
-      const target = event.target as Node;
-      if (
-        !comparisonPickerRef.current?.contains(target) &&
-        !comparisonMenuRef.current?.contains(target)
-      ) {
-        setMenuOpen(false);
-      }
-    };
-    const closeOnEscape = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') setMenuOpen(false);
-    };
-    document.addEventListener('pointerdown', closeOnOutsideClick);
-    document.addEventListener('keydown', closeOnEscape);
-    return () => {
-      document.removeEventListener('pointerdown', closeOnOutsideClick);
-      document.removeEventListener('keydown', closeOnEscape);
-    };
-  }, [menuOpen]);
+  useDismissOutside({
+    open: menuOpen,
+    onClose: () => setMenuOpen(false),
+    refs: [comparisonPickerRef, comparisonMenuRef],
+  });
 
-  useLayoutEffect(() => {
-    if (!menuOpen) return;
-
-    const updateMenuPosition = (): void => {
-      const anchor = comparisonPickerRef.current?.getBoundingClientRect();
-      if (!anchor) return;
-      const maximumLeft = Math.max(
-        comparisonMenuViewportMargin,
-        window.innerWidth - comparisonMenuWidth - comparisonMenuViewportMargin,
-      );
-      setMenuPosition({
-        left: Math.min(
-          Math.max(anchor.left - 6, comparisonMenuViewportMargin),
-          maximumLeft,
-        ),
-        top: anchor.bottom + 5,
-      });
-    };
-
-    updateMenuPosition();
-    window.addEventListener('resize', updateMenuPosition);
-    document.addEventListener('scroll', updateMenuPosition, true);
-    return () => {
-      window.removeEventListener('resize', updateMenuPosition);
-      document.removeEventListener('scroll', updateMenuPosition, true);
-    };
-  }, [menuOpen]);
+  const menuPosition = useAnchoredPosition({
+    open: menuOpen,
+    anchorRef: comparisonPickerRef,
+    floatingRef: comparisonMenuRef,
+    placement: 'bottom-start',
+    offsetX: -6,
+    recomputeKey: targetBranch,
+  });
 
   useEffect(() => {
     if (!menuOpen) return;

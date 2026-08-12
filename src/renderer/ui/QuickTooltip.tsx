@@ -1,15 +1,8 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { FocusEvent, ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { useAnchoredPosition } from './useAnchoredPosition';
 import styles from './QuickTooltip.module.css';
-
-const tooltipGap = 5;
-const viewportMargin = 8;
-
-interface TooltipPosition {
-  left: number;
-  top: number;
-}
 
 export function QuickTooltip({
   label,
@@ -27,7 +20,6 @@ export function QuickTooltip({
   const wrapperRef = useRef<HTMLSpanElement>(null);
   const tooltipRef = useRef<HTMLSpanElement>(null);
   const [shown, setShown] = useState(false);
-  const [position, setPosition] = useState<TooltipPosition>();
   const showTimer = useRef<number | undefined>(undefined);
 
   useEffect(
@@ -53,34 +45,13 @@ export function QuickTooltip({
     setShown(false);
   };
 
-  useLayoutEffect(() => {
-    if (!shown) return;
-    const updatePosition = (): void => {
-      const wrapper = wrapperRef.current;
-      const tooltip = tooltipRef.current;
-      if (!wrapper || !tooltip) return;
-      const anchor = wrapper.getBoundingClientRect();
-      const tip = tooltip.getBoundingClientRect();
-      let left = align === 'right' ? anchor.right - tip.width : anchor.left;
-      left = Math.min(
-        Math.max(left, viewportMargin),
-        window.innerWidth - tip.width - viewportMargin,
-      );
-      let top = anchor.bottom + tooltipGap;
-      if (top + tip.height > window.innerHeight - viewportMargin) {
-        top = Math.max(viewportMargin, anchor.top - tooltipGap - tip.height);
-      }
-      setPosition({ left, top });
-    };
-
-    updatePosition();
-    window.addEventListener('resize', updatePosition);
-    document.addEventListener('scroll', updatePosition, true);
-    return () => {
-      window.removeEventListener('resize', updatePosition);
-      document.removeEventListener('scroll', updatePosition, true);
-    };
-  }, [align, label, shown]);
+  const position = useAnchoredPosition({
+    open: shown,
+    anchorRef: wrapperRef,
+    floatingRef: tooltipRef,
+    placement: align === 'right' ? 'bottom-end' : 'bottom-start',
+    recomputeKey: label,
+  });
 
   const handleFocus = (event: FocusEvent<HTMLSpanElement>): void => {
     if (event.target instanceof Element && event.target.matches(':focus-visible')) {
