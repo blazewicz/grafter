@@ -1,4 +1,0 @@
-interface:
-  display_name: 'Renderer Component Tests'
-  short_description: 'Write robust renderer component tests'
-  default_prompt: 'Use $write-renderer-component-tests to add or improve tests for this renderer component.'

@@ -4,7 +4,6 @@ import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApprovalDialog } from '../../../src/renderer/dialogs/ApprovalDialog';
-import type { ApprovalRequest } from '../../../src/shared/contracts';
 import { approvalRequestFactory } from '../../factories';
 
 const homeDirectory = '/Users/developer';
@@ -18,19 +17,20 @@ const request = approvalRequestFactory.build(
   },
 );
 
-function renderApprovalDialog(
-  nextRequest: ApprovalRequest = request,
-  running = false,
-  onReject: () => void = () => undefined,
-  onApprove: () => void = () => undefined,
-): void {
+interface RenderApprovalDialogOptions {
+  running?: boolean;
+  onReject?: () => void;
+  onApprove?: () => void;
+}
+
+function renderApprovalDialog(options: RenderApprovalDialogOptions = {}): void {
   render(
     <ApprovalDialog
       homeDirectory={homeDirectory}
-      request={nextRequest}
-      running={running}
-      onReject={onReject}
-      onApprove={onApprove}
+      request={request}
+      running={options.running ?? false}
+      onReject={options.onReject ?? (() => undefined)}
+      onApprove={options.onApprove ?? (() => undefined)}
     />,
   );
 }
@@ -64,7 +64,7 @@ describe('ApprovalDialog', () => {
     const user = userEvent.setup();
     const onReject = vi.fn();
     const onApprove = vi.fn();
-    renderApprovalDialog(request, false, onReject, onApprove);
+    renderApprovalDialog({ onReject, onApprove });
 
     expect(screen.getByRole('button', { name: 'Don’t run' })).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Don’t run' }));
@@ -77,7 +77,7 @@ describe('ApprovalDialog', () => {
     const user = userEvent.setup();
     const onReject = vi.fn();
     const onApprove = vi.fn();
-    renderApprovalDialog(request, false, onReject, onApprove);
+    renderApprovalDialog({ onReject, onApprove });
 
     expect(screen.getByRole('button', { name: 'Approve & run' })).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Approve & run' }));
@@ -90,7 +90,7 @@ describe('ApprovalDialog', () => {
     const user = userEvent.setup();
     const onReject = vi.fn();
     const onApprove = vi.fn();
-    renderApprovalDialog(request, true, onReject, onApprove);
+    renderApprovalDialog({ running: true, onReject, onApprove });
 
     const rejectButton = screen.getByRole('button', { name: 'Don’t run' });
     const approveButton = screen.getByRole('button', { name: 'Running…' });

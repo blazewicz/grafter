@@ -4,25 +4,26 @@ import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SettingsDialog } from '../../../src/renderer/dialogs/SettingsDialog';
-import type { Project, Settings } from '../../../src/shared/contracts';
+import type { Settings } from '../../../src/shared/contracts';
 import { projectFactory, settingsFactory } from '../../factories';
 
 const project = projectFactory.build({}, { transient: { withSetupScript: true } });
 const settings = settingsFactory.build();
 
-function renderSettingsDialog(
-  nextProject: Project = project,
-  onClose: () => void = () => undefined,
-  onSave: (nextSettings: Settings) => void = () => undefined,
-  onRepositorySetup: (script: string) => void = () => undefined,
-): void {
+interface RenderSettingsDialogOptions {
+  onClose?: () => void;
+  onSave?: (nextSettings: Settings) => void;
+  onRepositorySetup?: (script: string) => void;
+}
+
+function renderSettingsDialog(options: RenderSettingsDialogOptions = {}): void {
   render(
     <SettingsDialog
       settings={settings}
-      repository={nextProject}
-      onClose={onClose}
-      onSave={onSave}
-      onRepositorySetup={onRepositorySetup}
+      repository={project}
+      onClose={options.onClose ?? (() => undefined)}
+      onSave={options.onSave ?? (() => undefined)}
+      onRepositorySetup={options.onRepositorySetup ?? (() => undefined)}
     />,
   );
 }
@@ -58,7 +59,7 @@ describe('SettingsDialog', () => {
   it('closes from the title-bar close button', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
-    renderSettingsDialog(project, onClose);
+    renderSettingsDialog({ onClose });
 
     expect(screen.getByRole('button', { name: 'Close settings' })).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Close settings' }));
@@ -69,7 +70,7 @@ describe('SettingsDialog', () => {
   it('closes from the cancel button', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
-    renderSettingsDialog(project, onClose);
+    renderSettingsDialog({ onClose });
 
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
@@ -86,7 +87,7 @@ describe('SettingsDialog', () => {
       dateFormat: 'month-day-year',
       timeFormat: '12-hour',
     } satisfies Settings;
-    renderSettingsDialog(project, onClose, onSave);
+    renderSettingsDialog({ onClose, onSave });
 
     const pathInput = screen.getByRole('textbox', { name: 'Default path' });
     const dateSelect = screen.getByRole('combobox', { name: 'Date format' });
@@ -113,7 +114,7 @@ describe('SettingsDialog', () => {
     const onSave = vi.fn();
     const onProjectSetup = vi.fn();
     const nextSetupScript = 'pnpm install';
-    renderSettingsDialog(project, undefined, onSave, onProjectSetup);
+    renderSettingsDialog({ onSave, onRepositorySetup: onProjectSetup });
 
     const setupInput = screen.getByRole('textbox', { name: project.name });
     await user.clear(setupInput);

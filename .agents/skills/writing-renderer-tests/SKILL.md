@@ -1,6 +1,6 @@
 ---
-name: write-renderer-component-tests
-description: Write or improve Grafter renderer component tests with Testing Library, shared Fishery and faker factories, and reusable scenarios. Use for React components under src/renderer, tests under tests/renderer, renderer rendering or interaction changes, migrations from legacy renderer tests, or reviews of renderer test coverage.
+name: writing-renderer-tests
+description: Write or improve Grafter renderer code tests with Testing Library, shared Fishery and faker factories, and reusable scenarios. Use for React components and hooks under src/renderer, tests under tests/renderer, renderer rendering or interaction changes, migrations from legacy renderer tests, or reviews of renderer test coverage.
 ---
 
 # Write Renderer Component Tests
