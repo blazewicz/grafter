@@ -6,7 +6,6 @@ import {
   LoaderCircle,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import type {
   Settings,
   Worktree,
@@ -17,7 +16,6 @@ import { api, friendlyError } from '../grafter-api';
 import { BranchPicker } from '../branches/BranchPicker';
 import { CopyButton } from '../ui/CopyButton';
 import { QuickTooltip } from '../ui/QuickTooltip';
-import { useAnchoredPosition } from '../ui/useAnchoredPosition';
 import { useDismissOutside } from '../ui/useDismissOutside';
 import { CommitHistoryCard } from './CommitHistoryCard';
 import styles from './details.module.css';
@@ -73,7 +71,6 @@ export function BranchChangesCard({
   const [updatingComparison, setUpdatingComparison] = useState(false);
   const [localComparison, setLocalComparison] = useState<LocalComparison>();
   const comparisonPickerRef = useRef<HTMLDivElement>(null);
-  const comparisonMenuRef = useRef<HTMLDivElement>(null);
   const comparison = isLocalComparisonCurrent(localComparison, details)
     ? localComparison
     : details;
@@ -95,16 +92,7 @@ export function BranchChangesCard({
   useDismissOutside({
     open: menuOpen,
     onClose: () => setMenuOpen(false),
-    refs: [comparisonPickerRef, comparisonMenuRef],
-  });
-
-  const menuPosition = useAnchoredPosition({
-    open: menuOpen,
-    anchorRef: comparisonPickerRef,
-    floatingRef: comparisonMenuRef,
-    placement: 'bottom-start',
-    offsetX: -6,
-    recomputeKey: targetBranch,
+    refs: [comparisonPickerRef],
   });
 
   useEffect(() => {
@@ -188,48 +176,39 @@ export function BranchChangesCard({
                 <code>{targetBranch ?? 'Choose a branch'}</code>
                 <ChevronDown size={13} />
               </button>
-              {menuOpen &&
-                typeof document !== 'undefined' &&
-                createPortal(
-                  <div
-                    ref={comparisonMenuRef}
-                    className={`${styles.comparisonMenu} ${styles.comparisonMenuPortal}`}
-                    role="dialog"
-                    aria-label="Choose target branch"
-                    style={{
-                      left: menuPosition?.left ?? 0,
-                      top: menuPosition?.top ?? 0,
-                      visibility: menuPosition ? 'visible' : 'hidden',
-                    }}
+              {menuOpen && (
+                <div
+                  className={styles.comparisonMenu}
+                  role="dialog"
+                  aria-label="Choose target branch"
+                >
+                  <button
+                    className={styles.automaticBaseButton}
+                    type="button"
+                    onClick={() => void setComparisonBase()}
                   >
-                    <button
-                      className={styles.automaticBaseButton}
-                      type="button"
-                      onClick={() => void setComparisonBase()}
-                    >
-                      <span>
-                        <strong>Automatic</strong>
-                        <small>
-                          {automaticBaseBranch ?? 'No default found'} · {automaticSource}
-                        </small>
-                      </span>
-                      {!comparisonBaseOverride && <Check size={13} />}
-                    </button>
-                    <div className={styles.comparisonMenuDivider} />
-                    <BranchPicker
-                      branches={branches}
-                      worktrees={projectWorktrees}
-                      {...(comparisonBaseOverride
-                        ? { selectedBranch: comparisonBaseOverride }
-                        : {})}
-                      disableCheckedOut={false}
-                      disabledBranches={[details.branch]}
-                      loading={loadingBranches}
-                      onSelect={(branch) => void setComparisonBase(branch)}
-                    />
-                  </div>,
-                  document.body,
-                )}
+                    <span>
+                      <strong>Automatic</strong>
+                      <small>
+                        {automaticBaseBranch ?? 'No default found'} · {automaticSource}
+                      </small>
+                    </span>
+                    {!comparisonBaseOverride && <Check size={13} />}
+                  </button>
+                  <div className={styles.comparisonMenuDivider} />
+                  <BranchPicker
+                    branches={branches}
+                    worktrees={projectWorktrees}
+                    {...(comparisonBaseOverride
+                      ? { selectedBranch: comparisonBaseOverride }
+                      : {})}
+                    disableCheckedOut={false}
+                    disabledBranches={[details.branch]}
+                    loading={loadingBranches}
+                    onSelect={(branch) => void setComparisonBase(branch)}
+                  />
+                </div>
+              )}
             </div>
             {targetBranch && (
               <CopyButton

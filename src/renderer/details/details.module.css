@@ -303,11 +303,6 @@
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.38);
 }
 
-.comparison-menu-portal {
-  z-index: 90;
-  position: fixed;
-}
-
 .automatic-base-button {
   width: 100%;
   min-height: 38px;

@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -393,27 +393,17 @@ describe('BranchChangesCard', () => {
     expect(screen.queryByRole('dialog', { name: 'Choose target branch' })).toBeNull();
   });
 
-  it('flips the target picker above the trigger when it would overflow the window bottom', async () => {
+  it('renders the target picker in-flow inside the trigger wrapper', async () => {
     const user = userEvent.setup();
     vi.spyOn(api, 'listBranches').mockResolvedValue([]);
     renderBranchChangesCard();
 
     const targetButton = screen.getByRole('button', { name: 'Choose target branch' });
-    const anchor = targetButton.parentElement;
-    if (!anchor) throw new Error('Expected the comparison picker anchor.');
-    vi.spyOn(anchor, 'getBoundingClientRect').mockReturnValue(
-      new DOMRect(300, 700, 200, 23),
-    );
-
     await user.click(targetButton);
 
     const menu = screen.getByRole('dialog', { name: 'Choose target branch' });
-    vi.spyOn(menu, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 292, 320));
-    act(() => {
-      window.dispatchEvent(new Event('resize'));
-    });
-
-    expect(menu).toHaveStyle({ left: '294px', top: '375px' });
+    expect(targetButton.parentElement).toContainElement(menu);
+    expect(menu.parentElement).not.toBe(document.body);
   });
 
   it('notifies when a pull request base is unavailable locally', () => {

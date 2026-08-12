@@ -109,6 +109,28 @@ describe('QuickTooltip', () => {
     expect(screen.queryByRole('tooltip')).toBeNull();
   });
 
+  it('flips above the trigger when there is no room below', async () => {
+    const user = userEvent.setup();
+    renderQuickTooltip({ label: 'Switch branch', showDelay: 0 });
+    const trigger = screen.getByRole('button', { name: 'Trigger' });
+    const wrapper = trigger.parentElement;
+    if (!wrapper) throw new Error('Expected the tooltip wrapper.');
+    vi.spyOn(wrapper, 'getBoundingClientRect').mockReturnValue(
+      new DOMRect(100, 700, 60, 24),
+    );
+
+    await user.hover(trigger);
+    const tooltip = await screen.findByRole('tooltip');
+    vi.spyOn(tooltip, 'getBoundingClientRect').mockReturnValue(
+      new DOMRect(0, 0, 200, 40),
+    );
+    act(() => {
+      window.dispatchEvent(new Event('resize'));
+    });
+
+    expect(tooltip).toHaveStyle({ left: '100px', top: '655px' });
+  });
+
   it('composes a className onto the wrapper', () => {
     const trigger = renderQuickTooltip({ className: 'custom-wrapper' });
 

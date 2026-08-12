@@ -1,8 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { FocusEvent, ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { useAnchoredPosition } from './useAnchoredPosition';
+import { computeFloatingRect } from './floating-position';
 import styles from './QuickTooltip.module.css';
+
+const tooltipGap = 5;
+const viewportMargin = 8;
 
 export function QuickTooltip({
   label,
@@ -20,6 +23,7 @@ export function QuickTooltip({
   const wrapperRef = useRef<HTMLSpanElement>(null);
   const tooltipRef = useRef<HTMLSpanElement>(null);
   const [shown, setShown] = useState(false);
+  const [position, setPosition] = useState<{ left: number; top: number }>();
   const showTimer = useRef<number | undefined>(undefined);
 
   useEffect(
@@ -45,13 +49,33 @@ export function QuickTooltip({
     setShown(false);
   };
 
-  const position = useAnchoredPosition({
-    open: shown,
-    anchorRef: wrapperRef,
-    floatingRef: tooltipRef,
-    placement: align === 'right' ? 'bottom-end' : 'bottom-start',
-    recomputeKey: label,
-  });
+  useLayoutEffect(() => {
+    if (!shown) return;
+    const updatePosition = (): void => {
+      const wrapper = wrapperRef.current;
+      const tooltip = tooltipRef.current;
+      if (!wrapper || !tooltip) return;
+      const next = computeFloatingRect(
+        wrapper.getBoundingClientRect(),
+        tooltip.getBoundingClientRect(),
+        { width: window.innerWidth, height: window.innerHeight },
+        {
+          placement: align === 'right' ? 'bottom-end' : 'bottom-start',
+          gap: tooltipGap,
+          viewportMargin,
+        },
+      );
+      setPosition(next);
+    };
+
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    document.addEventListener('scroll', updatePosition, true);
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      document.removeEventListener('scroll', updatePosition, true);
+    };
+  }, [align, label, shown]);
 
   const handleFocus = (event: FocusEvent<HTMLSpanElement>): void => {
     if (event.target instanceof Element && event.target.matches(':focus-visible')) {
