@@ -118,9 +118,7 @@ export function BranchCard({
           <GitBranch className={styles.branchTitleIcon} size={16} aria-hidden="true" />
           <div className={styles.branchPicker} ref={branchPickerRef}>
             <QuickTooltip
-              label={
-                menuOpen ? undefined : (branchSwitchDisabledReason ?? 'Switch branch')
-              }
+              label={menuOpen ? undefined : branchSwitchDisabledReason}
               showDelay={0}
             >
               <button
