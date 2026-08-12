@@ -6,6 +6,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { WorktreeList } from '../../../src/renderer/sidebar/WorktreeList';
 import type { Project, Worktree, WorktreeStatus } from '../../../src/shared/contracts';
 import type { WorktreeSortOrder } from '../../../src/shared/worktree-list';
+import {
+  mainWorktreeFactory,
+  projectConfigFactory,
+  projectFactory,
+  worktreeFactory,
+} from '../../factories';
 import { buildRepositoryWorktreesScenario } from '../../scenarios/sidebar/repository-worktrees';
 
 const scenario = buildRepositoryWorktreesScenario();
@@ -41,6 +47,41 @@ function worktreeButton(worktree: Worktree): HTMLButtonElement {
       ? `Main worktree, checked out branch ${worktree.branch}`
       : `${worktree.displayName}, checked out branch ${worktree.branch}`,
   });
+}
+
+function buildFuzzyProject(): { project: Project; tight: Worktree; scattered: Worktree } {
+  const projectId = 'grafter';
+  const projectConfig = projectConfigFactory.build({
+    id: projectId,
+    name: projectId,
+    path: `/Users/developer/Code/${projectId}`,
+  });
+  const mainWorktree = mainWorktreeFactory.build({
+    id: `${projectId}:main`,
+    projectId,
+    path: projectConfig.path,
+  });
+  const tight = worktreeFactory.build({
+    id: `${projectId}:tight`,
+    projectId,
+    displayName: 'project-windows',
+    path: `/Users/developer/Code/${projectId}.worktrees/project-windows`,
+    branch: 'feature/win',
+  });
+  const scattered = worktreeFactory.build({
+    id: `${projectId}:scattered`,
+    projectId,
+    displayName: 'win-d-ow',
+    path: `/Users/developer/Code/${projectId}.worktrees/win-d-ow`,
+    branch: 'feature/x',
+  });
+  return {
+    project: projectFactory.build(projectConfig, {
+      associations: { worktrees: [mainWorktree, tight, scattered] },
+    }),
+    tight,
+    scattered,
+  };
 }
 
 describe('WorktreeList', () => {
@@ -82,6 +123,34 @@ describe('WorktreeList', () => {
 
     expect(screen.getByRole('status')).toHaveTextContent(`No worktrees match “${query}”`);
     expect(screen.queryByRole('button', { name: /checked out branch/ })).toBeNull();
+  });
+
+  it('ranks tighter fuzzy matches ahead of scattered ones', () => {
+    const { project, tight, scattered } = buildFuzzyProject();
+
+    renderWorktreeList({ project, filterQuery: 'window' });
+
+    expect(worktreeButton(tight)).toBeVisible();
+    expect(worktreeButton(scattered)).toBeVisible();
+    expect(worktreeButton(tight)).toAppearBefore(worktreeButton(scattered));
+  });
+
+  it('highlights the matched characters in worktree names and branches', () => {
+    const { project, tight, scattered } = buildFuzzyProject();
+
+    renderWorktreeList({ project, filterQuery: 'window' });
+
+    expect(
+      within(worktreeButton(tight)).getByText('window', { selector: 'mark' }),
+    ).toBeVisible();
+    expect(
+      within(worktreeButton(scattered)).getByText('win', { selector: 'mark' }),
+    ).toBeVisible();
+
+    cleanup();
+    renderWorktreeList({ project });
+
+    expect(screen.queryByText('window', { selector: 'mark' })).toBeNull();
   });
 
   it.each([{ sortOrder: 'path' as const }, { sortOrder: 'branch' as const }])(

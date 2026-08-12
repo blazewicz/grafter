@@ -5,6 +5,7 @@ import { displayWorktreePath } from '../../shared/path-display';
 import { filterWorktrees, sortWorktrees } from '../../shared/worktree-list';
 import type { WorktreeSortOrder } from '../../shared/worktree-list';
 import { PullRequestStateIcon } from '../ui/PullRequestStateIcon';
+import { HighlightedText } from '../ui/HighlightedText';
 import { SidebarTooltip } from './SidebarTooltip';
 import styles from './sidebar.module.css';
 
@@ -41,12 +42,14 @@ export function WorktreeList({
         aria-label={`${project.name} worktrees`}
       >
         {visibleWorktrees.length ? (
-          visibleWorktrees.map((worktree) => (
+          visibleWorktrees.map(({ worktree, displayNameIndexes, branchIndexes }) => (
             <WorktreeRow
               key={worktree.id}
               homeDirectory={homeDirectory}
               mainClonePath={project.path}
               worktree={worktree}
+              displayNameIndexes={displayNameIndexes}
+              branchIndexes={branchIndexes}
               selected={selectedId === worktree.id}
               status={selectedId === worktree.id ? selectedWorktreeStatus : undefined}
               onSelect={onSelect}
@@ -67,6 +70,8 @@ function WorktreeRow({
   homeDirectory,
   mainClonePath,
   worktree,
+  displayNameIndexes,
+  branchIndexes,
   selected,
   status,
   onSelect,
@@ -75,6 +80,8 @@ function WorktreeRow({
   homeDirectory: string;
   mainClonePath: string;
   worktree: Worktree;
+  displayNameIndexes: readonly number[];
+  branchIndexes: readonly number[];
   selected: boolean;
   status: WorktreeStatus | undefined;
   onSelect: (id: string) => void;
@@ -103,7 +110,12 @@ function WorktreeRow({
           <span className={styles.worktreeTopLine}>
             <SidebarTooltip
               className={styles.worktreeNameWrap}
-              label={worktree.displayName}
+              label={
+                <HighlightedText
+                  text={worktree.displayName}
+                  indexes={displayNameIndexes}
+                />
+              }
               labelClassName={styles.worktreeName}
               tooltip={
                 worktree.isMain ? `Main worktree · ${displayedPath}` : displayedPath
@@ -114,7 +126,7 @@ function WorktreeRow({
           </span>
           <SidebarTooltip
             className={styles.branchNameWrap}
-            label={worktree.branch}
+            label={<HighlightedText text={worktree.branch} indexes={branchIndexes} />}
             labelClassName={styles.branchName}
             // onlyWhenTruncated
             tooltip={worktree.branch}

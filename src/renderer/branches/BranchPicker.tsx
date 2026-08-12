@@ -1,6 +1,8 @@
+import fuzzysort from 'fuzzysort';
 import { Check, GitBranch, LoaderCircle, Search } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Worktree } from '../../shared/contracts';
+import { HighlightedText } from '../ui/HighlightedText';
 import styles from './BranchPicker.module.css';
 
 const maximumVisibleBranches = 7;
@@ -31,14 +33,14 @@ export function BranchPicker({
   const inputRef = useRef<HTMLInputElement>(null);
   const filtered = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase();
-    return branches
-      .filter((branch) => branch.toLocaleLowerCase().includes(needle))
-      .slice(0, maximumVisibleBranches);
+    return fuzzysort
+      .go(needle, branches, { limit: maximumVisibleBranches, threshold: 0 })
+      .map((result) => ({ branch: result.target, indexes: result.indexes }));
   }, [branches, query]);
   const available = useMemo(
     () =>
       filtered.filter(
-        (branch) =>
+        ({ branch }) =>
           !disabledBranches.includes(branch) &&
           (!disableCheckedOut || checkedOutWorktree(worktrees, branch) === undefined),
       ),
@@ -50,7 +52,9 @@ export function BranchPicker({
   }, []);
 
   const effectiveActiveBranch =
-    activeBranch && available.includes(activeBranch) ? activeBranch : available[0];
+    activeBranch && available.some(({ branch }) => branch === activeBranch)
+      ? activeBranch
+      : available[0]?.branch;
 
   const choose = (branch: string): void => {
     if (
@@ -65,13 +69,14 @@ export function BranchPicker({
   const moveActive = (offset: number): void => {
     if (!available.length) return;
     const currentIndex = effectiveActiveBranch
-      ? available.indexOf(effectiveActiveBranch)
+      ? available.findIndex(({ branch }) => branch === effectiveActiveBranch)
       : -1;
     const nextIndex =
       currentIndex === -1
         ? 0
         : (currentIndex + offset + available.length) % available.length;
-    setActiveBranch(available[nextIndex]);
+    const nextBranch = available[nextIndex]?.branch;
+    if (nextBranch) setActiveBranch(nextBranch);
   };
 
   return (
@@ -102,7 +107,7 @@ export function BranchPicker({
         />
       </div>
       <div className={styles.results}>
-        {filtered.map((branch) => {
+        {filtered.map(({ branch, indexes }) => {
           const checkedOut = checkedOutWorktree(worktrees, branch);
           const disabledReason = disabledBranches.includes(branch)
             ? 'Already selected for comparison'
@@ -129,7 +134,9 @@ export function BranchPicker({
               onClick={() => choose(branch)}
             >
               <GitBranch size={12} />
-              <span>{branch}</span>
+              <span>
+                <HighlightedText text={branch} indexes={indexes} />
+              </span>
               {selectedBranch === branch && <Check size={12} />}
             </button>
           );

@@ -169,6 +169,39 @@ describe('BranchPicker', () => {
     expect(onSelect).toHaveBeenCalledWith('feature/three');
   });
 
+  it('ranks tighter fuzzy matches ahead of scattered ones', async () => {
+    const user = userEvent.setup();
+    renderBranchPicker({
+      branches: ['project-windows', 'win-d-ow', 'x-window-z'],
+      worktrees: [],
+    });
+
+    const filter = screen.getByRole('textbox', { name: 'Filter branches' });
+    await user.type(filter, 'window');
+
+    const options = screen.getAllByRole('button');
+    expect(options.map((option) => option.textContent)).toEqual([
+      'x-window-z',
+      'project-windows',
+      'win-d-ow',
+    ]);
+  });
+
+  it('highlights the matched characters in branch names', async () => {
+    const user = userEvent.setup();
+    renderBranchPicker({
+      branches: ['feature/one', 'feature/two', 'feature/three'],
+      worktrees: [],
+    });
+
+    const filter = screen.getByRole('textbox', { name: 'Filter branches' });
+    await user.type(filter, 'fea');
+
+    const marks = screen.getAllByText('fea', { selector: 'mark' });
+    expect(marks).toHaveLength(3);
+    for (const mark of marks) expect(mark).toBeVisible();
+  });
+
   it('shows loading and empty-result feedback', () => {
     const { rerender } = render(
       <BranchPicker branches={[]} loading onSelect={() => undefined} />,
