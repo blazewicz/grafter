@@ -11,21 +11,19 @@ import type { RefObject } from 'react';
  * `NewWorktreeDialog`, where Escape closes the dialog unless a branch is
  * chosen.
  */
-export interface UseDismissOutsideOptions {
-  open: boolean;
-  onClose: () => void;
-  refs: readonly RefObject<HTMLElement | null>[];
-  closeOnBlur?: boolean;
-  closeOnEscape?: boolean;
-}
-
 export function useDismissOutside({
   open,
   onClose,
   refs,
   closeOnBlur = false,
   closeOnEscape = true,
-}: UseDismissOutsideOptions): void {
+}: {
+  open: boolean;
+  onClose: () => void;
+  refs: readonly RefObject<HTMLElement | null>[];
+  closeOnBlur?: boolean;
+  closeOnEscape?: boolean;
+}): void {
   const onCloseEvent = useEffectEvent(onClose);
 
   useEffect(() => {
