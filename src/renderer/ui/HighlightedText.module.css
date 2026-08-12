@@ -1,0 +1,5 @@
+.match-highlight {
+  color: #d8daf1;
+  background: var(--accent-bg);
+  border-radius: 2px;
+}

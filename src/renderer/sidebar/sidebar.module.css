@@ -405,12 +405,6 @@
   white-space: nowrap;
 }
 
-.match-highlight {
-  color: #d8daf1;
-  background: var(--accent-bg);
-  border-radius: 2px;
-}
-
 .main-worktree-row .worktree-name {
   color: #e0e0e3;
   font-weight: 620;
