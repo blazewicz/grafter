@@ -4,7 +4,7 @@ export function useHotKey(
   keyCombo: string,
   callback: (event: KeyboardEvent) => void,
 ): void {
-  const onHotKey = useEffectEvent((event: KeyboardEvent) => callback(event));
+  const onHotKeyEvent = useEffectEvent(callback);
 
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent): void => {
@@ -35,7 +35,7 @@ export function useHotKey(
 
       event.preventDefault();
 
-      onHotKey(event);
+      onHotKeyEvent(event);
     };
 
     document.addEventListener('keydown', handleShortcut);
