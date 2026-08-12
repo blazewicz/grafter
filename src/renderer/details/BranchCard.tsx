@@ -9,6 +9,7 @@ import type {
 import { api, friendlyError } from '../grafter-api';
 import { BranchPicker } from '../branches/BranchPicker';
 import { CopyButton } from '../ui/CopyButton';
+import { QuickTooltip } from '../ui/QuickTooltip';
 import styles from './details.module.css';
 import { PullRequestCard } from './PullRequestCard';
 
@@ -116,7 +117,12 @@ export function BranchCard({
         <div className={styles.branchTitleRow}>
           <GitBranch className={styles.branchTitleIcon} size={16} aria-hidden="true" />
           <div className={styles.branchPicker} ref={branchPickerRef}>
-            <span className={styles.branchPickerTrigger}>
+            <QuickTooltip
+              label={
+                menuOpen ? undefined : (branchSwitchDisabledReason ?? 'Switch branch')
+              }
+              showDelay={0}
+            >
               <button
                 className={styles.branchMenuButton}
                 aria-disabled={branchSwitchDisabledReason !== undefined}
@@ -134,12 +140,7 @@ export function BranchCard({
                 <code>{details.branch}</code>
                 <ChevronDown size={13} />
               </button>
-              {!menuOpen && (
-                <span className={styles.branchPickerTooltip} role="tooltip">
-                  {branchSwitchDisabledReason ?? 'Switch branch'}
-                </span>
-              )}
-            </span>
+            </QuickTooltip>
             {menuOpen && !branchSwitchDisabledReason && (
               <div
                 className={styles.branchMenu}
