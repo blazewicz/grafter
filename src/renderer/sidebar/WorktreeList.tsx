@@ -42,18 +42,16 @@ export function WorktreeList({
         aria-label={`${project.name} worktrees`}
       >
         {visibleWorktrees.length ? (
-          visibleWorktrees.map((match) => (
+          visibleWorktrees.map(({ worktree, displayNameIndexes, branchIndexes }) => (
             <WorktreeRow
-              key={match.worktree.id}
+              key={worktree.id}
               homeDirectory={homeDirectory}
               mainClonePath={project.path}
-              worktree={match.worktree}
-              displayNameIndexes={match.displayNameIndexes}
-              branchIndexes={match.branchIndexes}
-              selected={selectedId === match.worktree.id}
-              status={
-                selectedId === match.worktree.id ? selectedWorktreeStatus : undefined
-              }
+              worktree={worktree}
+              displayNameIndexes={displayNameIndexes}
+              branchIndexes={branchIndexes}
+              selected={selectedId === worktree.id}
+              status={selectedId === worktree.id ? selectedWorktreeStatus : undefined}
               onSelect={onSelect}
               onRemoveWorktree={onRemoveWorktree}
             />
