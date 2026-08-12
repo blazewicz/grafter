@@ -236,11 +236,8 @@ describe('WorktreeList', () => {
     const remove = screen.getByRole('button', {
       name: `Remove ${scenario.selectableWorktree.displayName} worktree`,
     });
-    const removeWrapper = remove.parentElement;
-    if (!removeWrapper) throw new Error('Expected the remove button to be wrapped.');
-    expect(within(removeWrapper).getByRole('tooltip')).toHaveTextContent(
-      'Remove worktree',
-    );
+    await user.hover(remove);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Remove worktree');
     await user.click(remove);
 
     expect(onSelect).toHaveBeenCalledOnce();
