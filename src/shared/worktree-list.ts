@@ -1,3 +1,4 @@
+import fuzzysort from 'fuzzysort';
 import type { Worktree } from './contracts';
 
 export type WorktreeWithoutDisplayName = Omit<Worktree, 'displayName'>;
@@ -69,11 +70,17 @@ export function filterWorktrees(
   const normalizedQuery = query.trim().toLocaleLowerCase();
   if (!normalizedQuery) return [...worktrees];
 
-  return worktrees.filter(
-    (worktree) =>
-      worktree.path.toLocaleLowerCase().includes(normalizedQuery) ||
-      worktree.branch.toLocaleLowerCase().includes(normalizedQuery),
-  );
+  const results = fuzzysort.go(normalizedQuery, worktrees, {
+    keys: ['path', 'branch'],
+    limit: 0,
+    threshold: 0,
+  });
+  if (!results.length) return [];
+
+  return [
+    ...results.filter((result) => result.obj.isMain).map((result) => result.obj),
+    ...results.filter((result) => !result.obj.isMain).map((result) => result.obj),
+  ];
 }
 
 function shortestUniquePathSuffix(

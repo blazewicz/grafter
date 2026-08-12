@@ -180,7 +180,7 @@ describe('filterWorktrees', () => {
     other.branch = 'feature/other';
     const worktrees = [byPath, byBranch, other];
 
-    expect(filterWorktrees(worktrees, '  feature-search  ')).toEqual([byPath]);
+    expect(filterWorktrees(worktrees, '  worktrees/feature-search  ')).toEqual([byPath]);
     expect(filterWorktrees(worktrees, 'BRANCH-SEARCH')).toEqual([byBranch]);
     expect(worktrees).toEqual([byPath, byBranch, other]);
   });
@@ -193,5 +193,55 @@ describe('filterWorktrees', () => {
 
     expect(filterWorktrees(worktrees, '   ')).toEqual(worktrees);
     expect(filterWorktrees(worktrees, '')).not.toBe(worktrees);
+  });
+
+  it('matches characters in order with anything in between', () => {
+    const byPath = worktree('path match', '/worktrees/repo-scoped-windows');
+    byPath.branch = 'unrelated';
+    const other = worktree('other', '/worktrees/other');
+    other.branch = 'feature/other';
+
+    expect(filterWorktrees([byPath, other], 'rpo')).toEqual([byPath]);
+    expect(filterWorktrees([byPath, other], 'scopedwin')).toEqual([byPath]);
+  });
+
+  it('rejects queries whose characters are out of order', () => {
+    const byPath = worktree('path match', '/x/repo-scoped-windows');
+    byPath.branch = 'unrelated';
+
+    expect(filterWorktrees([byPath], 'orp')).toEqual([]);
+    expect(filterWorktrees([byPath], 'sela')).toEqual([]);
+  });
+
+  it('splits the query on spaces and matches the parts in order', () => {
+    const byPath = worktree('path match', '/worktrees/repo-scoped-windows');
+    byPath.branch = 'unrelated';
+
+    expect(filterWorktrees([byPath], 'repo window')).toEqual([byPath]);
+  });
+
+  it('ranks tighter matches ahead of scattered ones', () => {
+    const tight = worktree('tight', '/worktrees/project-windows');
+    tight.branch = 'feature/win';
+    const scattered = worktree('scattered', '/worktrees/win-d-ow');
+    scattered.branch = 'feature/x';
+
+    expect(filterWorktrees([scattered, tight], 'window')).toEqual([tight, scattered]);
+  });
+
+  it('pins the main worktree above better-scoring linked worktrees', () => {
+    const main = worktree('main', '/projects/grafter-app');
+    main.branch = 'main';
+    main.isMain = true;
+    const exact = worktree('exact', '/worktrees/grafter');
+    exact.branch = 'feature/win';
+    const scattered = worktree('scattered', '/worktrees/g-x-r-a-f-t-e-r');
+    scattered.branch = 'feature/zz';
+
+    expect(filterWorktrees([exact, scattered, main], 'grafter')).toEqual([
+      main,
+      exact,
+      scattered,
+    ]);
   });
 });

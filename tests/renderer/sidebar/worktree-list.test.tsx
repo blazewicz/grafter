@@ -6,6 +6,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { WorktreeList } from '../../../src/renderer/sidebar/WorktreeList';
 import type { Project, Worktree, WorktreeStatus } from '../../../src/shared/contracts';
 import type { WorktreeSortOrder } from '../../../src/shared/worktree-list';
+import {
+  mainWorktreeFactory,
+  projectConfigFactory,
+  projectFactory,
+  worktreeFactory,
+} from '../../factories';
 import { buildRepositoryWorktreesScenario } from '../../scenarios/sidebar/repository-worktrees';
 
 const scenario = buildRepositoryWorktreesScenario();
@@ -82,6 +88,43 @@ describe('WorktreeList', () => {
 
     expect(screen.getByRole('status')).toHaveTextContent(`No worktrees match “${query}”`);
     expect(screen.queryByRole('button', { name: /checked out branch/ })).toBeNull();
+  });
+
+  it('ranks tighter fuzzy matches ahead of scattered ones', () => {
+    const projectId = 'grafter';
+    const projectConfig = projectConfigFactory.build({
+      id: projectId,
+      name: projectId,
+      path: `/Users/developer/Code/${projectId}`,
+    });
+    const mainWorktree = mainWorktreeFactory.build({
+      id: `${projectId}:main`,
+      projectId,
+      path: projectConfig.path,
+    });
+    const tight = worktreeFactory.build({
+      id: `${projectId}:tight`,
+      projectId,
+      displayName: 'project-windows',
+      path: `/Users/developer/Code/${projectId}.worktrees/project-windows`,
+      branch: 'feature/win',
+    });
+    const scattered = worktreeFactory.build({
+      id: `${projectId}:scattered`,
+      projectId,
+      displayName: 'win-d-ow',
+      path: `/Users/developer/Code/${projectId}.worktrees/win-d-ow`,
+      branch: 'feature/x',
+    });
+    const project = projectFactory.build(projectConfig, {
+      associations: { worktrees: [mainWorktree, tight, scattered] },
+    });
+
+    renderWorktreeList({ project, filterQuery: 'window' });
+
+    expect(worktreeButton(tight)).toBeVisible();
+    expect(worktreeButton(scattered)).toBeVisible();
+    expect(worktreeButton(tight)).toAppearBefore(worktreeButton(scattered));
   });
 
   it.each([{ sortOrder: 'path' as const }, { sortOrder: 'branch' as const }])(
