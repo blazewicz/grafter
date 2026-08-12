@@ -126,7 +126,7 @@ export function NewWorktreeDialog({
               className={dialogStyles.branchTrigger}
               type="button"
               aria-label="Choose branch"
-              aria-haspopup="menu"
+              aria-haspopup="dialog"
               aria-expanded={pickerOpen}
               aria-controls={branchMenuId}
               onClick={() => {
@@ -141,8 +141,8 @@ export function NewWorktreeDialog({
               <div
                 id={branchMenuId}
                 className={dialogStyles.branchMenu}
-                role="menu"
-                aria-label="Branches"
+                role="dialog"
+                aria-label="Choose branch"
               >
                 <BranchPicker
                   branches={branches}

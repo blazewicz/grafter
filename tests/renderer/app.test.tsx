@@ -341,11 +341,12 @@ describe('App welcome state', () => {
   });
 });
 
-/*
+/* TODO: Refactor App component tests. Add tests for all snapshot types.
+describe('App repository state', () => {
   it('opens the new-worktree dialog with Command-N', async () => {
     const user = userEvent.setup();
     vi.spyOn(api, 'listBranches').mockResolvedValue([]);
-    renderSidebar();
+    renderApp();
 
     await user.keyboard('{Meta>}n{/Meta}');
 
@@ -359,7 +360,7 @@ describe('App welcome state', () => {
   it('keeps the dialog open when Command-N is pressed while it is already open', async () => {
     const user = userEvent.setup();
     vi.spyOn(api, 'listBranches').mockResolvedValue([]);
-    renderSidebar();
+    renderApp();
 
     await user.keyboard('{Meta>}n{/Meta}');
     await user.keyboard('{Meta>}n{/Meta}');
@@ -367,19 +368,15 @@ describe('App welcome state', () => {
     expect(screen.getByRole('dialog', { name: 'New worktree' })).toBeVisible();
   });
 
-  it('closes the dialog on Escape and restores focus to the add button', async () => {
+  it('closes the dialog on Escape', async () => {
     const user = userEvent.setup();
     vi.spyOn(api, 'listBranches').mockResolvedValue([]);
-    renderSidebar();
+    renderApp();
 
     await user.keyboard('{Meta>}n{/Meta}');
     await user.keyboard('{Escape}');
 
     expect(screen.queryByRole('dialog', { name: 'New worktree' })).toBeNull();
-    expect(
-      screen.getByRole('button', {
-        name: `Add worktree to ${scenario.repository.name}`,
-      }),
-    ).toHaveFocus();
   });
+});
 */
