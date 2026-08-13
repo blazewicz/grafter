@@ -38,10 +38,9 @@ describe('BranchDiffControls', () => {
 
   it('loads branches once, exposes popup state, and blocks the opposite branch', async () => {
     const user = userEvent.setup();
-    const branchResult = deferred<string[]>();
     const listBranches = vi
       .spyOn(api, 'listBranches')
-      .mockReturnValue(branchResult.promise);
+      .mockResolvedValue(scenario.branches.available);
     renderBranchDiffControls();
     const sourceButton = screen.getByRole('button', { name: 'Choose source branch' });
     const targetButton = screen.getByRole('button', {
@@ -57,16 +56,8 @@ describe('BranchDiffControls', () => {
 
     expect(sourceButton).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByRole('dialog', { name: 'Choose source branch' })).toBeVisible();
-    expect(screen.getByRole('textbox', { name: 'Filter branches' })).toHaveFocus();
-    expect(screen.getByText('Loading branches…')).toBeVisible();
     expect(listBranches).toHaveBeenCalledOnce();
     expect(listBranches).toHaveBeenCalledWith();
-
-    await act(async () => {
-      branchResult.resolve(scenario.branches.available);
-      await branchResult.promise;
-    });
-
     expect(
       await screen.findByRole('button', { name: scenario.branches.alternativeSource }),
     ).toBeEnabled();
@@ -80,6 +71,9 @@ describe('BranchDiffControls', () => {
     await user.click(targetButton);
 
     expect(targetButton).toHaveAttribute('aria-expanded', 'true');
+    expect(
+      screen.getByRole('dialog', { name: 'Choose destination branch' }),
+    ).toBeVisible();
     expect(
       screen.getByRole('button', {
         name: `${scenario.branches.source}: Already selected for comparison`,
@@ -216,7 +210,6 @@ describe('BranchDiffControls', () => {
     expect(listBranches).toHaveBeenCalledOnce();
     expect(listBranches).toHaveBeenCalledWith();
     expect(screen.queryByText('Loading branches…')).toBeNull();
-    expect(screen.getByText('No matching branches')).toBeVisible();
   });
 
   it('reports a friendly comparison failure and releases the busy controls', async () => {

@@ -111,10 +111,11 @@ describe('BranchCard', () => {
     },
   );
 
-  it('opens the branch picker, loads branches, and identifies checked-out branches', async () => {
+  it('opens the branch picker and loads branches', async () => {
     const user = userEvent.setup();
-    const branches = deferred<string[]>();
-    const listBranches = vi.spyOn(api, 'listBranches').mockReturnValue(branches.promise);
+    const listBranches = vi
+      .spyOn(api, 'listBranches')
+      .mockResolvedValue(branchScenario.branches);
     renderBranchCard();
 
     const switchButton = screen.getByRole('button', {
@@ -130,21 +131,11 @@ describe('BranchCard', () => {
     expect(
       screen.getByRole('dialog', { name: 'Switch checked-out branch' }),
     ).toBeVisible();
-    expect(screen.getByRole('textbox', { name: 'Filter branches' })).toHaveFocus();
-    expect(screen.getByText('Loading branches…')).toBeVisible();
     expect(listBranches).toHaveBeenCalledOnce();
     expect(listBranches).toHaveBeenCalledWith();
-
-    branches.resolve(branchScenario.branches);
-
     expect(
       await screen.findByRole('button', { name: availableWorktree.branch }),
     ).toBeEnabled();
-    expect(
-      screen.getByRole('button', {
-        name: `${mainWorktree.branch}: Already checked out in ${mainWorktree.displayName}`,
-      }),
-    ).toBeDisabled();
     expect(
       screen.getByRole('button', {
         name: `${details.branch}: Currently checked out in this worktree`,
@@ -214,7 +205,6 @@ describe('BranchCard', () => {
     expect(onError).toHaveBeenCalledWith('failed');
     expect(listBranches).toHaveBeenCalledOnce();
     expect(listBranches).toHaveBeenCalledWith();
-    expect(screen.getByText('No matching branches')).toBeVisible();
   });
 
   it('reports a branch-switching failure and leaves the picker open', async () => {

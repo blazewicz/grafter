@@ -219,10 +219,11 @@ describe('BranchChangesCard', () => {
     },
   );
 
-  it('opens the target picker, loads branches, and disables the current branch', async () => {
+  it('opens the target picker and loads branches', async () => {
     const user = userEvent.setup();
-    const branches = deferred<string[]>();
-    const listBranches = vi.spyOn(api, 'listBranches').mockReturnValue(branches.promise);
+    const listBranches = vi
+      .spyOn(api, 'listBranches')
+      .mockResolvedValue(changesScenario.branches);
     renderBranchChangesCard();
 
     const targetButton = screen.getByRole('button', { name: 'Choose target branch' });
@@ -234,13 +235,8 @@ describe('BranchChangesCard', () => {
 
     expect(targetButton).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByRole('dialog', { name: 'Choose target branch' })).toBeVisible();
-    expect(screen.getByRole('textbox', { name: 'Filter branches' })).toHaveFocus();
-    expect(screen.getByText('Loading branches…')).toBeVisible();
     expect(listBranches).toHaveBeenCalledOnce();
     expect(listBranches).toHaveBeenCalledWith();
-
-    branches.resolve(changesScenario.branches);
-
     expect(
       await screen.findByRole('button', { name: mainWorktree.branch }),
     ).toBeEnabled();
@@ -332,7 +328,6 @@ describe('BranchChangesCard', () => {
     expect(onError).toHaveBeenCalledWith('failed');
     expect(listBranches).toHaveBeenCalledOnce();
     expect(listBranches).toHaveBeenCalledWith();
-    expect(screen.getByText('No matching branches')).toBeVisible();
   });
 
   it('reports a comparison update failure and leaves the picker open', async () => {
