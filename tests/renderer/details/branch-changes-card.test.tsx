@@ -380,6 +380,32 @@ describe('BranchChangesCard', () => {
     expect(targetButton).toHaveAttribute('aria-expanded', 'false');
   });
 
+  it('closes the target picker on outside pointerdown', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(api, 'listBranches').mockResolvedValue([]);
+    renderBranchChangesCard();
+
+    await user.click(screen.getByRole('button', { name: 'Choose target branch' }));
+    expect(screen.getByRole('dialog', { name: 'Choose target branch' })).toBeVisible();
+
+    await user.click(document.body);
+
+    expect(screen.queryByRole('dialog', { name: 'Choose target branch' })).toBeNull();
+  });
+
+  it('renders the target picker in-flow inside the trigger wrapper', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(api, 'listBranches').mockResolvedValue([]);
+    renderBranchChangesCard();
+
+    const targetButton = screen.getByRole('button', { name: 'Choose target branch' });
+    await user.click(targetButton);
+
+    const menu = screen.getByRole('dialog', { name: 'Choose target branch' });
+    expect(targetButton.parentElement).toContainElement(menu);
+    expect(menu.parentElement).not.toBe(document.body);
+  });
+
   it('notifies when a pull request base is unavailable locally', () => {
     vi.spyOn(api, 'listBranchCommits').mockReturnValue(new Promise(() => undefined));
     renderBranchChangesCard({

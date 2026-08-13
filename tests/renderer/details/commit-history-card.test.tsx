@@ -204,7 +204,8 @@ describe('CommitHistoryCard', () => {
       name: `View changes in ${newest.hash.slice(0, 7)}`,
     });
     expect(viewChangesButton).toBeVisible();
-    expect(viewChangesButton).toHaveAttribute('title', 'View commit changes');
+    await user.hover(viewChangesButton);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('View commit changes');
     await user.click(viewChangesButton);
 
     expect(onViewChanges).toHaveBeenCalledOnce();

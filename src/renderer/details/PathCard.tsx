@@ -16,6 +16,7 @@ import {
   VisualStudioCodeMark,
 } from '../ui/BrandMarks';
 import { CopyButton } from '../ui/CopyButton';
+import { QuickTooltip } from '../ui/QuickTooltip';
 import styles from './details.module.css';
 import { ToolPicker, type ToolPickerOption } from './ToolPicker';
 
@@ -107,14 +108,15 @@ export function PathCard({
         </div>
       </div>
       <div className={styles.pathActions}>
-        <button
-          className={styles.sectionActionButton}
-          title="Open directory"
-          aria-label="Open worktree directory"
-          onClick={() => reportActionError(api.openWorktreeDirectory(worktree.id))}
-        >
-          <FinderMark />
-        </button>
+        <QuickTooltip label="Open directory" showDelay={0}>
+          <button
+            className={styles.sectionActionButton}
+            aria-label="Open worktree directory"
+            onClick={() => reportActionError(api.openWorktreeDirectory(worktree.id))}
+          >
+            <FinderMark />
+          </button>
+        </QuickTooltip>
         <ToolPicker
           options={terminalOptions}
           selectedTool={toolPreferences.terminal}

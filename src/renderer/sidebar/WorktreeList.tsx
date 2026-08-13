@@ -6,7 +6,7 @@ import { filterWorktrees, sortWorktrees } from '../../shared/worktree-list';
 import type { WorktreeSortOrder } from '../../shared/worktree-list';
 import { PullRequestStateIcon } from '../ui/PullRequestStateIcon';
 import { HighlightedText } from '../ui/HighlightedText';
-import { SidebarTooltip } from './SidebarTooltip';
+import { QuickTooltip } from '../ui/QuickTooltip';
 import styles from './sidebar.module.css';
 
 export function WorktreeList({
@@ -108,42 +108,42 @@ function WorktreeRow({
       >
         <span className={styles.worktreeCopy}>
           <span className={styles.worktreeTopLine}>
-            <SidebarTooltip
+            <span
               className={styles.worktreeNameWrap}
-              label={
+              title={worktree.isMain ? `Main worktree · ${displayedPath}` : displayedPath}
+              data-worktree-path={worktree.path}
+            >
+              <span className={styles.worktreeName}>
                 <HighlightedText
                   text={worktree.displayName}
                   indexes={displayNameIndexes}
                 />
-              }
-              labelClassName={styles.worktreeName}
-              tooltip={
-                worktree.isMain ? `Main worktree · ${displayedPath}` : displayedPath
-              }
-              data-worktree-path={worktree.path}
-            />
+              </span>
+            </span>
             <WorktreeBadges status={status} worktree={worktree} />
           </span>
-          <SidebarTooltip
+          <span
             className={styles.branchNameWrap}
-            label={<HighlightedText text={worktree.branch} indexes={branchIndexes} />}
-            labelClassName={styles.branchName}
-            // onlyWhenTruncated
-            tooltip={worktree.branch}
+            title={worktree.branch}
             data-branch-name={worktree.branch}
-          />
+          >
+            <span className={styles.branchName}>
+              <HighlightedText text={worktree.branch} indexes={branchIndexes} />
+            </span>
+          </span>
         </span>
       </button>
       {!worktree.isMain && (
         <div className={styles.rowActions}>
-          <button
-            className={styles.dangerAction}
-            aria-label={`Remove ${worktree.displayName} worktree`}
-            title="Remove worktree"
-            onClick={() => onRemoveWorktree(worktree)}
-          >
-            <Trash2 size={13} />
-          </button>
+          <QuickTooltip label="Remove worktree" showDelay={0} align="right">
+            <button
+              className={styles.dangerAction}
+              aria-label={`Remove ${worktree.displayName} worktree`}
+              onClick={() => onRemoveWorktree(worktree)}
+            >
+              <Trash2 size={13} />
+            </button>
+          </QuickTooltip>
         </div>
       )}
     </div>

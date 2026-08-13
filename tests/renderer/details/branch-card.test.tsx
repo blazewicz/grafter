@@ -90,20 +90,26 @@ describe('BranchCard', () => {
       status: undefined,
       reason: 'Checking for local changes',
     },
-  ])('disables branch switching when the status is $status', ({ status, reason }) => {
-    renderBranchCard({ status });
+  ])(
+    'disables branch switching when the status is $status',
+    async ({ status, reason }) => {
+      const user = userEvent.setup();
+      renderBranchCard({ status });
 
-    const switchButton = screen.getByRole('button', {
-      name: `Switch branch unavailable: ${reason}`,
-    });
-    expect(switchButton).toBeVisible();
-    expect(switchButton).toHaveAttribute('aria-disabled', 'true');
-    expect(switchButton).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.getByRole('tooltip')).toHaveTextContent(reason);
-    expect(
-      screen.queryByRole('dialog', { name: 'Switch checked-out branch' }),
-    ).toBeNull();
-  });
+      const switchButton = screen.getByRole('button', {
+        name: `Switch branch unavailable: ${reason}`,
+      });
+      expect(switchButton).toBeVisible();
+      expect(switchButton).toHaveAttribute('aria-disabled', 'true');
+      expect(switchButton).toHaveAttribute('aria-expanded', 'false');
+
+      await user.hover(switchButton);
+      expect(await screen.findByRole('tooltip')).toHaveTextContent(reason);
+      expect(
+        screen.queryByRole('dialog', { name: 'Switch checked-out branch' }),
+      ).toBeNull();
+    },
+  );
 
   it('opens the branch picker, loads branches, and identifies checked-out branches', async () => {
     const user = userEvent.setup();

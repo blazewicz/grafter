@@ -1,6 +1,7 @@
 import { Check, ChevronDown } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { QuickTooltip } from '../ui/QuickTooltip';
 import styles from './ToolPicker.module.css';
 
 export interface ToolPickerOption<T extends string> {
@@ -70,11 +71,11 @@ export function ToolPicker<T extends string>({
     onLaunch(toolId);
   };
 
-  const openButtonTitle = disabled ? disabledReason : `Open in ${selectedLabel}`;
+  const openButtonLabel = disabled ? disabledReason : `Open in ${selectedLabel}`;
   const openButtonAriaLabel = disabled
     ? disabledAriaLabel
     : `${openLabelPrefix} ${selectedLabel}`;
-  const menuButtonTitle = disabled ? disabledReason : chooseLabel;
+  const menuButtonLabel = disabled ? disabledReason : chooseLabel;
   const menuButtonAriaLabel = disabled ? disabledAriaLabel : chooseAriaLabel;
 
   return (
@@ -84,26 +85,32 @@ export function ToolPicker<T extends string>({
       onKeyDown={handleKeyDown}
     >
       <div className={styles.toolSplitButton}>
-        <button
-          className={styles.toolOpenButton}
-          disabled={disabled}
-          title={openButtonTitle}
-          aria-label={openButtonAriaLabel}
-          onClick={() => selectedOption && launch(selectedOption.id)}
+        <QuickTooltip label={openButtonLabel} showDelay={0} align="right">
+          <button
+            className={styles.toolOpenButton}
+            disabled={disabled}
+            aria-label={openButtonAriaLabel}
+            onClick={() => selectedOption && launch(selectedOption.id)}
+          >
+            {selectedOption?.icon}
+          </button>
+        </QuickTooltip>
+        <QuickTooltip
+          label={menuOpen ? undefined : menuButtonLabel}
+          showDelay={0}
+          align="right"
         >
-          {selectedOption?.icon}
-        </button>
-        <button
-          className={styles.toolMenuButton}
-          disabled={disabled}
-          title={menuButtonTitle}
-          aria-label={menuButtonAriaLabel}
-          aria-haspopup="menu"
-          aria-expanded={menuOpen}
-          onClick={() => setMenuOpen((open) => !open)}
-        >
-          <ChevronDown size={compact ? 11 : 13} />
-        </button>
+          <button
+            className={styles.toolMenuButton}
+            disabled={disabled}
+            aria-label={menuButtonAriaLabel}
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((open) => !open)}
+          >
+            <ChevronDown size={compact ? 11 : 13} />
+          </button>
+        </QuickTooltip>
       </div>
       {menuOpen && (
         <div className={styles.toolMenu} role="menu">

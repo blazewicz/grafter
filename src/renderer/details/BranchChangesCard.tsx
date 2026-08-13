@@ -5,8 +5,7 @@ import {
   GitCompareArrows,
   LoaderCircle,
 } from 'lucide-react';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { useEffect, useRef, useState } from 'react';
 import type {
   Settings,
   Worktree,
@@ -16,6 +15,8 @@ import type {
 import { api, friendlyError } from '../grafter-api';
 import { BranchPicker } from '../branches/BranchPicker';
 import { CopyButton } from '../ui/CopyButton';
+import { QuickTooltip } from '../ui/QuickTooltip';
+import { useDismissOutside } from '../ui/useDismissOutside';
 import { CommitHistoryCard } from './CommitHistoryCard';
 import styles from './details.module.css';
 
@@ -26,14 +27,6 @@ interface LocalComparison extends WorktreeComparison {
   sourceAutomaticBaseBranch?: string;
   sourceAutomaticBaseBranchUnavailable?: boolean;
 }
-
-interface ComparisonMenuPosition {
-  left: number;
-  top: number;
-}
-
-const comparisonMenuWidth = 292;
-const comparisonMenuViewportMargin = 8;
 
 export function isLocalComparisonCurrent(
   comparison: LocalComparison | undefined,
@@ -77,9 +70,7 @@ export function BranchChangesCard({
   const [loadingBranches, setLoadingBranches] = useState(false);
   const [updatingComparison, setUpdatingComparison] = useState(false);
   const [localComparison, setLocalComparison] = useState<LocalComparison>();
-  const [menuPosition, setMenuPosition] = useState<ComparisonMenuPosition>();
   const comparisonPickerRef = useRef<HTMLDivElement>(null);
-  const comparisonMenuRef = useRef<HTMLDivElement>(null);
   const comparison = isLocalComparisonCurrent(localComparison, details)
     ? localComparison
     : details;
@@ -98,55 +89,11 @@ export function BranchChangesCard({
     ? 'Pull request base'
     : 'Repository default';
 
-  useEffect(() => {
-    if (!menuOpen) return;
-    const closeOnOutsideClick = (event: PointerEvent): void => {
-      const target = event.target as Node;
-      if (
-        !comparisonPickerRef.current?.contains(target) &&
-        !comparisonMenuRef.current?.contains(target)
-      ) {
-        setMenuOpen(false);
-      }
-    };
-    const closeOnEscape = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') setMenuOpen(false);
-    };
-    document.addEventListener('pointerdown', closeOnOutsideClick);
-    document.addEventListener('keydown', closeOnEscape);
-    return () => {
-      document.removeEventListener('pointerdown', closeOnOutsideClick);
-      document.removeEventListener('keydown', closeOnEscape);
-    };
-  }, [menuOpen]);
-
-  useLayoutEffect(() => {
-    if (!menuOpen) return;
-
-    const updateMenuPosition = (): void => {
-      const anchor = comparisonPickerRef.current?.getBoundingClientRect();
-      if (!anchor) return;
-      const maximumLeft = Math.max(
-        comparisonMenuViewportMargin,
-        window.innerWidth - comparisonMenuWidth - comparisonMenuViewportMargin,
-      );
-      setMenuPosition({
-        left: Math.min(
-          Math.max(anchor.left - 6, comparisonMenuViewportMargin),
-          maximumLeft,
-        ),
-        top: anchor.bottom + 5,
-      });
-    };
-
-    updateMenuPosition();
-    window.addEventListener('resize', updateMenuPosition);
-    document.addEventListener('scroll', updateMenuPosition, true);
-    return () => {
-      window.removeEventListener('resize', updateMenuPosition);
-      document.removeEventListener('scroll', updateMenuPosition, true);
-    };
-  }, [menuOpen]);
+  useDismissOutside({
+    open: menuOpen,
+    onClose: () => setMenuOpen(false),
+    refs: [comparisonPickerRef],
+  });
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -229,48 +176,39 @@ export function BranchChangesCard({
                 <code>{targetBranch ?? 'Choose a branch'}</code>
                 <ChevronDown size={13} />
               </button>
-              {menuOpen &&
-                typeof document !== 'undefined' &&
-                createPortal(
-                  <div
-                    ref={comparisonMenuRef}
-                    className={`${styles.comparisonMenu} ${styles.comparisonMenuPortal}`}
-                    role="dialog"
-                    aria-label="Choose target branch"
-                    style={{
-                      left: menuPosition?.left ?? 0,
-                      top: menuPosition?.top ?? 0,
-                      visibility: menuPosition ? 'visible' : 'hidden',
-                    }}
+              {menuOpen && (
+                <div
+                  className={styles.comparisonMenu}
+                  role="dialog"
+                  aria-label="Choose target branch"
+                >
+                  <button
+                    className={styles.automaticBaseButton}
+                    type="button"
+                    onClick={() => void setComparisonBase()}
                   >
-                    <button
-                      className={styles.automaticBaseButton}
-                      type="button"
-                      onClick={() => void setComparisonBase()}
-                    >
-                      <span>
-                        <strong>Automatic</strong>
-                        <small>
-                          {automaticBaseBranch ?? 'No default found'} · {automaticSource}
-                        </small>
-                      </span>
-                      {!comparisonBaseOverride && <Check size={13} />}
-                    </button>
-                    <div className={styles.comparisonMenuDivider} />
-                    <BranchPicker
-                      branches={branches}
-                      worktrees={projectWorktrees}
-                      {...(comparisonBaseOverride
-                        ? { selectedBranch: comparisonBaseOverride }
-                        : {})}
-                      disableCheckedOut={false}
-                      disabledBranches={[details.branch]}
-                      loading={loadingBranches}
-                      onSelect={(branch) => void setComparisonBase(branch)}
-                    />
-                  </div>,
-                  document.body,
-                )}
+                    <span>
+                      <strong>Automatic</strong>
+                      <small>
+                        {automaticBaseBranch ?? 'No default found'} · {automaticSource}
+                      </small>
+                    </span>
+                    {!comparisonBaseOverride && <Check size={13} />}
+                  </button>
+                  <div className={styles.comparisonMenuDivider} />
+                  <BranchPicker
+                    branches={branches}
+                    worktrees={projectWorktrees}
+                    {...(comparisonBaseOverride
+                      ? { selectedBranch: comparisonBaseOverride }
+                      : {})}
+                    disableCheckedOut={false}
+                    disabledBranches={[details.branch]}
+                    loading={loadingBranches}
+                    onSelect={(branch) => void setComparisonBase(branch)}
+                  />
+                </div>
+              )}
             </div>
             {targetBranch && (
               <CopyButton
@@ -283,19 +221,20 @@ export function BranchChangesCard({
             )}
           </div>
           {targetBranch && diffStats && onOpenDiff && (
-            <button
-              className={styles.sectionActionButton}
-              aria-label="View branch diff"
-              title="View branch diff"
-              disabled={diffOpening || updatingComparison}
-              onClick={onOpenDiff}
-            >
-              {diffOpening ? (
-                <LoaderCircle className="spin" size={14} />
-              ) : (
-                <FileDiff size={14} />
-              )}
-            </button>
+            <QuickTooltip label="View branch diff" showDelay={0} align="right">
+              <button
+                className={styles.sectionActionButton}
+                aria-label="View branch diff"
+                disabled={diffOpening || updatingComparison}
+                onClick={onOpenDiff}
+              >
+                {diffOpening ? (
+                  <LoaderCircle className="spin" size={14} />
+                ) : (
+                  <FileDiff size={14} />
+                )}
+              </button>
+            </QuickTooltip>
           )}
           {updatingComparison ? (
             <span className={styles.comparisonLoading}>

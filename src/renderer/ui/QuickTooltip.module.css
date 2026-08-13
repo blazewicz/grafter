@@ -1,0 +1,25 @@
+.wrapper {
+  position: relative;
+  display: inline-flex;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.tooltip {
+  z-index: 30;
+  position: fixed;
+  width: max-content;
+  max-width: 300px;
+  padding: 5px 7px;
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+  background: rgba(38, 39, 44, 0.99);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+  color: #d6d6d8;
+  font-size: 10.5px;
+  font-weight: 400;
+  line-height: 1.35;
+  letter-spacing: normal;
+  text-transform: none;
+  pointer-events: none;
+}
