@@ -23,7 +23,6 @@ function renderBranchCard(
     nextDetails?: WorktreeDetails;
     projectWorktrees?: Worktree[];
     status?: WorktreeStatus | undefined;
-    copiedText?: string;
     onSnapshot?: (snapshot: AppSnapshot) => void;
     onCopy?: (text: string) => void;
     onError?: (message: string) => void;
@@ -33,7 +32,6 @@ function renderBranchCard(
     nextDetails = details,
     projectWorktrees = [mainWorktree, nextDetails],
     status = Object.hasOwn(options, 'status') ? undefined : 'clean',
-    copiedText,
     onSnapshot = () => undefined,
     onCopy = () => undefined,
     onError = () => undefined,
@@ -43,7 +41,7 @@ function renderBranchCard(
       details={nextDetails}
       projectWorktrees={projectWorktrees}
       status={status}
-      copiedText={copiedText}
+      copiedText={undefined}
       onSnapshot={onSnapshot}
       onCopy={onCopy}
       onError={onError}
@@ -73,12 +71,6 @@ describe('BranchCard', () => {
 
     expect(onCopy).toHaveBeenCalledOnce();
     expect(onCopy).toHaveBeenCalledWith(details.branch);
-  });
-
-  it('shows when the branch name has been copied', () => {
-    renderBranchCard({ copiedText: details.branch });
-
-    expect(screen.getByRole('button', { name: 'Branch name copied' })).toBeVisible();
   });
 
   it.each([

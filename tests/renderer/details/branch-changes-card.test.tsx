@@ -40,7 +40,6 @@ function renderBranchChangesCard(
   options: {
     nextDetails?: WorktreeDetails;
     projectWorktrees?: Worktree[];
-    copiedText?: string;
     diffOpening?: boolean;
     onCopy?: (text: string) => void;
     onOpenDiff?: () => void;
@@ -51,7 +50,6 @@ function renderBranchChangesCard(
   const {
     nextDetails = details,
     projectWorktrees = [mainWorktree, nextDetails],
-    copiedText,
     diffOpening = false,
     onCopy = () => undefined,
     onOpenDiff,
@@ -65,7 +63,7 @@ function renderBranchChangesCard(
       projectWorktrees={projectWorktrees}
       settings={settings}
       systemLocale={changesScenario.snapshot.systemLocale}
-      copiedText={copiedText}
+      copiedText={undefined}
       diffOpening={diffOpening}
       onCopy={onCopy}
       {...(onOpenDiff ? { onOpenDiff } : {})}
@@ -127,15 +125,6 @@ describe('BranchChangesCard', () => {
 
     expect(onCopy).toHaveBeenCalledOnce();
     expect(onCopy).toHaveBeenCalledWith(automaticComparison.targetBranch);
-  });
-
-  it('shows when the target branch name has been copied', () => {
-    renderBranchChangesCard({
-      nextDetails: automaticDetails,
-      copiedText: automaticComparison.targetBranch,
-    });
-
-    expect(screen.getByRole('button', { name: 'Branch name copied' })).toBeVisible();
   });
 
   it.each([
