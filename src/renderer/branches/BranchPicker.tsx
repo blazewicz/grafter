@@ -43,16 +43,26 @@ export function BranchPicker({
     const needle = query.trim().toLocaleLowerCase();
     return fuzzysort
       .go(needle, branches, { limit: maximumVisibleBranches, threshold: 0 })
-      .map((result) => ({ branch: result.target, indexes: result.indexes }));
+      .map(({ target, indexes }) => ({ branch: target, indexes }));
   }, [branches, query]);
-  const available = useMemo(
+  const displayed = useMemo(
     () =>
-      filtered.filter(
-        ({ branch }) =>
-          !disabledBranches.includes(branch) &&
-          (!disableCheckedOut || checkedOutWorktree(worktrees, branch) === undefined),
-      ),
-    [disableCheckedOut, disabledBranches, filtered, worktrees],
+      filtered.map((base) => {
+        const checkedOut = checkedOutWorktree(worktrees, base.branch);
+        const disabledReason = disabledBranches.includes(base.branch)
+          ? 'Already selected for comparison'
+          : disableCheckedOut && checkedOut
+            ? checkedOut.id === currentWorktreeId
+              ? 'Currently checked out in this worktree'
+              : `Already checked out in ${checkedOut.displayName}`
+            : undefined;
+        return { ...base, disabledReason };
+      }),
+    [disableCheckedOut, disabledBranches, currentWorktreeId, worktrees, filtered],
+  );
+  const available = useMemo(
+    () => displayed.filter(({ disabledReason }) => disabledReason === undefined),
+    [displayed],
   );
 
   useEffect(() => {
@@ -71,12 +81,7 @@ export function BranchPicker({
   };
 
   const choose = (branch: string): void => {
-    if (
-      disabledBranches.includes(branch) ||
-      (disableCheckedOut && checkedOutWorktree(worktrees, branch))
-    ) {
-      return;
-    }
+    if (!available.find((next) => next.branch === branch)) return;
     onSelect(branch);
   };
 
@@ -137,43 +142,19 @@ export function BranchPicker({
         />
       </div>
       <div className={styles.results}>
-        {filtered.map(({ branch, indexes }) => {
-          const checkedOut = checkedOutWorktree(worktrees, branch);
-          const disabledReason = disabledBranches.includes(branch)
-            ? 'Already selected for comparison'
-            : disableCheckedOut && checkedOut
-              ? checkedOut.id === currentWorktreeId
-                ? 'Currently checked out in this worktree'
-                : `Already checked out in ${checkedOut.displayName}`
-              : undefined;
-          return (
-            <button
-              key={branch}
-              ref={(element) => {
-                itemRefs.current.set(branch, element);
-              }}
-              type="button"
-              disabled={disabledReason !== undefined}
-              title={disabledReason}
-              aria-label={disabledReason ? `${branch}: ${disabledReason}` : branch}
-              className={
-                selectedBranch === branch || effectiveActiveBranch === branch
-                  ? styles.chosen
-                  : ''
-              }
-              onPointerMove={() => {
-                if (!disabledReason) setActiveBranch(branch);
-              }}
-              onClick={() => choose(branch)}
-            >
-              <GitBranch size={12} />
-              <span>
-                <HighlightedText text={branch} indexes={indexes} />
-              </span>
-              {selectedBranch === branch && <Check size={12} />}
-            </button>
-          );
-        })}
+        {displayed.map(({ branch, indexes, disabledReason }) => (
+          <BranchRow
+            key={branch}
+            branch={branch}
+            indexes={indexes}
+            selected={selectedBranch === branch}
+            disabledReason={disabledReason}
+            effectiveActiveBranch={effectiveActiveBranch}
+            setActiveBranch={() => setActiveBranch(branch)}
+            choose={() => choose(branch)}
+            registerItemRef={(element) => itemRefs.current.set(branch, element)}
+          />
+        ))}
         {loading && !branches.length ? (
           <div className={styles.message}>
             <LoaderCircle className="spin" size={12} /> Loading branches…
@@ -183,6 +164,47 @@ export function BranchPicker({
         )}
       </div>
     </div>
+  );
+}
+
+function BranchRow({
+  branch,
+  indexes,
+  selected,
+  disabledReason,
+  effectiveActiveBranch,
+  setActiveBranch,
+  choose,
+  registerItemRef,
+}: {
+  branch: string;
+  indexes: readonly number[];
+  selected: boolean;
+  disabledReason: string | undefined;
+  effectiveActiveBranch: string | undefined;
+  setActiveBranch: () => void;
+  choose: () => void;
+  registerItemRef: (element: HTMLButtonElement | null) => void;
+}): React.JSX.Element {
+  return (
+    <button
+      ref={(element) => registerItemRef(element)}
+      type="button"
+      disabled={disabledReason !== undefined}
+      title={disabledReason}
+      aria-label={disabledReason ? `${branch}: ${disabledReason}` : branch}
+      className={selected || effectiveActiveBranch === branch ? styles.chosen : ''}
+      onPointerMove={() => {
+        if (!disabledReason) setActiveBranch();
+      }}
+      onClick={choose}
+    >
+      <GitBranch size={12} />
+      <span>
+        <HighlightedText text={branch} indexes={indexes} />
+      </span>
+      {selected && <Check size={12} />}
+    </button>
   );
 }
 
