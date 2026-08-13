@@ -21,7 +21,6 @@ export const ipc = {
   diffFile: 'grafter:diff-file',
   closeDiff: 'grafter:close-diff',
   refreshPullRequest: 'grafter:refresh-pull-request',
-  worktreeStatus: 'grafter:worktree-status',
   updateSettings: 'grafter:update-settings',
   setToolPreference: 'grafter:set-tool-preference',
   updateRepositorySetup: 'grafter:update-repository-setup',

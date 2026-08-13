@@ -200,6 +200,7 @@ export interface Worktree {
   path: string;
   branch: string;
   pullRequest?: PullRequest;
+  status?: WorktreeStatus;
   head: string;
   isMain: boolean;
   locked: boolean;
@@ -301,7 +302,6 @@ export interface GrafterApi {
   getDiffFile(request: DiffFileRequest): Promise<DiffFilePatch>;
   closeDiff(sessionId: string): Promise<void>;
   refreshPullRequest(worktreeId: string): Promise<PullRequest | undefined>;
-  getWorktreeStatus(worktreeId: string): Promise<WorktreeStatus>;
   updateSettings(settings: Settings): Promise<AppSnapshot>;
   setToolPreference(group: ToolPickerGroup, tool: string): Promise<AppSnapshot>;
   updateRepositorySetup(script: string): Promise<AppSnapshot>;

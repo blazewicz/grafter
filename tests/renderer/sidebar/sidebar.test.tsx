@@ -27,7 +27,6 @@ function renderSidebar(options: RenderSidebarOptions = {}): void {
       repository={scenario.repository}
       width={options.width ?? defaultSidebarWidth}
       selectedId={options.selectedId}
-      selectedWorktreeStatus={undefined}
       onSelect={options.onSelect ?? (() => undefined)}
       onAddWorktree={options.onAddWorktree ?? (() => undefined)}
       onRemoveWorktree={options.onRemoveWorktree ?? (() => undefined)}

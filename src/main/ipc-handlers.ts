@@ -125,9 +125,6 @@ export function registerIpcHandlers(dependencies: IpcHandlerDependencies): void 
   ipcMain.handle(ipc.refreshPullRequest, (event, worktreeId: string) =>
     sessions.resolve(event.sender).service.refreshPullRequest(worktreeId),
   );
-  ipcMain.handle(ipc.worktreeStatus, (event, worktreeId: string) =>
-    sessions.resolve(event.sender).service.worktreeStatus(worktreeId),
-  );
   ipcMain.handle(ipc.updateSettings, (event, settings: Settings) => {
     sessions.resolve(event.sender);
     return windowManager.updateSettings(event.sender, settings);

@@ -31,7 +31,6 @@ function renderApp(snapshot: Promise<AppSnapshot>): void {
 function stubRepositoryWindowApis(snapshot: RepositoryWindowSnapshot) {
   const refresh = vi.spyOn(api, 'refresh').mockResolvedValue(snapshot);
   vi.spyOn(api, 'getCommandLog').mockResolvedValue([]);
-  vi.spyOn(api, 'getWorktreeStatus').mockResolvedValue('clean');
   const getWorktreeDetails = vi
     .spyOn(api, 'getWorktreeDetails')
     .mockImplementation((worktreeId) => {
@@ -138,7 +137,6 @@ describe('App welcome state', () => {
     const getWorktreeDetails = vi
       .spyOn(api, 'getWorktreeDetails')
       .mockReturnValue(new Promise(() => undefined));
-    vi.spyOn(api, 'getWorktreeStatus').mockReturnValue(new Promise(() => undefined));
     vi.spyOn(api, 'getCommandLog').mockResolvedValue([]);
 
     renderApp(Promise.resolve(selectedSnapshot));
@@ -234,7 +232,6 @@ describe('App welcome state', () => {
     });
     vi.spyOn(api, 'refresh').mockResolvedValue(first);
     vi.spyOn(api, 'getCommandLog').mockResolvedValue([]);
-    vi.spyOn(api, 'getWorktreeStatus').mockResolvedValue('clean');
     const getWorktreeDetails = vi
       .spyOn(api, 'getWorktreeDetails')
       .mockImplementation((worktreeId) => {

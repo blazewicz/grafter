@@ -13,7 +13,6 @@ export function WorktreeList({
   homeDirectory,
   project,
   selectedId,
-  selectedWorktreeStatus,
   sortOrder,
   filterQuery,
   flat = false,
@@ -23,7 +22,6 @@ export function WorktreeList({
   homeDirectory: string;
   project: Project;
   selectedId: string | undefined;
-  selectedWorktreeStatus: WorktreeStatus | undefined;
   sortOrder: WorktreeSortOrder;
   filterQuery: string;
   flat?: boolean;
@@ -51,7 +49,7 @@ export function WorktreeList({
               displayNameIndexes={displayNameIndexes}
               branchIndexes={branchIndexes}
               selected={selectedId === worktree.id}
-              status={selectedId === worktree.id ? selectedWorktreeStatus : undefined}
+              status={worktree.status}
               onSelect={onSelect}
               onRemoveWorktree={onRemoveWorktree}
             />

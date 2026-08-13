@@ -12,7 +12,6 @@ import type {
   ToolPickerGroup,
   WorktreeComparison,
   WorktreeDetails,
-  WorktreeStatus,
 } from '../shared/contracts';
 import { isSettings } from '../shared/settings';
 import type { ApplicationRuntime } from './application-runtime';
@@ -47,7 +46,6 @@ export interface WindowSessionService {
   refreshPullRequest(
     worktreeId: string,
   ): ReturnType<RepositoryService['refreshPullRequest']>;
-  worktreeStatus(worktreeId: string): Promise<WorktreeStatus>;
   updateSettings(settings: Settings): Promise<AppSnapshot>;
   setToolPreference(group: ToolPickerGroup, tool: string): Promise<AppSnapshot>;
   updateRepositorySetup(script: string): Promise<AppSnapshot>;
@@ -161,7 +159,10 @@ export class RepositoryWindowSession implements WindowSessionService {
   }
 
   async refresh(): Promise<AppSnapshot> {
-    await this.repository.refresh({ useGlobalRefreshLimit: true });
+    await this.repository.refresh({
+      useGlobalRefreshLimit: true,
+      hydrateWorktreeStatuses: true,
+    });
     return this.snapshot();
   }
 
@@ -244,10 +245,6 @@ export class RepositoryWindowSession implements WindowSessionService {
     worktreeId: string,
   ): ReturnType<RepositoryService['refreshPullRequest']> {
     return this.repository.refreshPullRequest(worktreeId);
-  }
-
-  worktreeStatus(worktreeId: string): Promise<WorktreeStatus> {
-    return this.repository.worktreeStatus(worktreeId);
   }
 
   async updateSettings(settings: Settings): Promise<AppSnapshot> {
@@ -425,10 +422,6 @@ export class WelcomeWindowSession implements WindowSessionService {
   }
 
   refreshPullRequest(): ReturnType<RepositoryService['refreshPullRequest']> {
-    return this.#unavailable();
-  }
-
-  worktreeStatus(): Promise<WorktreeStatus> {
     return this.#unavailable();
   }
 

@@ -4,7 +4,7 @@ import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { WorktreeList } from '../../../src/renderer/sidebar/WorktreeList';
-import type { Project, Worktree, WorktreeStatus } from '../../../src/shared/contracts';
+import type { Project, Worktree } from '../../../src/shared/contracts';
 import type { WorktreeSortOrder } from '../../../src/shared/worktree-list';
 import {
   mainWorktreeFactory,
@@ -19,7 +19,6 @@ const scenario = buildRepositoryWorktreesScenario();
 interface RenderWorktreeListOptions {
   project?: Project;
   selectedId?: string;
-  selectedWorktreeStatus?: WorktreeStatus;
   sortOrder?: WorktreeSortOrder;
   filterQuery?: string;
   onSelect?: (id: string) => void;
@@ -32,7 +31,6 @@ function renderWorktreeList(options: RenderWorktreeListOptions = {}): void {
       homeDirectory={scenario.homeDirectory}
       project={options.project ?? scenario.repository}
       selectedId={options.selectedId}
-      selectedWorktreeStatus={options.selectedWorktreeStatus}
       sortOrder={options.sortOrder ?? 'path'}
       filterQuery={options.filterQuery ?? ''}
       onSelect={options.onSelect ?? (() => undefined)}
@@ -195,12 +193,44 @@ describe('WorktreeList', () => {
     }
   });
 
-  it('shows available dirty and pull request badges in the worktree top line', () => {
-    const worktree = scenario.selectableWorktree;
-    renderWorktreeList({
-      selectedId: worktree.id,
-      selectedWorktreeStatus: 'dirty',
+  it('shows dirty badges for every dirty worktree, not only the selected one', () => {
+    const projectId = 'grafter';
+    const projectConfig = projectConfigFactory.build({ id: projectId, name: projectId });
+    const dirty = worktreeFactory.build({ projectId, status: 'dirty' });
+    const clean = worktreeFactory.build({ projectId, status: 'clean' });
+    const project = projectFactory.build(projectConfig, {
+      associations: { worktrees: [dirty, clean] },
     });
+
+    renderWorktreeList({
+      project,
+      selectedId: clean.id,
+    });
+
+    const dirtyButton = worktreeButton(dirty);
+    expect(
+      within(dirtyButton).getByRole('img', { name: 'Dirty worktree' }),
+    ).toHaveAttribute('title', 'Uncommitted changes');
+    expect(
+      within(worktreeButton(clean)).queryByRole('img', { name: 'Dirty worktree' }),
+    ).toBeNull();
+  });
+
+  it('shows pull request badges next to dirty badges', () => {
+    const worktree = scenario.selectableWorktree;
+    const project = projectFactory.build(
+      {
+        id: scenario.repository.id,
+        name: scenario.repository.name,
+        path: scenario.repository.path,
+      },
+      {
+        associations: {
+          worktrees: [{ ...worktree, status: 'dirty' }],
+        },
+      },
+    );
+    renderWorktreeList({ project });
 
     const button = worktreeButton(worktree);
     expect(within(button).getByRole('img', { name: 'Dirty worktree' })).toHaveAttribute(

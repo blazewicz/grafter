@@ -96,9 +96,13 @@ describe('RepositoryWindowSession isolation', () => {
     let active = 0;
     let maximumActive = 0;
     const runner = new StubCommandRunner(async (spec) => {
-      if (spec.tool !== 'git' || spec.args[0] !== 'worktree') {
+      if (
+        spec.tool !== 'git' ||
+        (spec.args[0] !== 'worktree' && spec.args[0] !== 'status')
+      ) {
         throw new Error('Unexpected command.');
       }
+      if (spec.args[0] === 'status') return { stdout: '' };
       started += 1;
       active += 1;
       maximumActive = Math.max(maximumActive, active);

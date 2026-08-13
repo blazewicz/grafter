@@ -58,6 +58,7 @@ const gardenPreviewProject: Project = {
       displayName: 'main',
       path: '/Users/kasia/Code/garden-api',
       branch: 'main',
+      status: 'clean',
       head: '051dce3',
       isMain: true,
       locked: false,
@@ -154,6 +155,7 @@ let snapshot: AppSnapshot = {
         head: '3e7cb81',
         isMain: true,
         locked: false,
+        status: 'clean',
       },
       {
         id: 'grafter:glass',
@@ -171,6 +173,7 @@ let snapshot: AppSnapshot = {
         head: 'cf91e24',
         isMain: false,
         locked: false,
+        status: 'clean',
       },
       {
         id: 'grafter:audit',
@@ -178,6 +181,7 @@ let snapshot: AppSnapshot = {
         displayName: 'audit-console',
         path: '/Users/kasia/Code/grafter.worktrees/audit-console',
         branch: 'audit-console',
+        status: 'dirty',
         pullRequest: {
           number: 47,
           title: 'Add the audit console',
@@ -371,7 +375,6 @@ let commands: CommandRecord[] = [
   },
 ];
 const commandListeners = new Set<(record: CommandRecord) => void>();
-let previewCommandSequence = 0;
 
 const details: Record<string, WorktreeDetails> = {
   'grafter:main': {
@@ -1026,49 +1029,6 @@ export const previewApi: GrafterApi = {
       (worktree) => worktree.id === worktreeId,
     )?.pullRequest;
     return Promise.resolve(pullRequest ? structuredClone(pullRequest) : undefined);
-  },
-  getWorktreeStatus: (worktreeId) => {
-    const worktree = repositorySnapshot().repository.worktrees.find(
-      (item) => item.id === worktreeId,
-    );
-    if (!worktree) return Promise.reject(new Error('Worktree not found.'));
-
-    previewCommandSequence += 1;
-    const startedAt = new Date().toISOString();
-    const command: CommandRecord = {
-      id: `preview-status-${previewCommandSequence}`,
-      context: {
-        kind: 'worktree',
-        projectId: worktree.projectId,
-        worktreeId: worktree.id,
-      },
-      tool: 'git',
-      executable: 'git',
-      args: ['status', '--porcelain=v1', '--untracked-files=normal'],
-      cwd: worktree.path,
-      displayCommand: 'git status --porcelain=v1 --untracked-files=normal',
-      purpose: `Check ${worktree.displayName} worktree status`,
-      isReadOnly: true,
-      status: 'running',
-      requiresApproval: false,
-      startedAt,
-      output: [],
-    };
-    updateCommand(command);
-
-    return new Promise<'clean' | 'dirty'>((resolve) => {
-      window.setTimeout(() => {
-        const finishedAt = new Date().toISOString();
-        updateCommand({
-          ...command,
-          status: 'succeeded',
-          finishedAt,
-          durationMs: 240,
-          exitCode: 0,
-        });
-        resolve(worktreeId === 'grafter:audit' ? 'dirty' : 'clean');
-      }, 240);
-    });
   },
   updateSettings: (settings) => {
     if (snapshot.kind === 'loading') return Promise.resolve(snapshot);

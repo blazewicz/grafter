@@ -6,7 +6,6 @@ import type {
   ToolPickerGroup,
   Worktree,
   WorktreeDetails,
-  WorktreeStatus,
 } from '../../shared/contracts';
 import { ProjectDetailsView } from './ProjectDetailsView';
 import { WelcomeView } from './WelcomeView';
@@ -21,7 +20,6 @@ export function MainView({
   selectedWorktree,
   details,
   projectWorktrees,
-  status,
   toolPreferences,
   onSetToolPreference,
   onSnapshot,
@@ -39,7 +37,6 @@ export function MainView({
   selectedWorktree: Worktree | undefined;
   details: WorktreeDetails | undefined;
   projectWorktrees: Worktree[];
-  status: WorktreeStatus | undefined;
   toolPreferences: Record<ToolPickerGroup, string>;
   onSetToolPreference: (group: ToolPickerGroup, tool: string) => void;
   onSnapshot: (snapshot: AppSnapshot) => void;
@@ -59,7 +56,7 @@ export function MainView({
           systemLocale={systemLocale}
           details={details}
           projectWorktrees={projectWorktrees}
-          status={status}
+          status={selectedWorktree?.status}
           toolPreferences={toolPreferences}
           onSetToolPreference={onSetToolPreference}
           onSnapshot={onSnapshot}
