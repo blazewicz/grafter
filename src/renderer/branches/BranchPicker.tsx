@@ -38,6 +38,7 @@ export function BranchPicker({
   const [query, setQuery] = useState('');
   const [activeBranch, setActiveBranch] = useState<string>();
   const inputRef = useRef<HTMLInputElement>(null);
+  const itemRefs = useRef(new Map<string, HTMLButtonElement | null>());
   const filtered = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase();
     return fuzzysort
@@ -63,6 +64,12 @@ export function BranchPicker({
       ? activeBranch
       : available[0]?.branch;
 
+  const activateFromKeyboard = (branch: string): void => {
+    if (branch === effectiveActiveBranch) return;
+    setActiveBranch(branch);
+    itemRefs.current.get(branch)?.scrollIntoView({ block: 'nearest' });
+  };
+
   const choose = (branch: string): void => {
     if (
       disabledBranches.includes(branch) ||
@@ -80,7 +87,7 @@ export function BranchPicker({
       : -1;
     const nextIndex = nextWrapIndex(currentIndex, offset, available.length);
     const nextBranch = available[nextIndex]?.branch;
-    if (nextBranch) setActiveBranch(nextBranch);
+    if (nextBranch) activateFromKeyboard(nextBranch);
   };
 
   const handleKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>): void => {
@@ -91,11 +98,11 @@ export function BranchPicker({
     } else if (action?.kind === 'home') {
       event.preventDefault();
       const first = available[0];
-      if (first) setActiveBranch(first.branch);
+      if (first) activateFromKeyboard(first.branch);
     } else if (action?.kind === 'end') {
       event.preventDefault();
       const last = available[available.length - 1];
-      if (last) setActiveBranch(last.branch);
+      if (last) activateFromKeyboard(last.branch);
     } else if (
       action?.kind === 'select' &&
       event.key === 'Enter' &&
@@ -135,6 +142,9 @@ export function BranchPicker({
           return (
             <button
               key={branch}
+              ref={(element) => {
+                itemRefs.current.set(branch, element);
+              }}
               type="button"
               disabled={disabledReason !== undefined}
               title={disabledReason}

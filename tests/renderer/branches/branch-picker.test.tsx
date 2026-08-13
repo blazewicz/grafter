@@ -179,6 +179,66 @@ describe('BranchPicker', () => {
     expect(onSelect).toHaveBeenCalledWith('feature/three');
   });
 
+  it('scrolls the keyboard selection into view', async () => {
+    const user = userEvent.setup();
+    const scrollIntoView = vi.spyOn(Element.prototype, 'scrollIntoView');
+    renderBranchPicker({
+      branches: ['feature/one', 'feature/two', 'feature/three'],
+      worktrees: [],
+    });
+
+    await user.keyboard('{ArrowDown}');
+    await user.keyboard('{End}');
+
+    expect(scrollIntoView).toHaveBeenCalledTimes(2);
+    expect(scrollIntoView).toHaveBeenLastCalledWith({ block: 'nearest' });
+    expect(scrollIntoView.mock.contexts[1]).toBe(
+      screen.getByRole('button', { name: 'feature/three' }),
+    );
+  });
+
+  it('does not scroll when the selection moves under the pointer', async () => {
+    const user = userEvent.setup();
+    const scrollIntoView = vi.spyOn(Element.prototype, 'scrollIntoView');
+    renderBranchPicker({
+      branches: ['feature/one', 'feature/two', 'feature/three'],
+      worktrees: [],
+    });
+
+    await user.hover(screen.getByRole('button', { name: 'feature/three' }));
+
+    expect(scrollIntoView).not.toHaveBeenCalled();
+  });
+
+  it('does not scroll on a no-op keyboard move', async () => {
+    const user = userEvent.setup();
+    const scrollIntoView = vi.spyOn(Element.prototype, 'scrollIntoView');
+    renderBranchPicker({
+      branches: ['feature/one'],
+      worktrees: [],
+    });
+
+    await user.keyboard('{End}');
+
+    expect(scrollIntoView).not.toHaveBeenCalled();
+  });
+
+  it('keeps hover scroll-free after a keyboard move', async () => {
+    const user = userEvent.setup();
+    const scrollIntoView = vi.spyOn(Element.prototype, 'scrollIntoView');
+    renderBranchPicker({
+      branches: ['feature/one', 'feature/two', 'feature/three'],
+      worktrees: [],
+    });
+
+    await user.keyboard('{ArrowDown}');
+    expect(scrollIntoView).toHaveBeenCalledOnce();
+
+    await user.hover(screen.getByRole('button', { name: 'feature/three' }));
+
+    expect(scrollIntoView).toHaveBeenCalledOnce();
+  });
+
   it('ranks tighter fuzzy matches ahead of scattered ones', async () => {
     const user = userEvent.setup();
     renderBranchPicker({
