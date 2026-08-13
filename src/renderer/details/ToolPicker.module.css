@@ -98,8 +98,11 @@
   text-align: left;
 }
 
-.tool-menu button:hover {
-  background: rgba(255, 255, 255, 0.065);
+.tool-menu button:hover,
+.tool-menu button:focus-visible {
+  outline: 0;
+  background: rgba(118, 123, 168, 0.24);
+  color: #f0f0f3;
 }
 
 .tool-menu button span {

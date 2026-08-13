@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import type { WorktreeSortOrder } from '../../shared/worktree-list';
 import controls from '../styles/controls.module.css';
+import { menuKeyAction, nextWrapIndex } from '../ui/menu-navigation';
 import { QuickTooltip } from '../ui/QuickTooltip';
 import { useDismissOutside } from '../ui/useDismissOutside';
 import styles from './sidebar.module.css';
@@ -43,12 +44,13 @@ export function WorktreeSortMenu({
   };
 
   const handleMenuKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
-    if (event.key === 'Escape') {
+    const action = menuKeyAction(event.key);
+    if (action?.kind === 'close') {
       event.preventDefault();
       closeAndRestoreFocus();
       return;
     }
-    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+    if (!action || action.kind === 'select') return;
     const items = [
       ...(menuRef.current?.querySelectorAll<HTMLButtonElement>('button') ?? []),
     ];
@@ -56,13 +58,11 @@ export function WorktreeSortMenu({
     event.preventDefault();
     const currentIndex = items.indexOf(document.activeElement as HTMLButtonElement);
     const nextIndex =
-      event.key === 'Home'
-        ? 0
-        : event.key === 'End'
-          ? items.length - 1
-          : event.key === 'ArrowDown'
-            ? (currentIndex + 1 + items.length) % items.length
-            : (currentIndex - 1 + items.length) % items.length;
+      action.kind === 'move'
+        ? nextWrapIndex(currentIndex, action.offset, items.length)
+        : action.kind === 'home'
+          ? 0
+          : items.length - 1;
     items[nextIndex]?.focus();
   };
 
