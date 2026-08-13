@@ -4,7 +4,11 @@ import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-libra
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '../../../src/renderer/grafter-api';
-import type { DiffFileSummary, DiffSession } from '../../../src/shared/contracts';
+import type {
+  DiffFileSummary,
+  DiffLine,
+  DiffSession,
+} from '../../../src/shared/contracts';
 import {
   getDiffLineRow,
   getFileSection,
@@ -17,6 +21,112 @@ import {
 } from './diff-viewer-test-harness';
 
 let intersectionObservers: IntersectionObserverHarness;
+
+const fileDerivationCases = [
+  {
+    name: 'added file',
+    file: scenario.files.added,
+    expected: scenario.expected.addedFile,
+  },
+  {
+    name: 'renamed file',
+    file: scenario.files.renamed,
+    expected: scenario.expected.renamedFile,
+  },
+  {
+    name: 'deleted file',
+    file: scenario.files.deleted,
+    expected: scenario.expected.deletedFile,
+  },
+] as const satisfies readonly {
+  name: string;
+  file: DiffFileSummary;
+  expected: { path: string; githubUrl: string };
+}[];
+
+const lineDerivationCases = [
+  {
+    name: 'context line',
+    line: scenario.lines.context,
+    expected: scenario.expected.contextLine,
+  },
+  {
+    name: 'addition line',
+    line: scenario.lines.addition,
+    expected: scenario.expected.additionLine,
+  },
+  {
+    name: 'deletion line',
+    line: scenario.lines.deletion,
+    expected: scenario.expected.deletionLine,
+  },
+] as const satisfies readonly {
+  name: string;
+  line: DiffLine;
+  expected: { path: string; reference: string; githubUrl: string };
+}[];
+
+interface MenuRejectionCase {
+  label: string;
+  apiMethod: 'copyText' | 'openDiffFileInEditor' | 'openExternal';
+  message: string;
+  expectedArgs: readonly unknown[];
+}
+
+const fileRejectionCases = [
+  {
+    label: 'Copy Relative Path',
+    apiMethod: 'copyText',
+    message: 'file copy failed',
+    expectedArgs: [scenario.expected.addedFile.path],
+  },
+  {
+    label: 'Open in VS Code',
+    apiMethod: 'openDiffFileInEditor',
+    message: 'file editor failed',
+    expectedArgs: [
+      {
+        sessionId: scenario.branchSession.id,
+        fileId: scenario.files.added.id,
+        editor: 'vscode',
+      },
+    ],
+  },
+  {
+    label: 'Open on GitHub',
+    apiMethod: 'openExternal',
+    message: 'file external failed',
+    expectedArgs: [scenario.expected.addedFile.githubUrl],
+  },
+] as const satisfies readonly MenuRejectionCase[];
+
+const lineRejectionCases = [
+  {
+    label: 'Copy',
+    apiMethod: 'copyText',
+    message: 'line copy failed',
+    expectedArgs: [scenario.lines.addition.text],
+  },
+  {
+    label: 'Open in VS Code at Line',
+    apiMethod: 'openDiffFileInEditor',
+    message: 'line editor failed',
+    expectedArgs: [
+      {
+        sessionId: scenario.branchSession.id,
+        fileId: scenario.files.renamed.id,
+        editor: 'vscode',
+        line: scenario.lines.addition.newLine,
+      },
+    ],
+  },
+  {
+    label: 'Open on GitHub',
+    apiMethod: 'openExternal',
+    message: 'line external failed',
+    expectedArgs: [scenario.expected.additionLine.githubUrl],
+  },
+] as const satisfies readonly MenuRejectionCase[];
 
 function callbacks(onError: (message: string) => void = () => undefined) {
   return {
@@ -34,6 +144,20 @@ function treeFile(file: DiffFileSummary): HTMLElement {
 
 function menuItem(menu: HTMLElement, name: string): HTMLElement {
   return within(menu).getByRole('menuitem', { name });
+}
+
+async function clickFileAction(anchor: HTMLElement, label: string): Promise<void> {
+  fireEvent.contextMenu(anchor);
+  await userEvent
+    .setup()
+    .click(menuItem(screen.getByRole('menu', { name: 'Diff file actions' }), label));
+}
+
+async function clickLineAction(anchor: HTMLElement, label: string): Promise<void> {
+  fireEvent.contextMenu(anchor);
+  await userEvent
+    .setup()
+    .click(menuItem(screen.getByRole('menu', { name: 'Diff line actions' }), label));
 }
 
 function sessionWithoutGitHub(session: DiffSession): DiffSession {
@@ -105,81 +229,65 @@ describe('DiffViewer integrated file context menu', () => {
     vi.unstubAllGlobals();
   });
 
-  it.each([
-    {
-      name: 'added file',
-      file: scenario.files.added,
-      expected: scenario.expected.addedFile,
-    },
-    {
-      name: 'renamed file',
-      file: scenario.files.renamed,
-      expected: scenario.expected.renamedFile,
-    },
-    {
-      name: 'deleted file',
-      file: scenario.files.deleted,
-      expected: scenario.expected.deletedFile,
-    },
-  ])(
-    'derives the exact path, revision, and GitHub URL for a $name',
+  it.each(fileDerivationCases)(
+    'copies the exact relative path for a $name',
     async ({ file, expected }) => {
-      const user = userEvent.setup();
       const copyText = vi.spyOn(api, 'copyText').mockResolvedValue(undefined);
+      renderDiffViewer();
+      const anchor = treeFile(file);
+
+      expect(anchor).toBeVisible();
+      await clickFileAction(anchor, 'Copy Relative Path');
+
+      expect(copyText).toHaveBeenCalledOnce();
+      expect(copyText).toHaveBeenCalledWith(expected.path);
+    },
+  );
+
+  it.each(fileDerivationCases)(
+    'opens the exact GitHub URL for a $name',
+    async ({ file, expected }) => {
       const openExternal = vi.spyOn(api, 'openExternal').mockResolvedValue(undefined);
       renderDiffViewer();
       const anchor = treeFile(file);
 
       expect(anchor).toBeVisible();
-      fireEvent.contextMenu(anchor);
-      let menu = screen.getByRole('menu', { name: 'Diff file actions' });
-      let action = menuItem(menu, 'Copy Relative Path');
-      expect(action).toBeVisible();
-      await user.click(action);
-
-      expect(copyText).toHaveBeenCalledOnce();
-      expect(copyText).toHaveBeenCalledWith(expected.path);
-
-      fireEvent.contextMenu(anchor);
-      menu = screen.getByRole('menu', { name: 'Diff file actions' });
-      action = menuItem(menu, 'Open on GitHub');
-      expect(action).toBeVisible();
-      await user.click(action);
+      await clickFileAction(anchor, 'Open on GitHub');
 
       expect(openExternal).toHaveBeenCalledOnce();
       expect(openExternal).toHaveBeenCalledWith(expected.githubUrl);
+    },
+  );
 
-      fireEvent.contextMenu(anchor);
-      menu = screen.getByRole('menu', { name: 'Diff file actions' });
-      action = menuItem(menu, 'Copy GitHub Permalink');
-      expect(action).toBeVisible();
-      await user.click(action);
+  it.each(fileDerivationCases)(
+    'copies the exact GitHub permalink for a $name',
+    async ({ file, expected }) => {
+      const copyText = vi.spyOn(api, 'copyText').mockResolvedValue(undefined);
+      renderDiffViewer();
+      const anchor = treeFile(file);
 
-      expect(copyText).toHaveBeenCalledTimes(2);
-      expect(copyText).toHaveBeenNthCalledWith(2, expected.githubUrl);
+      expect(anchor).toBeVisible();
+      await clickFileAction(anchor, 'Copy GitHub Permalink');
+
+      expect(copyText).toHaveBeenCalledOnce();
+      expect(copyText).toHaveBeenCalledWith(expected.githubUrl);
     },
   );
 
   it('opens a branch file in VS Code with the exact session and file IDs', async () => {
-    const user = userEvent.setup();
-    const file = scenario.files.renamed;
     const openDiffFileInEditor = vi
       .spyOn(api, 'openDiffFileInEditor')
       .mockResolvedValue(undefined);
     renderDiffViewer();
-    const anchor = treeFile(file);
+    const anchor = treeFile(scenario.files.renamed);
 
     expect(anchor).toBeVisible();
-    fireEvent.contextMenu(anchor);
-    const menu = screen.getByRole('menu', { name: 'Diff file actions' });
-    const action = menuItem(menu, 'Open in VS Code');
-    expect(action).toBeVisible();
-    await user.click(action);
+    await clickFileAction(anchor, 'Open in VS Code');
 
     expect(openDiffFileInEditor).toHaveBeenCalledOnce();
     expect(openDiffFileInEditor).toHaveBeenCalledWith({
       sessionId: scenario.branchSession.id,
-      fileId: file.id,
+      fileId: scenario.files.renamed.id,
       editor: 'vscode',
     });
   });
@@ -227,58 +335,23 @@ describe('DiffViewer integrated file context menu', () => {
     expect(within(menu).queryByRole('menuitem', { name: 'Open in VS Code' })).toBeNull();
   });
 
-  it('reports rejected file copy, editor, and external actions', async () => {
-    const user = userEvent.setup();
-    const file = scenario.files.added;
-    const copyText = vi
-      .spyOn(api, 'copyText')
-      .mockRejectedValue(new Error('file copy failed'));
-    const openDiffFileInEditor = vi
-      .spyOn(api, 'openDiffFileInEditor')
-      .mockRejectedValue(new Error('file editor failed'));
-    const openExternal = vi
-      .spyOn(api, 'openExternal')
-      .mockRejectedValue(new Error('file external failed'));
-    const onError = vi.fn<(message: string) => void>();
-    renderDiffViewer(scenario.branchSession, callbacks(onError));
-    const anchor = treeFile(file);
+  it.each(fileRejectionCases)(
+    'reports a rejected $label file action',
+    async ({ apiMethod, label, message, expectedArgs }) => {
+      const rejectedCall = vi.spyOn(api, apiMethod).mockRejectedValue(new Error(message));
+      const onError = vi.fn<(message: string) => void>();
+      renderDiffViewer(scenario.branchSession, callbacks(onError));
+      const anchor = treeFile(scenario.files.added);
 
-    expect(anchor).toBeVisible();
-    fireEvent.contextMenu(anchor);
-    let menu = screen.getByRole('menu', { name: 'Diff file actions' });
-    let action = menuItem(menu, 'Copy Relative Path');
-    expect(action).toBeVisible();
-    await user.click(action);
-    await waitFor(() => expect(onError).toHaveBeenCalledTimes(1));
+      expect(anchor).toBeVisible();
+      await clickFileAction(anchor, label);
 
-    fireEvent.contextMenu(anchor);
-    menu = screen.getByRole('menu', { name: 'Diff file actions' });
-    action = menuItem(menu, 'Open in VS Code');
-    expect(action).toBeVisible();
-    await user.click(action);
-    await waitFor(() => expect(onError).toHaveBeenCalledTimes(2));
-
-    fireEvent.contextMenu(anchor);
-    menu = screen.getByRole('menu', { name: 'Diff file actions' });
-    action = menuItem(menu, 'Open on GitHub');
-    expect(action).toBeVisible();
-    await user.click(action);
-    await waitFor(() => expect(onError).toHaveBeenCalledTimes(3));
-
-    expect(onError).toHaveBeenNthCalledWith(1, 'file copy failed');
-    expect(onError).toHaveBeenNthCalledWith(2, 'file editor failed');
-    expect(onError).toHaveBeenNthCalledWith(3, 'file external failed');
-    expect(copyText).toHaveBeenCalledOnce();
-    expect(copyText).toHaveBeenCalledWith(scenario.expected.addedFile.path);
-    expect(openDiffFileInEditor).toHaveBeenCalledOnce();
-    expect(openDiffFileInEditor).toHaveBeenCalledWith({
-      sessionId: scenario.branchSession.id,
-      fileId: file.id,
-      editor: 'vscode',
-    });
-    expect(openExternal).toHaveBeenCalledOnce();
-    expect(openExternal).toHaveBeenCalledWith(scenario.expected.addedFile.githubUrl);
-  });
+      await waitFor(() => expect(onError).toHaveBeenCalledOnce());
+      expect(onError).toHaveBeenCalledWith(message);
+      expect(rejectedCall).toHaveBeenCalledOnce();
+      expect(rejectedCall).toHaveBeenCalledWith(...expectedArgs);
+    },
+  );
 
   it('keeps one integrated menu open and closes menus on filtering or pane scrolling', async () => {
     const user = userEvent.setup();
@@ -332,68 +405,63 @@ describe('DiffViewer integrated line context menu', () => {
     vi.unstubAllGlobals();
   });
 
-  it.each([
-    {
-      name: 'context line',
-      line: scenario.lines.context,
-      expected: scenario.expected.contextLine,
-    },
-    {
-      name: 'addition line',
-      line: scenario.lines.addition,
-      expected: scenario.expected.additionLine,
-    },
-    {
-      name: 'deletion line',
-      line: scenario.lines.deletion,
-      expected: scenario.expected.deletionLine,
-    },
-  ])(
-    'derives the exact side-specific path, reference, revision, and URL for a $name',
+  it.each(lineDerivationCases)(
+    'copies the exact relative path for a $name',
     async ({ line, expected }) => {
-      const user = userEvent.setup();
       const copyText = vi.spyOn(api, 'copyText').mockResolvedValue(undefined);
-      const openExternal = vi.spyOn(api, 'openExternal').mockResolvedValue(undefined);
-      const file = scenario.files.renamed;
       await renderLoadedTextualDiff();
-      const anchor = getDiffLineRow(file, line);
+      const anchor = getDiffLineRow(scenario.files.renamed, line);
 
       expect(anchor).toBeVisible();
-      fireEvent.contextMenu(anchor);
-      let menu = screen.getByRole('menu', { name: 'Diff line actions' });
-      let action = menuItem(menu, 'Copy Relative Path');
-      expect(action).toBeVisible();
-      await user.click(action);
+      await clickLineAction(anchor, 'Copy Relative Path');
 
       expect(copyText).toHaveBeenCalledOnce();
       expect(copyText).toHaveBeenCalledWith(expected.path);
+    },
+  );
 
-      fireEvent.contextMenu(anchor);
-      menu = screen.getByRole('menu', { name: 'Diff line actions' });
-      action = menuItem(menu, 'Copy Line Reference');
-      expect(action).toBeVisible();
-      await user.click(action);
+  it.each(lineDerivationCases)(
+    'copies the exact line reference for a $name',
+    async ({ line, expected }) => {
+      const copyText = vi.spyOn(api, 'copyText').mockResolvedValue(undefined);
+      await renderLoadedTextualDiff();
+      const anchor = getDiffLineRow(scenario.files.renamed, line);
 
-      expect(copyText).toHaveBeenCalledTimes(2);
-      expect(copyText).toHaveBeenNthCalledWith(2, expected.reference);
+      expect(anchor).toBeVisible();
+      await clickLineAction(anchor, 'Copy Line Reference');
 
-      fireEvent.contextMenu(anchor);
-      menu = screen.getByRole('menu', { name: 'Diff line actions' });
-      action = menuItem(menu, 'Open on GitHub');
-      expect(action).toBeVisible();
-      await user.click(action);
+      expect(copyText).toHaveBeenCalledOnce();
+      expect(copyText).toHaveBeenCalledWith(expected.reference);
+    },
+  );
+
+  it.each(lineDerivationCases)(
+    'opens the exact GitHub URL for a $name',
+    async ({ line, expected }) => {
+      const openExternal = vi.spyOn(api, 'openExternal').mockResolvedValue(undefined);
+      await renderLoadedTextualDiff();
+      const anchor = getDiffLineRow(scenario.files.renamed, line);
+
+      expect(anchor).toBeVisible();
+      await clickLineAction(anchor, 'Open on GitHub');
 
       expect(openExternal).toHaveBeenCalledOnce();
       expect(openExternal).toHaveBeenCalledWith(expected.githubUrl);
+    },
+  );
 
-      fireEvent.contextMenu(anchor);
-      menu = screen.getByRole('menu', { name: 'Diff line actions' });
-      action = menuItem(menu, 'Copy GitHub Permalink');
-      expect(action).toBeVisible();
-      await user.click(action);
+  it.each(lineDerivationCases)(
+    'copies the exact GitHub permalink for a $name',
+    async ({ line, expected }) => {
+      const copyText = vi.spyOn(api, 'copyText').mockResolvedValue(undefined);
+      await renderLoadedTextualDiff();
+      const anchor = getDiffLineRow(scenario.files.renamed, line);
 
-      expect(copyText).toHaveBeenCalledTimes(3);
-      expect(copyText).toHaveBeenNthCalledWith(3, expected.githubUrl);
+      expect(anchor).toBeVisible();
+      await clickLineAction(anchor, 'Copy GitHub Permalink');
+
+      expect(copyText).toHaveBeenCalledOnce();
+      expect(copyText).toHaveBeenCalledWith(expected.githubUrl);
     },
   );
 
@@ -408,39 +476,34 @@ describe('DiffViewer integrated line context menu', () => {
     expect(screen.queryByRole('menu', { name: 'Diff line actions' })).toBeNull();
   });
 
-  it('copies the clicked line and opens its exact target line in VS Code', async () => {
-    const user = userEvent.setup();
+  it('copies the clicked line text', async () => {
     const copyText = vi.spyOn(api, 'copyText').mockResolvedValue(undefined);
+    await renderLoadedTextualDiff();
+    const anchor = getDiffLineRow(scenario.files.renamed, scenario.lines.addition);
+
+    expect(anchor).toBeVisible();
+    await clickLineAction(anchor, 'Copy');
+
+    expect(copyText).toHaveBeenCalledOnce();
+    expect(copyText).toHaveBeenCalledWith(scenario.lines.addition.text);
+  });
+
+  it('opens the clicked line at its exact target line in VS Code', async () => {
     const openDiffFileInEditor = vi
       .spyOn(api, 'openDiffFileInEditor')
       .mockResolvedValue(undefined);
-    const file = scenario.files.renamed;
-    const line = scenario.lines.addition;
     await renderLoadedTextualDiff();
-    const anchor = getDiffLineRow(file, line);
+    const anchor = getDiffLineRow(scenario.files.renamed, scenario.lines.addition);
 
     expect(anchor).toBeVisible();
-    fireEvent.contextMenu(anchor);
-    let menu = screen.getByRole('menu', { name: 'Diff line actions' });
-    let action = menuItem(menu, 'Copy');
-    expect(action).toBeVisible();
-    await user.click(action);
-
-    expect(copyText).toHaveBeenCalledOnce();
-    expect(copyText).toHaveBeenCalledWith(line.text);
-
-    fireEvent.contextMenu(anchor);
-    menu = screen.getByRole('menu', { name: 'Diff line actions' });
-    action = menuItem(menu, 'Open in VS Code at Line');
-    expect(action).toBeVisible();
-    await user.click(action);
+    await clickLineAction(anchor, 'Open in VS Code at Line');
 
     expect(openDiffFileInEditor).toHaveBeenCalledOnce();
     expect(openDiffFileInEditor).toHaveBeenCalledWith({
       sessionId: scenario.branchSession.id,
-      fileId: file.id,
+      fileId: scenario.files.renamed.id,
       editor: 'vscode',
-      line: line.newLine,
+      line: scenario.lines.addition.newLine,
     });
   });
 
@@ -492,60 +555,23 @@ describe('DiffViewer integrated line context menu', () => {
     ).toBeNull();
   });
 
-  it('reports rejected line copy, editor, and external actions', async () => {
-    const user = userEvent.setup();
-    const copyText = vi
-      .spyOn(api, 'copyText')
-      .mockRejectedValue(new Error('line copy failed'));
-    const openDiffFileInEditor = vi
-      .spyOn(api, 'openDiffFileInEditor')
-      .mockRejectedValue(new Error('line editor failed'));
-    const openExternal = vi
-      .spyOn(api, 'openExternal')
-      .mockRejectedValue(new Error('line external failed'));
-    const onError = vi.fn<(message: string) => void>();
-    const file = scenario.files.renamed;
-    const line = scenario.lines.addition;
-    await renderLoadedTextualDiff(scenario.branchSession, callbacks(onError));
-    const anchor = getDiffLineRow(file, line);
+  it.each(lineRejectionCases)(
+    'reports a rejected $label line action',
+    async ({ apiMethod, label, message, expectedArgs }) => {
+      const rejectedCall = vi.spyOn(api, apiMethod).mockRejectedValue(new Error(message));
+      const onError = vi.fn<(message: string) => void>();
+      await renderLoadedTextualDiff(scenario.branchSession, callbacks(onError));
+      const anchor = getDiffLineRow(scenario.files.renamed, scenario.lines.addition);
 
-    expect(anchor).toBeVisible();
-    fireEvent.contextMenu(anchor);
-    let menu = screen.getByRole('menu', { name: 'Diff line actions' });
-    let action = menuItem(menu, 'Copy');
-    expect(action).toBeVisible();
-    await user.click(action);
-    await waitFor(() => expect(onError).toHaveBeenCalledTimes(1));
+      expect(anchor).toBeVisible();
+      await clickLineAction(anchor, label);
 
-    fireEvent.contextMenu(anchor);
-    menu = screen.getByRole('menu', { name: 'Diff line actions' });
-    action = menuItem(menu, 'Open in VS Code at Line');
-    expect(action).toBeVisible();
-    await user.click(action);
-    await waitFor(() => expect(onError).toHaveBeenCalledTimes(2));
-
-    fireEvent.contextMenu(anchor);
-    menu = screen.getByRole('menu', { name: 'Diff line actions' });
-    action = menuItem(menu, 'Open on GitHub');
-    expect(action).toBeVisible();
-    await user.click(action);
-    await waitFor(() => expect(onError).toHaveBeenCalledTimes(3));
-
-    expect(onError).toHaveBeenNthCalledWith(1, 'line copy failed');
-    expect(onError).toHaveBeenNthCalledWith(2, 'line editor failed');
-    expect(onError).toHaveBeenNthCalledWith(3, 'line external failed');
-    expect(copyText).toHaveBeenCalledOnce();
-    expect(copyText).toHaveBeenCalledWith(line.text);
-    expect(openDiffFileInEditor).toHaveBeenCalledOnce();
-    expect(openDiffFileInEditor).toHaveBeenCalledWith({
-      sessionId: scenario.branchSession.id,
-      fileId: file.id,
-      editor: 'vscode',
-      line: line.newLine,
-    });
-    expect(openExternal).toHaveBeenCalledOnce();
-    expect(openExternal).toHaveBeenCalledWith(scenario.expected.additionLine.githubUrl);
-  });
+      await waitFor(() => expect(onError).toHaveBeenCalledOnce());
+      expect(onError).toHaveBeenCalledWith(message);
+      expect(rejectedCall).toHaveBeenCalledOnce();
+      expect(rejectedCall).toHaveBeenCalledWith(...expectedArgs);
+    },
+  );
 });
 
 describe('DiffViewer selected line ranges', () => {
@@ -561,151 +587,129 @@ describe('DiffViewer selected line ranges', () => {
     vi.unstubAllGlobals();
   });
 
-  it('copies an in-file selection and uses only new-side line numbers for its range', async () => {
-    const user = userEvent.setup();
+  it('copies the selected text from a new-side in-file selection', async () => {
     const copyText = vi.spyOn(api, 'copyText').mockResolvedValue(undefined);
-    const file = scenario.files.renamed;
     await renderLoadedTextualDiff();
-    const context = getDiffLineRow(file, scenario.lines.context);
-    const deletion = getDiffLineRow(file, scenario.lines.deletion);
-    const addition = getDiffLineRow(file, scenario.lines.addition);
+    const context = getDiffLineRow(scenario.files.renamed, scenario.lines.context);
+    const deletion = getDiffLineRow(scenario.files.renamed, scenario.lines.deletion);
+    const addition = getDiffLineRow(scenario.files.renamed, scenario.lines.addition);
     const selectedText = selectDiffLineText(context, addition);
 
     expectSelectionToIntersect(context);
     expectSelectionToIntersect(deletion);
     expectSelectionToIntersect(addition);
     expect(addition).toBeVisible();
-    fireEvent.contextMenu(addition);
-    let menu = screen.getByRole('menu', { name: 'Diff line actions' });
-    let action = menuItem(menu, 'Copy');
-    expect(action).toBeVisible();
-    await user.click(action);
+    await clickLineAction(addition, 'Copy');
 
     expect(copyText).toHaveBeenCalledOnce();
     expect(copyText).toHaveBeenCalledWith(selectedText);
-
-    selectDiffLineText(context, addition);
-    fireEvent.contextMenu(addition);
-    menu = screen.getByRole('menu', { name: 'Diff line actions' });
-    action = menuItem(menu, 'Copy Line Reference');
-    expect(action).toBeVisible();
-    await user.click(action);
-
-    expect(copyText).toHaveBeenCalledTimes(2);
-    expect(copyText).toHaveBeenNthCalledWith(
-      2,
-      scenario.expected.newSideSelection.reference,
-    );
-
-    selectDiffLineText(context, addition);
-    fireEvent.contextMenu(addition);
-    menu = screen.getByRole('menu', { name: 'Diff line actions' });
-    action = menuItem(menu, 'Copy GitHub Permalink');
-    expect(action).toBeVisible();
-    await user.click(action);
-
-    expect(copyText).toHaveBeenCalledTimes(3);
-    expect(copyText).toHaveBeenNthCalledWith(
-      3,
-      scenario.expected.newSideSelection.githubUrl,
-    );
   });
 
-  it('uses only old-side line numbers when a mixed selection opens on a deletion', async () => {
-    const user = userEvent.setup();
-    const copyText = vi.spyOn(api, 'copyText').mockResolvedValue(undefined);
-    const file = scenario.files.renamed;
-    await renderLoadedTextualDiff();
-    const context = getDiffLineRow(file, scenario.lines.context);
-    const deletion = getDiffLineRow(file, scenario.lines.deletion);
-    const addition = getDiffLineRow(file, scenario.lines.addition);
+  it.each([
+    {
+      label: 'Copy Line Reference',
+      expected: scenario.expected.newSideSelection.reference,
+    },
+    {
+      label: 'Copy GitHub Permalink',
+      expected: scenario.expected.newSideSelection.githubUrl,
+    },
+  ] as const)(
+    'copies the $label from a new-side in-file selection',
+    async ({ label, expected }) => {
+      const copyText = vi.spyOn(api, 'copyText').mockResolvedValue(undefined);
+      await renderLoadedTextualDiff();
+      const context = getDiffLineRow(scenario.files.renamed, scenario.lines.context);
+      const deletion = getDiffLineRow(scenario.files.renamed, scenario.lines.deletion);
+      const addition = getDiffLineRow(scenario.files.renamed, scenario.lines.addition);
 
-    selectDiffLineText(context, addition);
-    expect(deletion).toBeVisible();
-    fireEvent.contextMenu(deletion);
-    let menu = screen.getByRole('menu', { name: 'Diff line actions' });
-    let action = menuItem(menu, 'Copy Line Reference');
-    expect(action).toBeVisible();
-    await user.click(action);
+      selectDiffLineText(context, addition);
+      expectSelectionToIntersect(context);
+      expectSelectionToIntersect(deletion);
+      expectSelectionToIntersect(addition);
+      expect(addition).toBeVisible();
+      await clickLineAction(addition, label);
 
-    expect(copyText).toHaveBeenCalledOnce();
-    expect(copyText).toHaveBeenCalledWith(scenario.expected.oldSideSelection.reference);
+      expect(copyText).toHaveBeenCalledOnce();
+      expect(copyText).toHaveBeenCalledWith(expected);
+    },
+  );
 
-    selectDiffLineText(context, addition);
-    fireEvent.contextMenu(deletion);
-    menu = screen.getByRole('menu', { name: 'Diff line actions' });
-    action = menuItem(menu, 'Copy GitHub Permalink');
-    expect(action).toBeVisible();
-    await user.click(action);
+  it.each([
+    {
+      label: 'Copy Line Reference',
+      expected: scenario.expected.oldSideSelection.reference,
+    },
+    {
+      label: 'Copy GitHub Permalink',
+      expected: scenario.expected.oldSideSelection.githubUrl,
+    },
+  ] as const)(
+    'uses only old-side line numbers for the $label when a mixed selection opens on a deletion',
+    async ({ label, expected }) => {
+      const copyText = vi.spyOn(api, 'copyText').mockResolvedValue(undefined);
+      await renderLoadedTextualDiff();
+      const context = getDiffLineRow(scenario.files.renamed, scenario.lines.context);
+      const deletion = getDiffLineRow(scenario.files.renamed, scenario.lines.deletion);
+      const addition = getDiffLineRow(scenario.files.renamed, scenario.lines.addition);
 
-    expect(copyText).toHaveBeenCalledTimes(2);
-    expect(copyText).toHaveBeenNthCalledWith(
-      2,
-      scenario.expected.oldSideSelection.githubUrl,
-    );
-  });
+      selectDiffLineText(context, addition);
+      expect(deletion).toBeVisible();
+      await clickLineAction(deletion, label);
 
-  it('falls back to the clicked line when the selection does not include it', async () => {
-    const user = userEvent.setup();
-    const copyText = vi.spyOn(api, 'copyText').mockResolvedValue(undefined);
-    const file = scenario.files.renamed;
-    await renderLoadedTextualDiff();
-    const context = getDiffLineRow(file, scenario.lines.context);
-    const addition = getDiffLineRow(file, scenario.lines.addition);
+      expect(copyText).toHaveBeenCalledOnce();
+      expect(copyText).toHaveBeenCalledWith(expected);
+    },
+  );
 
-    selectDiffLineText(context);
-    expect(addition).toBeVisible();
-    fireEvent.contextMenu(addition);
-    let menu = screen.getByRole('menu', { name: 'Diff line actions' });
-    let action = menuItem(menu, 'Copy');
-    expect(action).toBeVisible();
-    await user.click(action);
+  it.each([
+    { label: 'Copy', expected: scenario.lines.addition.text },
+    {
+      label: 'Copy Line Reference',
+      expected: scenario.expected.additionLine.reference,
+    },
+  ] as const)(
+    'falls back to the clicked line for the $label when the selection does not include it',
+    async ({ label, expected }) => {
+      const copyText = vi.spyOn(api, 'copyText').mockResolvedValue(undefined);
+      await renderLoadedTextualDiff();
+      const context = getDiffLineRow(scenario.files.renamed, scenario.lines.context);
+      const addition = getDiffLineRow(scenario.files.renamed, scenario.lines.addition);
 
-    expect(copyText).toHaveBeenCalledOnce();
-    expect(copyText).toHaveBeenCalledWith(scenario.lines.addition.text);
+      selectDiffLineText(context);
+      expect(addition).toBeVisible();
+      await clickLineAction(addition, label);
 
-    selectDiffLineText(context);
-    fireEvent.contextMenu(addition);
-    menu = screen.getByRole('menu', { name: 'Diff line actions' });
-    action = menuItem(menu, 'Copy Line Reference');
-    expect(action).toBeVisible();
-    await user.click(action);
+      expect(copyText).toHaveBeenCalledOnce();
+      expect(copyText).toHaveBeenCalledWith(expected);
+    },
+  );
 
-    expect(copyText).toHaveBeenCalledTimes(2);
-    expect(copyText).toHaveBeenNthCalledWith(2, scenario.expected.additionLine.reference);
-  });
+  it.each([
+    { label: 'Copy', expected: scenario.lines.addition.text },
+    {
+      label: 'Copy Line Reference',
+      expected: scenario.expected.additionLine.reference,
+    },
+  ] as const)(
+    'ignores a selection that crosses diff file boundaries for the $label',
+    async ({ label, expected }) => {
+      const copyText = vi.spyOn(api, 'copyText').mockResolvedValue(undefined);
+      const firstFile = scenario.files.modified;
+      const clickedFile = scenario.files.renamed;
+      await renderLoadedTextualDiff(scenario.branchSession, callbacks(), [
+        firstFile,
+        clickedFile,
+      ]);
+      const firstRow = getDiffLineRow(firstFile, scenario.lines.context);
+      const clickedRow = getDiffLineRow(clickedFile, scenario.lines.addition);
 
-  it('ignores a selection that crosses diff file boundaries', async () => {
-    const user = userEvent.setup();
-    const copyText = vi.spyOn(api, 'copyText').mockResolvedValue(undefined);
-    const firstFile = scenario.files.modified;
-    const clickedFile = scenario.files.renamed;
-    await renderLoadedTextualDiff(scenario.branchSession, callbacks(), [
-      firstFile,
-      clickedFile,
-    ]);
-    const firstRow = getDiffLineRow(firstFile, scenario.lines.context);
-    const clickedRow = getDiffLineRow(clickedFile, scenario.lines.addition);
+      selectDiffLineText(firstRow, clickedRow);
+      expect(clickedRow).toBeVisible();
+      await clickLineAction(clickedRow, label);
 
-    selectDiffLineText(firstRow, clickedRow);
-    expect(clickedRow).toBeVisible();
-    fireEvent.contextMenu(clickedRow);
-    let menu = screen.getByRole('menu', { name: 'Diff line actions' });
-    let action = menuItem(menu, 'Copy');
-    expect(action).toBeVisible();
-    await user.click(action);
-
-    expect(copyText).toHaveBeenCalledOnce();
-    expect(copyText).toHaveBeenCalledWith(scenario.lines.addition.text);
-
-    selectDiffLineText(firstRow, clickedRow);
-    fireEvent.contextMenu(clickedRow);
-    menu = screen.getByRole('menu', { name: 'Diff line actions' });
-    action = menuItem(menu, 'Copy Line Reference');
-    expect(action).toBeVisible();
-    await user.click(action);
-
-    expect(copyText).toHaveBeenCalledTimes(2);
-    expect(copyText).toHaveBeenNthCalledWith(2, scenario.expected.additionLine.reference);
-  });
+      expect(copyText).toHaveBeenCalledOnce();
+      expect(copyText).toHaveBeenCalledWith(expected);
+    },
+  );
 });

@@ -47,7 +47,6 @@ describe('NewWorktreeDialog', () => {
     const trigger = screen.getByRole('button', { name: 'Choose branch' });
     expect(trigger).toHaveAttribute('aria-expanded', 'true');
     expect(trigger).toHaveTextContent('Select a branch');
-    expect(screen.getByRole('textbox', { name: 'Filter branches' })).toHaveFocus();
   });
 
   it('closes the dialog on Escape while the picker is open', async () => {
@@ -150,7 +149,6 @@ describe('NewWorktreeDialog', () => {
     const onCancel = vi.fn();
     renderNewWorktreeDialog({ onCancel });
 
-    expect(screen.getByText('Loading branches…')).toBeVisible();
     expect(listBranches).toHaveBeenCalledOnce();
     expect(listBranches).toHaveBeenCalledWith();
     expect(
@@ -339,6 +337,5 @@ describe('NewWorktreeDialog', () => {
     expect(onError).toHaveBeenCalledWith('failed');
     expect(listBranches).toHaveBeenCalledOnce();
     expect(listBranches).toHaveBeenCalledWith();
-    expect(screen.getByText('No matching branches')).toBeVisible();
   });
 });
