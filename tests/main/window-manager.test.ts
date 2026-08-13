@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { ApplicationRuntime } from '../../src/main/application-runtime';
 import type { RepositoryLocation } from '../../src/main/services/repository-locator';
 import { RepositoryService } from '../../src/main/services/repository-service';
@@ -92,6 +92,9 @@ function createHarness(
     }
     if (spec.tool === 'git' && spec.args[0] === 'worktree') {
       return { stdout: repositoryWorktreeOutput(locations, spec.cwd) };
+    }
+    if (spec.tool === 'git' && spec.args[0] === 'status') {
+      return { stdout: '' };
     }
     if (spec.tool === 'github') return { exitCode: 1 };
     throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
@@ -325,6 +328,12 @@ describe('WindowManager', () => {
     disposeClosedRegistration();
     disposedService.dispose();
 
+    await vi.waitFor(() => {
+      for (const window of [alphaWindow, betaWindow]) {
+        const worktrees = repositorySnapshot(harness, window).repository.worktrees;
+        expect(worktrees.every((worktree) => worktree.status !== undefined)).toBe(true);
+      }
+    });
     const alphaRepository = repositorySnapshot(harness, alphaWindow).repository;
     const betaRepository = repositorySnapshot(harness, betaWindow).repository;
     alphaWindow.webContents.sent.splice(0);
@@ -495,6 +504,9 @@ describe('WindowManager', () => {
       onCommand: (tool, args) => {
         if (tool === 'git' && args[0] === 'worktree') {
           return { stdout: worktreeOutput(location) };
+        }
+        if (tool === 'git' && args[0] === 'status') {
+          return { stdout: '' };
         }
         if (tool === 'github') return releaseHydration.promise;
         throw new Error('Unexpected command.');

@@ -217,6 +217,7 @@ export class WindowManager<
         location.commonDirectoryPath,
       );
       repository.startPullRequestHydration();
+      repository.startWorktreeStatusHydration();
       const service = new RepositoryWindowSession(
         repository,
         this.#store,

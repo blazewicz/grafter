@@ -68,7 +68,7 @@ export function App(): React.JSX.Element {
     contextKey: selectedContextKey,
     latestActivity,
   } = useCommandLogs(selectedScope, repository?.id, setError);
-  const { details, status: worktreeStatus } = useWorktreeInspection(
+  const { details } = useWorktreeInspection(
     selectedWorktreeId,
     selectedWorktree?.branch,
     selectedWorktree?.head,
@@ -226,7 +226,6 @@ export function App(): React.JSX.Element {
           repository={activeRepository}
           width={sidebarWidth}
           selectedId={selectedId}
-          selectedWorktreeStatus={worktreeStatus}
           onSelect={navigate}
           onAddWorktree={() => setDialog('new-worktree')}
           onRemoveWorktree={(worktree) =>
@@ -244,7 +243,6 @@ export function App(): React.JSX.Element {
           selectedWorktree={selectedWorktree}
           details={details}
           projectWorktrees={repositoryWorktrees}
-          status={worktreeStatus}
           toolPreferences={snapshot.toolPreferences}
           onSetToolPreference={setToolPreference}
           onSnapshot={applySnapshot}

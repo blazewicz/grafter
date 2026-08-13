@@ -42,9 +42,7 @@ describe('RepositoryService scope', () => {
       worktrees: [{ projectId: firstProject.id, path: firstProject.path }],
     });
     expect(secondSnapshot).toMatchObject({ id: secondProject.id });
-    await expect(first.worktreeStatus(foreignWorktreeId)).rejects.toThrow(
-      'Worktree not found.',
-    );
+    expect(() => first.worktreePath(foreignWorktreeId)).toThrow('Worktree not found.');
     await expect(
       first.createWorktree({
         projectId: secondProject.id,
@@ -344,6 +342,248 @@ describe('RepositoryService scope', () => {
     expect(githubCalls).toBe(ApplicationRuntime.maximumConcurrentBackgroundCommands);
     expect(publications).toBe(0);
     expect(() => service.snapshot()).toThrow('repository service is disposed');
+  });
+});
+
+describe('RepositoryService worktree status hydration', () => {
+  function statusRunner(dirtyPaths: Set<string>): StubCommandRunner {
+    return new StubCommandRunner((spec) => {
+      if (spec.tool === 'git' && spec.args[0] === 'worktree') {
+        return {
+          stdout: worktreesFor(firstProject, ['feature/stacked', 'release/next']),
+        };
+      }
+      if (spec.tool === 'git' && spec.args[0] === 'status') {
+        return { stdout: dirtyPaths.has(spec.cwd) ? ' M src/index.ts\n' : '' };
+      }
+      if (spec.tool === 'github') return { exitCode: 1 };
+      throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
+    });
+  }
+
+  it('hydrates statuses in the background and publishes snapshot updates', async () => {
+    const store = await storeWith(firstProject);
+    const dirtyPaths = new Set([`${firstProject.path}.worktrees/feature-stacked`]);
+    const runner = statusRunner(dirtyPaths);
+    let publications = 0;
+    const service = new RepositoryService(
+      firstProject,
+      '/common/first',
+      store,
+      new ApplicationRuntime({ commandRunner: runner }),
+      {
+        onSnapshotUpdate: () => {
+          publications += 1;
+        },
+      },
+    );
+
+    await service.refresh({ hydrateWorktreeStatuses: true });
+
+    await vi.waitFor(() => {
+      expect(service.snapshot().worktrees.map((worktree) => worktree.status)).toEqual([
+        'clean',
+        'dirty',
+        'clean',
+      ]);
+    });
+    expect(publications).toBe(3);
+  });
+
+  it('serves fresh status lookups from the cache without rerunning git', async () => {
+    const store = await storeWith(firstProject);
+    let statusCalls = 0;
+    const runner = new StubCommandRunner((spec) => {
+      if (spec.tool === 'git' && spec.args[0] === 'worktree') {
+        return {
+          stdout: worktreesFor(firstProject, ['feature/stacked']),
+        };
+      }
+      if (spec.tool === 'git' && spec.args[0] === 'status') {
+        statusCalls += 1;
+        return { stdout: '' };
+      }
+      if (spec.tool === 'github') return { exitCode: 1 };
+      throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
+    });
+    const service = new RepositoryService(
+      firstProject,
+      '/common/first',
+      store,
+      new ApplicationRuntime({ commandRunner: runner }),
+    );
+    await service.refresh({ hydrateWorktreeStatuses: true });
+    await vi.waitFor(() => expect(statusCalls).toBe(2));
+
+    service.startWorktreeStatusHydration();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(statusCalls).toBe(2);
+  });
+
+  it('deduplicates concurrent status lookups', async () => {
+    const store = await storeWith(firstProject);
+    const release = deferred<void>();
+    let statusCalls = 0;
+    const runner = new StubCommandRunner(async (spec) => {
+      if (spec.tool === 'git' && spec.args[0] === 'worktree') {
+        return {
+          stdout: worktreesFor(firstProject, ['feature/stacked']),
+        };
+      }
+      if (spec.tool === 'git' && spec.args[0] === 'status') {
+        statusCalls += 1;
+        await release.promise;
+        return { stdout: '' };
+      }
+      if (spec.tool === 'github') return { exitCode: 1 };
+      throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
+    });
+    const service = new RepositoryService(
+      firstProject,
+      '/common/first',
+      store,
+      new ApplicationRuntime({ commandRunner: runner }),
+    );
+
+    const firstRefresh = service.refresh({ hydrateWorktreeStatuses: true });
+    const secondRefresh = service.refresh({ hydrateWorktreeStatuses: true });
+    await Promise.all([firstRefresh, secondRefresh]);
+    await vi.waitFor(() => expect(statusCalls).toBe(2));
+
+    release.resolve();
+    await vi.waitFor(() => {
+      expect(
+        service.snapshot().worktrees.every((worktree) => worktree.status === 'clean'),
+      ).toBe(true);
+    });
+  });
+
+  it('does not publish snapshot updates when status is unchanged', async () => {
+    const store = await storeWith(firstProject);
+    let now = 1_000;
+    let statusCalls = 0;
+    let publications = 0;
+    const runner = new StubCommandRunner((spec) => {
+      if (spec.tool === 'git' && spec.args[0] === 'worktree') {
+        return {
+          stdout: worktreesFor(firstProject, ['feature/stacked']),
+        };
+      }
+      if (spec.tool === 'git' && spec.args[0] === 'status') {
+        statusCalls += 1;
+        return { stdout: '' };
+      }
+      if (spec.tool === 'github') return { exitCode: 1 };
+      throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
+    });
+    const service = new RepositoryService(
+      firstProject,
+      '/common/first',
+      store,
+      new ApplicationRuntime({ commandRunner: runner }),
+      {
+        now: () => now,
+        onSnapshotUpdate: () => {
+          publications += 1;
+        },
+      },
+    );
+    await service.refresh({ hydrateWorktreeStatuses: true });
+    await vi.waitFor(() => {
+      expect(
+        service.snapshot().worktrees.every((worktree) => worktree.status === 'clean'),
+      ).toBe(true);
+    });
+    expect(publications).toBe(2);
+
+    now += 16_000;
+    service.startWorktreeStatusHydration();
+    await vi.waitFor(() => expect(statusCalls).toBe(4));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(publications).toBe(2);
+  });
+
+  it('keeps status across refreshes when the branch is unchanged', async () => {
+    const store = await storeWith(firstProject);
+    const dirtyPaths = new Set([`${firstProject.path}.worktrees/feature-stacked`]);
+    const service = new RepositoryService(
+      firstProject,
+      '/common/first',
+      store,
+      new ApplicationRuntime({ commandRunner: statusRunner(dirtyPaths) }),
+    );
+    await service.refresh({ hydrateWorktreeStatuses: true });
+    await vi.waitFor(() => {
+      expect(
+        service.snapshot().worktrees.every((worktree) => worktree.status !== undefined),
+      ).toBe(true);
+    });
+
+    await service.refresh();
+
+    expect(service.snapshot().worktrees).toMatchObject([
+      { branch: 'main', status: 'clean' },
+      { branch: 'feature/stacked', status: 'dirty' },
+      { branch: 'release/next', status: 'clean' },
+    ]);
+  });
+
+  it('rechecks status in the background after switching branches', async () => {
+    const store = await storeWith(firstProject);
+    let switched = false;
+    const initialOutput = worktreesFor(firstProject, ['feature/stacked']);
+    const switchedOutput = initialOutput.replace(
+      'branch refs/heads/feature/stacked',
+      'branch refs/heads/release/0.1',
+    );
+    const dirtyPaths = new Set([`${firstProject.path}.worktrees/feature-stacked`]);
+    const runner = new StubCommandRunner((spec) => {
+      if (spec.tool === 'git' && spec.args[0] === 'worktree') {
+        return { stdout: switched ? switchedOutput : initialOutput };
+      }
+      if (spec.tool === 'git' && spec.args[0] === 'switch') {
+        switched = true;
+        return {};
+      }
+      if (spec.tool === 'git' && spec.args[0] === 'status') {
+        return { stdout: dirtyPaths.has(spec.cwd) ? ' M src/index.ts\n' : '' };
+      }
+      if (spec.tool === 'github') return { exitCode: 1 };
+      throw new Error(`Unexpected command: ${spec.executable} ${spec.args.join(' ')}`);
+    });
+    const service = new RepositoryService(
+      firstProject,
+      '/common/first',
+      store,
+      new ApplicationRuntime({ commandRunner: runner }),
+    );
+    await service.refresh({ hydrateWorktreeStatuses: true });
+    await vi.waitFor(() => {
+      expect(
+        service.snapshot().worktrees.every((worktree) => worktree.status !== undefined),
+      ).toBe(true);
+    });
+    const feature = service
+      .snapshot()
+      .worktrees.find((worktree) => worktree.branch === 'feature/stacked');
+    if (!feature) throw new Error('Expected the feature worktree.');
+
+    const result = await service.switchBranch({
+      worktreeId: feature.id,
+      branch: 'release/0.1',
+    });
+    expect(
+      result.worktrees.find((worktree) => worktree.id === feature.id)?.status,
+    ).toBeUndefined();
+
+    await vi.waitFor(() => {
+      expect(
+        service.snapshot().worktrees.find((worktree) => worktree.id === feature.id)
+          ?.status,
+      ).toBe('dirty');
+    });
   });
 });
 

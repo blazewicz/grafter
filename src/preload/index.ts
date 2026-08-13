@@ -47,7 +47,6 @@ const api: GrafterApi = {
   closeDiff: (sessionId) => ipcRenderer.invoke(ipc.closeDiff, sessionId),
   refreshPullRequest: (worktreeId) =>
     ipcRenderer.invoke(ipc.refreshPullRequest, worktreeId),
-  getWorktreeStatus: (worktreeId) => ipcRenderer.invoke(ipc.worktreeStatus, worktreeId),
   updateSettings: (settings: Settings) =>
     ipcRenderer.invoke(ipc.updateSettings, settings),
   setToolPreference: (group, tool) =>

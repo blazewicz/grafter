@@ -1,6 +1,6 @@
 import { Filter, FolderOpen, Plus, Search, Settings } from 'lucide-react';
 import { useRef, useState } from 'react';
-import type { Project, Worktree, WorktreeStatus } from '../../shared/contracts';
+import type { Project, Worktree } from '../../shared/contracts';
 import type { WorktreeSortOrder } from '../../shared/worktree-list';
 import controls from '../styles/controls.module.css';
 import { QuickTooltip } from '../ui/QuickTooltip';
@@ -19,7 +19,6 @@ export function Sidebar({
   repository,
   width,
   selectedId,
-  selectedWorktreeStatus,
   onSelect,
   onAddWorktree,
   onRemoveWorktree,
@@ -30,7 +29,6 @@ export function Sidebar({
   repository: Project;
   width: number;
   selectedId: string | undefined;
-  selectedWorktreeStatus: WorktreeStatus | undefined;
   onSelect: (id: string) => void;
   onAddWorktree: () => void;
   onRemoveWorktree: (worktree: Worktree) => void;
@@ -116,7 +114,6 @@ export function Sidebar({
           homeDirectory={homeDirectory}
           project={repository}
           selectedId={selectedId}
-          selectedWorktreeStatus={selectedWorktreeStatus}
           sortOrder={worktreeSortOrder}
           filterQuery={worktreeFilter}
           flat

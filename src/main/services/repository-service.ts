@@ -29,6 +29,7 @@ import { GitService } from './git-service';
 import { GitHubService } from './github-service';
 
 const pullRequestFreshnessMs = 30_000;
+const worktreeStatusFreshnessMs = 15_000;
 
 export interface RepositoryServiceOptions {
   onSnapshotUpdate?: (project: Project) => void;
@@ -38,6 +39,7 @@ export interface RepositoryServiceOptions {
 export interface RepositoryRefreshOptions {
   tolerateFailure?: boolean;
   hydratePullRequests?: boolean;
+  hydrateWorktreeStatuses?: boolean;
   useGlobalRefreshLimit?: boolean;
 }
 
@@ -53,6 +55,11 @@ export class RepositoryService {
   readonly #snapshotUpdateSubscribers = new Set<(project: Project) => void>();
   readonly #pullRequestLookups = new Map<string, Promise<PullRequest | undefined>>();
   readonly #pullRequestRefreshedAt = new Map<string, number>();
+  readonly #worktreeStatusLookups = new Map<
+    string,
+    Promise<WorktreeStatus | undefined>
+  >();
+  readonly #worktreeStatusRefreshedAt = new Map<string, number>();
   readonly #now: () => number;
   #project: Project;
   #refreshVersion = 0;
@@ -113,6 +120,9 @@ export class RepositoryService {
     if (options.hydratePullRequests) {
       this.startPullRequestHydration(worktrees);
     }
+    if (options.hydrateWorktreeStatuses) {
+      this.startWorktreeStatusHydration(worktrees);
+    }
     return this.#disposed ? structuredClone(this.#project) : this.snapshot();
   }
 
@@ -123,6 +133,16 @@ export class RepositoryService {
     this.#startBackgroundTask(
       this.#hydratePullRequests(worktrees),
       'Background pull-request hydration failed.',
+    );
+  }
+
+  startWorktreeStatusHydration(
+    worktrees: readonly Worktree[] = this.#project.worktrees,
+  ): void {
+    this.#assertActive();
+    this.#startBackgroundTask(
+      this.#hydrateWorktreeStatuses(worktrees),
+      'Background worktree status hydration failed.',
     );
   }
 
@@ -163,6 +183,10 @@ export class RepositoryService {
         this.#refreshPullRequest(createdWorktree, true),
         'Background pull-request refresh failed.',
       );
+      this.#startBackgroundTask(
+        this.#refreshWorktreeStatus(createdWorktree, true),
+        'Background worktree status refresh failed.',
+      );
       return { project, createdWorktree };
     });
     const script = await this.git.setupScript(project);
@@ -193,6 +217,10 @@ export class RepositoryService {
       this.#startBackgroundTask(
         this.#refreshPullRequest(switched),
         'Background pull-request refresh failed.',
+      );
+      this.#startBackgroundTask(
+        this.#refreshWorktreeStatus(switched, true),
+        'Background worktree status refresh failed.',
       );
       return this.snapshot();
     });
@@ -348,10 +376,6 @@ export class RepositoryService {
     return this.#refreshPullRequest(this.#worktree(worktreeId));
   }
 
-  async worktreeStatus(worktreeId: string): Promise<WorktreeStatus> {
-    return this.git.status(this.#worktree(worktreeId));
-  }
-
   worktreePath(worktreeId: string): string {
     return this.#worktree(worktreeId).path;
   }
@@ -369,6 +393,8 @@ export class RepositoryService {
     this.#snapshotUpdateSubscribers.clear();
     this.#pullRequestLookups.clear();
     this.#pullRequestRefreshedAt.clear();
+    this.#worktreeStatusLookups.clear();
+    this.#worktreeStatusRefreshedAt.clear();
     this.approvals.dispose();
     this.git.dispose();
     this.#project = { ...this.#project, worktrees: [] };
@@ -385,8 +411,12 @@ export class RepositoryService {
     try {
       worktrees = (await this.git.listWorktrees(project)).map((worktree) => {
         const previous = previousWorktrees.get(worktree.id);
-        return previous?.branch === worktree.branch && previous.pullRequest
-          ? { ...worktree, pullRequest: previous.pullRequest }
+        return previous?.branch === worktree.branch
+          ? {
+              ...worktree,
+              ...(previous.pullRequest ? { pullRequest: previous.pullRequest } : {}),
+              ...(previous.status ? { status: previous.status } : {}),
+            }
           : worktree;
       });
     } catch (error) {
@@ -398,12 +428,19 @@ export class RepositoryService {
     }
     this.#project = { ...project, worktrees };
     this.#prunePullRequestCache(worktrees);
+    this.#pruneWorktreeStatusCache(worktrees);
     return worktrees;
   }
 
   async #hydratePullRequests(worktrees: readonly Worktree[]): Promise<void> {
     await Promise.all(
       worktrees.map((worktree) => this.#refreshPullRequest(worktree, true)),
+    );
+  }
+
+  async #hydrateWorktreeStatuses(worktrees: readonly Worktree[]): Promise<void> {
+    await Promise.all(
+      worktrees.map((worktree) => this.#refreshWorktreeStatus(worktree, true)),
     );
   }
 
@@ -469,6 +506,69 @@ export class RepositoryService {
     const currentKeys = new Set(worktrees.map(pullRequestLookupKey));
     for (const key of this.#pullRequestRefreshedAt.keys()) {
       if (!currentKeys.has(key)) this.#pullRequestRefreshedAt.delete(key);
+    }
+  }
+
+  #refreshWorktreeStatus(
+    worktree: Worktree,
+    background = false,
+  ): Promise<WorktreeStatus | undefined> {
+    this.#assertActive();
+    const lookupKey = pullRequestLookupKey(worktree);
+    const refreshedAt = this.#worktreeStatusRefreshedAt.get(lookupKey);
+    if (
+      refreshedAt !== undefined &&
+      this.#now() - refreshedAt < worktreeStatusFreshnessMs
+    ) {
+      return Promise.resolve(this.#cachedWorktreeStatus(worktree));
+    }
+    const activeLookup = this.#worktreeStatusLookups.get(lookupKey);
+    if (activeLookup) return activeLookup;
+
+    const startLookup = async (): Promise<WorktreeStatus> => {
+      if (this.#disposed) return 'clean';
+      return this.git.status(worktree);
+    };
+    const lookup = (
+      background ? this.#runtime.runBackgroundCommand(startLookup) : startLookup()
+    )
+      .then((status) => {
+        if (this.#disposed) return undefined;
+        this.#worktreeStatusRefreshedAt.set(lookupKey, this.#now());
+        const current = this.#project.worktrees.find(
+          (item) => item.id === worktree.id && item.branch === worktree.branch,
+        );
+        if (!current || current.status === status) return structuredClone(status);
+        this.#project = {
+          ...this.#project,
+          worktrees: this.#project.worktrees.map((item) =>
+            item.id === worktree.id && item.branch === worktree.branch
+              ? { ...item, status }
+              : item,
+          ),
+        };
+        this.#publishSnapshotUpdate();
+        return structuredClone(status);
+      })
+      .finally(() => {
+        if (this.#worktreeStatusLookups.get(lookupKey) === lookup) {
+          this.#worktreeStatusLookups.delete(lookupKey);
+        }
+      });
+    this.#worktreeStatusLookups.set(lookupKey, lookup);
+    return lookup;
+  }
+
+  #cachedWorktreeStatus(worktree: Worktree): WorktreeStatus | undefined {
+    return this.#project.worktrees.find(
+      (item) => item.id === worktree.id && item.branch === worktree.branch,
+    )?.status;
+  }
+
+  #pruneWorktreeStatusCache(worktrees: readonly Worktree[]): void {
+    const currentKeys = new Set(worktrees.map(pullRequestLookupKey));
+    for (const key of this.#worktreeStatusRefreshedAt.keys()) {
+      if (!currentKeys.has(key)) this.#worktreeStatusRefreshedAt.delete(key);
     }
   }
 
