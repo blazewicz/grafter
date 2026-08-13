@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import type { CSSProperties, KeyboardEvent, ReactNode } from 'react';
+import { menuKeyAction, nextWrapIndex } from '../ui/menu-navigation';
 import styles from './DiffViewer.module.css';
 
 export interface ContextMenuPosition {
@@ -37,25 +38,24 @@ export function ContextMenu({
   }, [onClose]);
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
-    if (event.key === 'Escape') {
+    const action = menuKeyAction(event.key);
+    if (action?.kind === 'close') {
       event.preventDefault();
       event.stopPropagation();
       onClose();
       return;
     }
-    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+    if (!action || action.kind === 'select') return;
     const buttons = [...(menuRef.current?.querySelectorAll('button') ?? [])];
     if (!buttons.length) return;
     event.preventDefault();
     const currentIndex = buttons.indexOf(document.activeElement as HTMLButtonElement);
     const nextIndex =
-      event.key === 'Home'
-        ? 0
-        : event.key === 'End'
-          ? buttons.length - 1
-          : event.key === 'ArrowDown'
-            ? (currentIndex + 1 + buttons.length) % buttons.length
-            : (currentIndex - 1 + buttons.length) % buttons.length;
+      action.kind === 'move'
+        ? nextWrapIndex(currentIndex, action.offset, buttons.length)
+        : action.kind === 'home'
+          ? 0
+          : buttons.length - 1;
     buttons[nextIndex]?.focus();
   };
 

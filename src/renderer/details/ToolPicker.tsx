@@ -2,6 +2,7 @@ import { Check, ChevronDown } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { QuickTooltip } from '../ui/QuickTooltip';
+import { menuKeyAction, nextWrapIndex } from '../ui/menu-navigation';
 import styles from './ToolPicker.module.css';
 
 export interface ToolPickerOption<T extends string> {
@@ -82,25 +83,23 @@ export function ToolPicker<T extends string>({
   };
 
   const handleMenuKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>): void => {
-    if (event.key === 'ArrowDown') {
+    const action = menuKeyAction(event.key);
+    if (action?.kind === 'move') {
       event.preventDefault();
-      setActiveIndex((index) => (index + 1) % options.length);
-    } else if (event.key === 'ArrowUp') {
-      event.preventDefault();
-      setActiveIndex((index) => (index - 1 + options.length) % options.length);
-    } else if (event.key === 'Home') {
+      setActiveIndex((index) => nextWrapIndex(index, action.offset, options.length));
+    } else if (action?.kind === 'home') {
       event.preventDefault();
       setActiveIndex(0);
-    } else if (event.key === 'End') {
+    } else if (action?.kind === 'end') {
       event.preventDefault();
       setActiveIndex(options.length - 1);
-    } else if (event.key === 'Enter' || event.key === ' ') {
+    } else if (action?.kind === 'select') {
       const option = options[activeIndex];
       if (option) {
         event.preventDefault();
         launch(option.id);
       }
-    } else if (event.key === 'Escape') {
+    } else if (action?.kind === 'close') {
       event.preventDefault();
       event.stopPropagation();
       closeMenu(true);

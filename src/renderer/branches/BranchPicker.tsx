@@ -1,8 +1,15 @@
 import fuzzysort from 'fuzzysort';
 import { Check, GitBranch, LoaderCircle, Search } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from 'react';
 import type { Worktree } from '../../shared/contracts';
 import { HighlightedText } from '../ui/HighlightedText';
+import { menuKeyAction, nextWrapIndex } from '../ui/menu-navigation';
 import styles from './BranchPicker.module.css';
 
 const maximumVisibleBranches = 7;
@@ -71,12 +78,32 @@ export function BranchPicker({
     const currentIndex = effectiveActiveBranch
       ? available.findIndex(({ branch }) => branch === effectiveActiveBranch)
       : -1;
-    const nextIndex =
-      currentIndex === -1
-        ? 0
-        : (currentIndex + offset + available.length) % available.length;
+    const nextIndex = nextWrapIndex(currentIndex, offset, available.length);
     const nextBranch = available[nextIndex]?.branch;
     if (nextBranch) setActiveBranch(nextBranch);
+  };
+
+  const handleKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>): void => {
+    const action = menuKeyAction(event.key);
+    if (action?.kind === 'move') {
+      event.preventDefault();
+      moveActive(action.offset);
+    } else if (action?.kind === 'home') {
+      event.preventDefault();
+      const first = available[0];
+      if (first) setActiveBranch(first.branch);
+    } else if (action?.kind === 'end') {
+      event.preventDefault();
+      const last = available[available.length - 1];
+      if (last) setActiveBranch(last.branch);
+    } else if (
+      action?.kind === 'select' &&
+      event.key === 'Enter' &&
+      effectiveActiveBranch
+    ) {
+      event.preventDefault();
+      choose(effectiveActiveBranch);
+    }
   };
 
   return (
@@ -91,18 +118,7 @@ export function BranchPicker({
             setQuery(event.target.value);
             onQueryChange?.();
           }}
-          onKeyDown={(event) => {
-            if (event.key === 'ArrowDown') {
-              event.preventDefault();
-              moveActive(1);
-            } else if (event.key === 'ArrowUp') {
-              event.preventDefault();
-              moveActive(-1);
-            } else if (event.key === 'Enter' && effectiveActiveBranch) {
-              event.preventDefault();
-              choose(effectiveActiveBranch);
-            }
-          }}
+          onKeyDown={handleKeyDown}
           placeholder="Filter branches…"
         />
       </div>

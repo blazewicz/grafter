@@ -138,6 +138,16 @@ describe('BranchPicker', () => {
       keys: '{ArrowUp}{Enter}',
       expectedBranch: 'feature/three',
     },
+    {
+      action: 'the last branch with End',
+      keys: '{End}{Enter}',
+      expectedBranch: 'feature/three',
+    },
+    {
+      action: 'the first branch with Home',
+      keys: '{End}{Home}{Enter}',
+      expectedBranch: 'feature/one',
+    },
   ])('selects $action with the keyboard', async ({ keys, expectedBranch }) => {
     const user = userEvent.setup();
     const onSelect = vi.fn();
