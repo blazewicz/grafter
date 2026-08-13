@@ -204,6 +204,51 @@ describe('Sidebar', () => {
     ).toBeVisible();
   });
 
+  it('closes an empty worktree search when clicking outside it', async () => {
+    const user = userEvent.setup();
+    renderSidebar();
+
+    await user.click(screen.getByRole('button', { name: 'Filter worktrees' }));
+    const input = screen.getByRole<HTMLInputElement>('searchbox', {
+      name: 'Filter worktrees by path or branch',
+    });
+    expect(input).toHaveFocus();
+
+    await user.click(screen.getByText('Worktrees'));
+
+    expect(screen.queryByRole('searchbox')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Filter worktrees' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+  });
+
+  it('keeps the worktree search open on outside clicks while a query exists', async () => {
+    const user = userEvent.setup();
+    renderSidebar();
+
+    await user.click(screen.getByRole('button', { name: 'Filter worktrees' }));
+    await user.type(
+      screen.getByRole<HTMLInputElement>('searchbox', {
+        name: 'Filter worktrees by path or branch',
+      }),
+      scenario.branchFilterWorktree.branch,
+    );
+
+    await user.click(screen.getByText('Worktrees'));
+
+    const input = screen.getByRole<HTMLInputElement>('searchbox', {
+      name: 'Filter worktrees by path or branch',
+    });
+    expect(input).toBeVisible();
+    expect(input).toHaveValue(scenario.branchFilterWorktree.branch);
+    expect(
+      screen.getByRole('button', {
+        name: `${scenario.branchFilterWorktree.displayName}, checked out branch ${scenario.branchFilterWorktree.branch}`,
+      }),
+    ).toBeVisible();
+  });
+
   it('closes and clears worktree search after selecting a filtered worktree', async () => {
     const user = userEvent.setup();
     const onSelect = vi.fn();
