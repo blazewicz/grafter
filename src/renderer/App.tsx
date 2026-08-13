@@ -187,7 +187,14 @@ export function App(): React.JSX.Element {
     if (snapshot.kind === 'repository') setDialog('new-worktree');
   });
 
-  if (snapshot.kind === 'loading') return <Splash />;
+  if (snapshot.kind === 'loading') {
+    return (
+      <>
+        <Splash />
+        {error && <ErrorToast message={error} onDismiss={() => setError(undefined)} />}
+      </>
+    );
+  }
 
   if (snapshot.kind === 'welcome') {
     return (
