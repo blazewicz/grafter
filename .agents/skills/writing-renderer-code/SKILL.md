@@ -9,9 +9,9 @@ As a general rule: Infer internally, specify at boundaries.
 
 Don't use `any` or `unknown` when the concrete type is known.
 
-## React
+## React Idioms
 
-Use modern React features - anything available in React 19. Avoid using old workarounds for problems with modern solutions.
+Use modern React idioms - anything available in React 19. Avoid using old workarounds for problems with modern solutions.
 
 ### Examples
 
@@ -33,3 +33,26 @@ useEffect(() => {
 ```
 
 **NOTE**: Don't use useEffectEvent wrapped callbacks from regular event handlers.
+
+## Helper Components
+
+Use colocated helper components to improve readability of the code.
+
+For instance:
+
+```react
+{items.map((props) => (
+  <ItemRow key={...} ... />
+))}
+```
+
+Reads much better than:
+
+```react
+{items.map((props) => (
+  <button key={} ...>
+    <span ...>...</span>
+    {menuOpen && (...)}
+  </button>
+))}
+```
