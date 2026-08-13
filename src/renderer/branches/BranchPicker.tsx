@@ -92,24 +92,31 @@ export function BranchPicker({
 
   const handleKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>): void => {
     const action = menuKeyAction(event.key);
-    if (action?.kind === 'move') {
-      event.preventDefault();
-      moveActive(action.offset);
-    } else if (action?.kind === 'home') {
-      event.preventDefault();
-      const first = available[0];
-      if (first) activateFromKeyboard(first.branch);
-    } else if (action?.kind === 'end') {
-      event.preventDefault();
-      const last = available[available.length - 1];
-      if (last) activateFromKeyboard(last.branch);
-    } else if (
-      action?.kind === 'select' &&
-      event.key === 'Enter' &&
-      effectiveActiveBranch
-    ) {
-      event.preventDefault();
-      choose(effectiveActiveBranch);
+    switch (action?.kind) {
+      case 'move': {
+        event.preventDefault();
+        moveActive(action.offset);
+        break;
+      }
+      case 'home': {
+        event.preventDefault();
+        const first = available[0];
+        if (first) activateFromKeyboard(first.branch);
+        break;
+      }
+      case 'end': {
+        event.preventDefault();
+        const last = available[available.length - 1];
+        if (last) activateFromKeyboard(last.branch);
+        break;
+      }
+      case 'select': {
+        if (event.key === 'Enter' && effectiveActiveBranch) {
+          event.preventDefault();
+          choose(effectiveActiveBranch);
+        }
+        break;
+      }
     }
   };
 

@@ -84,27 +84,40 @@ export function ToolPicker<T extends string>({
 
   const handleMenuKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>): void => {
     const action = menuKeyAction(event.key);
-    if (action?.kind === 'move') {
-      event.preventDefault();
-      setActiveIndex((index) => nextWrapIndex(index, action.offset, options.length));
-    } else if (action?.kind === 'home') {
-      event.preventDefault();
-      setActiveIndex(0);
-    } else if (action?.kind === 'end') {
-      event.preventDefault();
-      setActiveIndex(options.length - 1);
-    } else if (action?.kind === 'select') {
-      const option = options[activeIndex];
-      if (option) {
+    switch (action?.kind) {
+      case 'move': {
         event.preventDefault();
-        launch(option.id);
+        setActiveIndex((index) => nextWrapIndex(index, action.offset, options.length));
+        break;
       }
-    } else if (action?.kind === 'close') {
-      event.preventDefault();
-      event.stopPropagation();
-      closeMenu(true);
-    } else if (event.key === 'Tab') {
-      closeMenu(false);
+      case 'home': {
+        event.preventDefault();
+        setActiveIndex(0);
+        break;
+      }
+      case 'end': {
+        event.preventDefault();
+        setActiveIndex(options.length - 1);
+        break;
+      }
+      case 'select': {
+        const option = options[activeIndex];
+        if (option) {
+          event.preventDefault();
+          launch(option.id);
+        }
+        break;
+      }
+      case 'close': {
+        event.preventDefault();
+        event.stopPropagation();
+        closeMenu(true);
+        break;
+      }
+      default: {
+        if (event.key === 'Tab') closeMenu(false);
+        break;
+      }
     }
   };
 
