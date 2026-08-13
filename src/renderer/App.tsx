@@ -187,18 +187,19 @@ export function App(): React.JSX.Element {
     if (snapshot.kind === 'repository') setDialog('new-worktree');
   });
 
+  const dismissError = (): void => setError(undefined);
+
   if (snapshot.kind === 'loading') {
     return (
-      <>
+      <AppFrame error={error} onDismissError={dismissError}>
         <Splash />
-        {error && <ErrorToast message={error} onDismiss={() => setError(undefined)} />}
-      </>
+      </AppFrame>
     );
   }
 
   if (snapshot.kind === 'welcome') {
     return (
-      <>
+      <AppFrame error={error} onDismissError={dismissError}>
         <Welcome
           homeDirectory={snapshot.homeDirectory}
           recentRepositories={snapshot.recentRepositories}
@@ -206,141 +207,157 @@ export function App(): React.JSX.Element {
           onOpenRepository={chooseRepository}
           onOpenRecentRepository={openRecentRepository}
         />
-        {error && <ErrorToast message={error} onDismiss={() => setError(undefined)} />}
-      </>
+      </AppFrame>
     );
   }
 
   const activeRepository = snapshot.repository;
 
   return (
-    <div className={styles.appShell} style={appShellStyle}>
-      <AppTitlebar
-        repositoryName={activeRepository.name}
-        worktree={selectedWorktree}
-        canGoBack={canGoBack}
-        canGoForward={canGoForward}
-        onBack={goBack}
-        onForward={goForward}
-        onSelectRepository={() => navigate(activeRepository.id)}
-        busy={busy}
-        onRefresh={() => void run(() => api.refresh(), applySnapshot)}
-      />
-
-      <div className={styles.workspace}>
-        <Sidebar
-          homeDirectory={snapshot.homeDirectory}
-          repository={activeRepository}
-          width={sidebarWidth}
-          selectedId={selectedId}
-          selectedWorktreeStatus={worktreeStatus}
-          onSelect={navigate}
-          onAddWorktree={() => setDialog('new-worktree')}
-          onRemoveWorktree={(worktree) =>
-            void run(() => api.prepareRemoveWorktree(worktree.id), enqueueApproval)
-          }
-          onOpenSettings={() => setDialog('settings')}
-          onResize={setSidebarWidth}
+    <AppFrame error={error} onDismissError={dismissError}>
+      <div className={styles.appShell} style={appShellStyle}>
+        <AppTitlebar
+          repositoryName={activeRepository.name}
+          worktree={selectedWorktree}
+          canGoBack={canGoBack}
+          canGoForward={canGoForward}
+          onBack={goBack}
+          onForward={goForward}
+          onSelectRepository={() => navigate(activeRepository.id)}
+          busy={busy}
+          onRefresh={() => void run(() => api.refresh(), applySnapshot)}
         />
 
-        <MainView
-          homeDirectory={snapshot.homeDirectory}
+        <div className={styles.workspace}>
+          <Sidebar
+            homeDirectory={snapshot.homeDirectory}
+            repository={activeRepository}
+            width={sidebarWidth}
+            selectedId={selectedId}
+            selectedWorktreeStatus={worktreeStatus}
+            onSelect={navigate}
+            onAddWorktree={() => setDialog('new-worktree')}
+            onRemoveWorktree={(worktree) =>
+              void run(() => api.prepareRemoveWorktree(worktree.id), enqueueApproval)
+            }
+            onOpenSettings={() => setDialog('settings')}
+            onResize={setSidebarWidth}
+          />
+
+          <MainView
+            homeDirectory={snapshot.homeDirectory}
+            settings={snapshot.settings}
+            systemLocale={snapshot.systemLocale}
+            selectedProject={selectedRepository}
+            selectedWorktree={selectedWorktree}
+            details={details}
+            projectWorktrees={repositoryWorktrees}
+            status={worktreeStatus}
+            toolPreferences={snapshot.toolPreferences}
+            onSetToolPreference={setToolPreference}
+            onSnapshot={applySnapshot}
+            onAdd={chooseRepository}
+            onSelectWorktree={navigate}
+            diffOpening={diffOpening}
+            onOpenDiff={openDiff}
+            onOpenCommitDiff={openCommitDiff}
+            onError={setError}
+          />
+        </div>
+
+        <AuditPanel
+          key={selectedContextKey ?? 'no-command-context'}
+          open={logsOpen}
+          commands={commands}
+          latestActivity={latestActivity}
           settings={snapshot.settings}
           systemLocale={snapshot.systemLocale}
-          selectedProject={selectedRepository}
-          selectedWorktree={selectedWorktree}
-          details={details}
-          projectWorktrees={repositoryWorktrees}
-          status={worktreeStatus}
-          toolPreferences={snapshot.toolPreferences}
-          onSetToolPreference={setToolPreference}
-          onSnapshot={applySnapshot}
-          onAdd={chooseRepository}
-          onSelectWorktree={navigate}
-          diffOpening={diffOpening}
-          onOpenDiff={openDiff}
-          onOpenCommitDiff={openCommitDiff}
+          onToggle={() => setLogsOpen((value) => !value)}
           onError={setError}
         />
+
+        {approval && (
+          <ApprovalDialog
+            homeDirectory={snapshot.homeDirectory}
+            request={approval}
+            running={approvalRunning}
+            onReject={() => resolveApproval('reject')}
+            onApprove={() => resolveApproval('approve')}
+          />
+        )}
+
+        {dialog === 'settings' && (
+          <SettingsDialog
+            settings={snapshot.settings}
+            repository={activeRepository}
+            onClose={() => setDialog(null)}
+            onSave={(settings) =>
+              void run(
+                () => api.updateSettings(settings),
+                (next) => {
+                  applySnapshot(next);
+                  setDialog(null);
+                },
+              )
+            }
+            onRepositorySetup={(script) =>
+              void run(() => api.updateRepositorySetup(script), applySnapshot)
+            }
+          />
+        )}
+
+        {dialog === 'new-worktree' && (
+          <NewWorktreeDialog
+            project={activeRepository}
+            onCancel={() => setDialog(null)}
+            onCreated={(next, request) => {
+              setDialog(null);
+              applySnapshot(next.snapshot);
+              const created =
+                next.snapshot.kind === 'repository'
+                  ? next.snapshot.repository.worktrees.find(
+                      (worktree) => worktree.path === request.path,
+                    )
+                  : undefined;
+              if (created) navigate(created.id);
+              if (next.setupApproval) enqueueApproval(next.setupApproval);
+            }}
+            onError={setError}
+          />
+        )}
+
+        {diffSession && (
+          <DiffViewer
+            key={diffSession.id}
+            session={diffSession}
+            onSessionChange={replaceDiffSession}
+            onClose={closeDiff}
+            onError={setError}
+            settings={snapshot.settings}
+            systemLocale={snapshot.systemLocale}
+            toolPreferences={snapshot.toolPreferences}
+            onSetToolPreference={setToolPreference}
+          />
+        )}
       </div>
+    </AppFrame>
+  );
+}
 
-      <AuditPanel
-        key={selectedContextKey ?? 'no-command-context'}
-        open={logsOpen}
-        commands={commands}
-        latestActivity={latestActivity}
-        settings={snapshot.settings}
-        systemLocale={snapshot.systemLocale}
-        onToggle={() => setLogsOpen((value) => !value)}
-        onError={setError}
-      />
-
-      {approval && (
-        <ApprovalDialog
-          homeDirectory={snapshot.homeDirectory}
-          request={approval}
-          running={approvalRunning}
-          onReject={() => resolveApproval('reject')}
-          onApprove={() => resolveApproval('approve')}
-        />
-      )}
-
-      {dialog === 'settings' && (
-        <SettingsDialog
-          settings={snapshot.settings}
-          repository={activeRepository}
-          onClose={() => setDialog(null)}
-          onSave={(settings) =>
-            void run(
-              () => api.updateSettings(settings),
-              (next) => {
-                applySnapshot(next);
-                setDialog(null);
-              },
-            )
-          }
-          onRepositorySetup={(script) =>
-            void run(() => api.updateRepositorySetup(script), applySnapshot)
-          }
-        />
-      )}
-
-      {dialog === 'new-worktree' && (
-        <NewWorktreeDialog
-          project={activeRepository}
-          onCancel={() => setDialog(null)}
-          onCreated={(next, request) => {
-            setDialog(null);
-            applySnapshot(next.snapshot);
-            const created =
-              next.snapshot.kind === 'repository'
-                ? next.snapshot.repository.worktrees.find(
-                    (worktree) => worktree.path === request.path,
-                  )
-                : undefined;
-            if (created) navigate(created.id);
-            if (next.setupApproval) enqueueApproval(next.setupApproval);
-          }}
-          onError={setError}
-        />
-      )}
-
-      {diffSession && (
-        <DiffViewer
-          key={diffSession.id}
-          session={diffSession}
-          onSessionChange={replaceDiffSession}
-          onClose={closeDiff}
-          onError={setError}
-          settings={snapshot.settings}
-          systemLocale={snapshot.systemLocale}
-          toolPreferences={snapshot.toolPreferences}
-          onSetToolPreference={setToolPreference}
-        />
-      )}
-
-      {error && <ErrorToast message={error} onDismiss={() => setError(undefined)} />}
-    </div>
+function AppFrame({
+  error,
+  onDismissError,
+  children,
+}: {
+  error: string | undefined;
+  onDismissError: () => void;
+  children: React.ReactNode;
+}): React.JSX.Element {
+  return (
+    <>
+      {children}
+      {error && <ErrorToast message={error} onDismiss={onDismissError} />}
+    </>
   );
 }
 
