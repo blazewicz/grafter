@@ -1,4 +1,4 @@
-import { FolderOpen, Plus, Search, Settings } from 'lucide-react';
+import { Filter, FolderOpen, Plus, Search, Settings } from 'lucide-react';
 import { useRef, useState } from 'react';
 import type { Project, Worktree, WorktreeStatus } from '../../shared/contracts';
 import type { WorktreeSortOrder } from '../../shared/worktree-list';
@@ -42,6 +42,7 @@ export function Sidebar({
     filterOpen,
     worktreeFilter,
     filterInputRef,
+    filterToggleRef,
     setWorktreeFilter,
     openWorktreeFilter,
     closeWorktreeFilter,
@@ -75,6 +76,7 @@ export function Sidebar({
             align="right"
           >
             <button
+              ref={filterToggleRef}
               className={`${controls.iconButton} ${styles.headingAction}`}
               aria-label="Filter worktrees"
               aria-keyshortcuts="Meta+F"
@@ -84,7 +86,7 @@ export function Sidebar({
                 else openWorktreeFilter();
               }}
             >
-              <Search size={14} />
+              <Filter size={14} />
             </button>
           </QuickTooltip>
           <WorktreeSortMenu value={worktreeSortOrder} onChange={setWorktreeSortOrder} />
