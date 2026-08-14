@@ -1,0 +1,64 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: '/'
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    ignore:
+      # @electron-forge/plugin-fuses@7.x declares a peerDependency on
+      # @electron/fuses@^1.0.0; v2 is incompatible until we move to Forge 8.
+      - dependency-name: '@electron/fuses'
+        update-types:
+          - 'version-update:semver-major'
+    groups:
+      electron:
+        patterns:
+          - 'electron'
+          - '@electron/fuses'
+      electron-forge:
+        patterns:
+          - '@electron-forge/*'
+      react:
+        patterns:
+          - 'react'
+          - 'react-dom'
+          - '@types/react'
+          - '@types/react-dom'
+      linting:
+        patterns:
+          - 'eslint'
+          - '@eslint/*'
+          - 'eslint-config-prettier'
+          - 'eslint-plugin-react-hooks'
+          - 'typescript-eslint'
+          - 'prettier'
+      testing:
+        patterns:
+          - 'vitest'
+          - 'happy-dom'
+          - '@testing-library/*'
+          - 'fishery'
+          - '@faker-js/faker'
+      tooling:
+        patterns:
+          - 'vite'
+          - '@vitejs/*'
+          - 'typescript'
+          - '@types/node'
+          - 'husky'
+          - 'fuzzysort'
+          - 'lucide-react'
+          - 'p-limit'
+
+  - package-ecosystem: github-actions
+    directory: '/'
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      actions:
+        patterns:
+          - '*'

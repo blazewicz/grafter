@@ -76,6 +76,8 @@ These constraints are architectural invariants:
 - Use type-only imports where applicable.
 - Clean up renderer subscriptions and asynchronous effects.
 - Reuse the existing visual system and Lucide icons before adding dependencies.
+- When dependencies change (package.json, package-lock.json, or dependency-related CI/dependabot
+  configuration), follow the `managing-dependencies` skill.
 - Keep the interface compact and restrained. Use subtle hierarchy and hover-revealed
   secondary actions rather than permanent clutter.
 - Give icon-only controls accessible names and use semantic labels for dialogs and inputs.
