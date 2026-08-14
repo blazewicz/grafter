@@ -76,6 +76,8 @@ These constraints are architectural invariants:
 - Use type-only imports where applicable.
 - Clean up renderer subscriptions and asynchronous effects.
 - Reuse the existing visual system and Lucide icons before adding dependencies.
+- When dependencies change (package.json, package-lock.json, or dependency-related CI/dependabot
+  configuration), follow the `managing-dependencies` skill.
 - Keep the interface compact and restrained. Use subtle hierarchy and hover-revealed
   secondary actions rather than permanent clutter.
 - Give icon-only controls accessible names and use semantic labels for dialogs and inputs.
@@ -124,7 +126,7 @@ when checks change. Do not bypass hooks or weaken CI checks as part of unrelated
 ### Codex In-app Browser
 
 If you're Codex and you need to preview the app then instead of running `npm start`
-run `./node_modules/.bin/vite --config vite.renderer.config.ts --host 127.0.0.1` to
+run `./node_modules/.bin/vite --config vite.renderer.config.mts --host 127.0.0.1` to
 start a local server and connect to it using Codes In-app Browser on http://127.0.0.1:5173.
 
 When running from Visual Studio Code, the browser is not available. Don't attempt using it.
