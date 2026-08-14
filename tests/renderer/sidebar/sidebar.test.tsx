@@ -37,6 +37,14 @@ function renderSidebar(options: RenderSidebarOptions = {}): void {
   );
 }
 
+function worktreeOption(worktree: Worktree): HTMLElement {
+  return screen.getByRole('option', {
+    name: worktree.isMain
+      ? `Main worktree, checked out branch ${worktree.branch}`
+      : `${worktree.displayName}, checked out branch ${worktree.branch}`,
+  });
+}
+
 describe('Sidebar', () => {
   afterEach(() => {
     cleanup();
@@ -104,13 +112,9 @@ describe('Sidebar', () => {
     expect(trigger).toHaveFocus();
     let previous: HTMLElement | undefined;
     for (const worktree of scenario.expectedWorktreesByBranch) {
-      const button = screen.getByRole('button', {
-        name: worktree.isMain
-          ? `Main worktree, checked out branch ${worktree.branch}`
-          : `${worktree.displayName}, checked out branch ${worktree.branch}`,
-      });
-      if (previous) expect(previous).toAppearBefore(button);
-      previous = button;
+      const option = worktreeOption(worktree);
+      if (previous) expect(previous).toAppearBefore(option);
+      previous = option;
     }
 
     await user.click(trigger);
@@ -154,13 +158,9 @@ describe('Sidebar', () => {
     expect(input).toHaveFocus();
     await user.type(input, scenario.branchFilterWorktree.branch);
 
+    expect(worktreeOption(scenario.branchFilterWorktree)).toBeVisible();
     expect(
-      screen.getByRole('button', {
-        name: `${scenario.branchFilterWorktree.displayName}, checked out branch ${scenario.branchFilterWorktree.branch}`,
-      }),
-    ).toBeVisible();
-    expect(
-      screen.queryByRole('button', {
+      screen.queryByRole('option', {
         name: `Main worktree, checked out branch ${scenario.expectedWorktrees[0]?.branch}`,
       }),
     ).toBeNull();
@@ -170,7 +170,7 @@ describe('Sidebar', () => {
     expect(trigger).toHaveAttribute('aria-expanded', 'false');
     expect(screen.queryByRole('searchbox')).toBeNull();
     expect(
-      screen.getByRole('button', {
+      screen.getByRole('option', {
         name: `Main worktree, checked out branch ${scenario.expectedWorktrees[0]?.branch}`,
       }),
     ).toBeVisible();
@@ -198,7 +198,7 @@ describe('Sidebar', () => {
 
     expect(screen.queryByRole('searchbox')).toBeNull();
     expect(
-      screen.getByRole('button', {
+      screen.getByRole('option', {
         name: `Main worktree, checked out branch ${scenario.expectedWorktrees[0]?.branch}`,
       }),
     ).toBeVisible();
@@ -242,11 +242,7 @@ describe('Sidebar', () => {
     });
     expect(input).toBeVisible();
     expect(input).toHaveValue(scenario.branchFilterWorktree.branch);
-    expect(
-      screen.getByRole('button', {
-        name: `${scenario.branchFilterWorktree.displayName}, checked out branch ${scenario.branchFilterWorktree.branch}`,
-      }),
-    ).toBeVisible();
+    expect(worktreeOption(scenario.branchFilterWorktree)).toBeVisible();
   });
 
   it('closes and clears worktree search after selecting a filtered worktree', async () => {
@@ -261,11 +257,7 @@ describe('Sidebar', () => {
       }),
       scenario.branchFilterWorktree.branch,
     );
-    await user.click(
-      screen.getByRole('button', {
-        name: `${scenario.branchFilterWorktree.displayName}, checked out branch ${scenario.branchFilterWorktree.branch}`,
-      }),
-    );
+    await user.click(worktreeOption(scenario.branchFilterWorktree));
 
     expect(onSelect).toHaveBeenCalledOnce();
     expect(onSelect).toHaveBeenCalledWith(scenario.branchFilterWorktree.id);
@@ -275,10 +267,89 @@ describe('Sidebar', () => {
       'false',
     );
     expect(
-      screen.getByRole('button', {
+      screen.getByRole('option', {
         name: `Main worktree, checked out branch ${scenario.expectedWorktrees[0]?.branch}`,
       }),
     ).toBeVisible();
+  });
+
+  it('focuses the worktree list on first render', () => {
+    renderSidebar();
+
+    const listbox = screen.getByRole('listbox', {
+      name: `${scenario.repository.name} worktrees`,
+    });
+    expect(listbox).toHaveFocus();
+  });
+
+  it('moves the worktree highlight with arrow keys and commits with Enter', async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    renderSidebar({ onSelect });
+
+    await user.keyboard('{ArrowDown}');
+    expect(
+      worktreeOption(scenario.expectedWorktrees[1] ?? scenario.selectableWorktree),
+    ).toHaveAttribute('aria-selected', 'true');
+    expect(onSelect).not.toHaveBeenCalled();
+    await user.keyboard('{ArrowDown}');
+    await user.keyboard('{Enter}');
+
+    expect(onSelect).toHaveBeenCalledOnce();
+    expect(onSelect).toHaveBeenCalledWith(scenario.expectedWorktrees[2]?.id);
+  });
+
+  it('highlights the top filtered match while typing in the filter', async () => {
+    const user = userEvent.setup();
+    renderSidebar();
+
+    await user.click(screen.getByRole('button', { name: 'Filter worktrees' }));
+    await user.type(
+      screen.getByRole<HTMLInputElement>('searchbox', {
+        name: 'Filter worktrees by path or branch',
+      }),
+      scenario.branchFilterWorktree.branch,
+    );
+
+    expect(worktreeOption(scenario.branchFilterWorktree)).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+  });
+
+  it('commits the top filtered match with Enter in the filter', async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    renderSidebar({ onSelect });
+
+    await user.click(screen.getByRole('button', { name: 'Filter worktrees' }));
+    await user.type(
+      screen.getByRole<HTMLInputElement>('searchbox', {
+        name: 'Filter worktrees by path or branch',
+      }),
+      scenario.branchFilterWorktree.branch,
+    );
+    await user.keyboard('{Enter}');
+
+    expect(onSelect).toHaveBeenCalledOnce();
+    expect(onSelect).toHaveBeenCalledWith(scenario.branchFilterWorktree.id);
+    expect(screen.queryByRole('searchbox')).toBeNull();
+    expect(
+      screen.getByRole('listbox', { name: `${scenario.repository.name} worktrees` }),
+    ).toHaveFocus();
+  });
+
+  it('returns focus to the worktree list when closing the filter with Escape', async () => {
+    const user = userEvent.setup();
+    renderSidebar();
+
+    await user.click(screen.getByRole('button', { name: 'Filter worktrees' }));
+    await user.keyboard('{Escape}');
+
+    expect(screen.queryByRole('searchbox')).toBeNull();
+    expect(
+      screen.getByRole('listbox', { name: `${scenario.repository.name} worktrees` }),
+    ).toHaveFocus();
   });
 
   it('opens new worktree dialog with the button', async () => {

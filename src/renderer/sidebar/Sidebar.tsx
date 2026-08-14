@@ -1,10 +1,11 @@
 import { Filter, FolderOpen, Plus, Search, Settings } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Project, Worktree, WorktreeStatus } from '../../shared/contracts';
 import type { WorktreeSortOrder } from '../../shared/worktree-list';
 import controls from '../styles/controls.module.css';
 import { QuickTooltip } from '../ui/QuickTooltip';
 import styles from './sidebar.module.css';
+import { useWorktreeList, resolveHighlightedId } from './useWorktreeList';
 import { WorktreeList } from './WorktreeList';
 import { WorktreeSortMenu } from './WorktreeSortMenu';
 import { useWorktreeFilter } from './useWorktreeFilter';
@@ -47,6 +48,29 @@ export function Sidebar({
     openWorktreeFilter,
     closeWorktreeFilter,
   } = useWorktreeFilter();
+  const visibleWorktrees = useWorktreeList(repository, worktreeSortOrder, worktreeFilter);
+  const [highlightTarget, setHighlightTarget] = useState<string | undefined>(selectedId);
+  const worktreeListRef = useRef<HTMLDivElement>(null);
+  const focusedWorktreeList = useRef(false);
+  const highlightedId = useMemo(
+    () =>
+      filterOpen && worktreeFilter.trim() !== ''
+        ? visibleWorktrees[0]?.worktree.id
+        : resolveHighlightedId(
+            highlightTarget,
+            selectedId,
+            visibleWorktrees.map((match) => match.worktree.id),
+          ),
+    [filterOpen, worktreeFilter, visibleWorktrees, highlightTarget, selectedId],
+  );
+
+  useEffect(() => {
+    if (focusedWorktreeList.current) return;
+    focusedWorktreeList.current = true;
+    if (!document.querySelector('dialog[open], [role="dialog"][aria-modal="true"]')) {
+      worktreeListRef.current?.focus();
+    }
+  }, []);
 
   return (
     <aside className={styles.sidebar} id="sidebar">
@@ -103,10 +127,21 @@ export function Sidebar({
             value={worktreeFilter}
             onChange={(event) => setWorktreeFilter(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key !== 'Escape') return;
-              event.preventDefault();
-              event.stopPropagation();
-              closeWorktreeFilter();
+              if (event.key === 'Escape') {
+                event.preventDefault();
+                event.stopPropagation();
+                setHighlightTarget(selectedId);
+                closeWorktreeFilter();
+                worktreeListRef.current?.focus();
+              } else if (event.key === 'Enter') {
+                event.preventDefault();
+                const top = visibleWorktrees[0]?.worktree.id;
+                if (top) {
+                  onSelect(top);
+                  closeWorktreeFilter();
+                  worktreeListRef.current?.focus();
+                }
+              }
             }}
           />
         </label>
@@ -115,11 +150,13 @@ export function Sidebar({
         <WorktreeList
           homeDirectory={homeDirectory}
           project={repository}
+          visibleWorktrees={visibleWorktrees}
           selectedId={selectedId}
+          highlightedId={highlightedId}
           selectedWorktreeStatus={selectedWorktreeStatus}
-          sortOrder={worktreeSortOrder}
           filterQuery={worktreeFilter}
-          flat
+          listRef={worktreeListRef}
+          onHighlight={setHighlightTarget}
           onSelect={(id) => {
             if (filterOpen) closeWorktreeFilter();
             onSelect(id);

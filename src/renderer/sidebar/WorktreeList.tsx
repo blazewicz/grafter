@@ -1,45 +1,100 @@
 import { Trash2 } from 'lucide-react';
-import { useMemo } from 'react';
+import type { KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react';
 import type { Project, Worktree, WorktreeStatus } from '../../shared/contracts';
 import { displayWorktreePath } from '../../shared/path-display';
-import { filterWorktrees, sortWorktrees } from '../../shared/worktree-list';
-import type { WorktreeSortOrder } from '../../shared/worktree-list';
+import type { WorktreeFilterMatch } from '../../shared/worktree-list';
 import { PullRequestStateIcon } from '../ui/PullRequestStateIcon';
 import { HighlightedText } from '../ui/HighlightedText';
 import { QuickTooltip } from '../ui/QuickTooltip';
+import { menuKeyAction, nextWrapIndex } from '../ui/menu-navigation';
 import styles from './sidebar.module.css';
+
+export function worktreeRowId(worktreeId: string): string {
+  return `worktree-row-${worktreeId.replace(/[:/]/g, '-')}`;
+}
 
 export function WorktreeList({
   homeDirectory,
   project,
+  visibleWorktrees,
   selectedId,
+  highlightedId,
   selectedWorktreeStatus,
-  sortOrder,
   filterQuery,
-  flat = false,
+  listRef,
   onSelect,
+  onHighlight,
   onRemoveWorktree,
 }: {
   homeDirectory: string;
   project: Project;
+  visibleWorktrees: readonly WorktreeFilterMatch[];
   selectedId: string | undefined;
+  highlightedId: string | undefined;
   selectedWorktreeStatus: WorktreeStatus | undefined;
-  sortOrder: WorktreeSortOrder;
   filterQuery: string;
-  flat?: boolean;
+  listRef: RefObject<HTMLDivElement | null>;
   onSelect: (id: string) => void;
+  onHighlight: (id: string | undefined) => void;
   onRemoveWorktree: (worktree: Worktree) => void;
 }): React.JSX.Element {
-  const visibleWorktrees = useMemo(
-    () => filterWorktrees(sortWorktrees(project.worktrees, sortOrder), filterQuery),
-    [filterQuery, project.worktrees, sortOrder],
-  );
+  const worktreeIds = visibleWorktrees.map((match) => match.worktree.id);
+
+  const handleKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>): void => {
+    if ((event.target as Element | null)?.closest('button')) return;
+    const action = menuKeyAction(event.key);
+    if (!worktreeIds.length) return;
+
+    switch (action?.kind) {
+      case 'move': {
+        event.preventDefault();
+        const current = worktreeIds.indexOf(highlightedId ?? '');
+        const next =
+          current < 0
+            ? action.offset > 0
+              ? 0
+              : worktreeIds.length - 1
+            : nextWrapIndex(current, action.offset, worktreeIds.length);
+        onHighlight(worktreeIds[next]);
+        break;
+      }
+      case 'home':
+        event.preventDefault();
+        onHighlight(worktreeIds[0]);
+        break;
+      case 'end':
+        event.preventDefault();
+        onHighlight(worktreeIds[worktreeIds.length - 1]);
+        break;
+      case 'select': {
+        event.preventDefault();
+        const id = highlightedId ?? worktreeIds[0];
+        if (id) onSelect(id);
+        break;
+      }
+      case 'close':
+        event.preventDefault();
+        onHighlight(selectedId);
+        listRef.current?.blur();
+        break;
+      default:
+        break;
+    }
+  };
 
   return (
     <div>
       <div
-        className={`${styles.branchList} ${flat ? styles.flatWorktreeList : ''}`}
+        ref={listRef}
+        className={`${styles.branchList} ${styles.flatWorktreeList}`}
+        role="listbox"
+        tabIndex={0}
         aria-label={`${project.name} worktrees`}
+        aria-activedescendant={
+          highlightedId !== undefined ? worktreeRowId(highlightedId) : undefined
+        }
+        onKeyDown={handleKeyDown}
+        onPointerUp={() => listRef.current?.focus()}
       >
         {visibleWorktrees.length ? (
           visibleWorktrees.map(({ worktree, displayNameIndexes, branchIndexes }) => (
@@ -51,6 +106,7 @@ export function WorktreeList({
               displayNameIndexes={displayNameIndexes}
               branchIndexes={branchIndexes}
               selected={selectedId === worktree.id}
+              highlighted={worktree.id === highlightedId}
               status={selectedId === worktree.id ? selectedWorktreeStatus : undefined}
               onSelect={onSelect}
               onRemoveWorktree={onRemoveWorktree}
@@ -73,6 +129,7 @@ function WorktreeRow({
   displayNameIndexes,
   branchIndexes,
   selected,
+  highlighted,
   status,
   onSelect,
   onRemoveWorktree,
@@ -83,6 +140,7 @@ function WorktreeRow({
   displayNameIndexes: readonly number[];
   branchIndexes: readonly number[];
   selected: boolean;
+  highlighted: boolean;
   status: WorktreeStatus | undefined;
   onSelect: (id: string) => void;
   onRemoveWorktree: (worktree: Worktree) => void;
@@ -93,10 +151,13 @@ function WorktreeRow({
     <div
       className={`${styles.treeRow} ${styles.branchRow} ${
         worktree.isMain ? styles.mainWorktreeRow : ''
-      } ${selected ? styles.selected : ''}`}
+      } ${selected ? styles.selected : ''} ${highlighted ? styles.highlighted : ''}`}
     >
-      <button
+      <div
+        id={worktreeRowId(worktree.id)}
         className={styles.treeLabel}
+        role="option"
+        aria-selected={highlighted}
         aria-current={selected ? 'page' : undefined}
         aria-label={
           worktree.isMain
@@ -104,7 +165,6 @@ function WorktreeRow({
             : `${worktree.displayName}, checked out branch ${worktree.branch}`
         }
         onClick={() => onSelect(worktree.id)}
-        onPointerUp={(event) => event.currentTarget.blur()}
       >
         <span className={styles.worktreeCopy}>
           <span className={styles.worktreeTopLine}>
@@ -132,7 +192,7 @@ function WorktreeRow({
             </span>
           </span>
         </span>
-      </button>
+      </div>
       {!worktree.isMain && (
         <div className={styles.rowActions}>
           <QuickTooltip label="Remove worktree" showDelay={0} align="right">

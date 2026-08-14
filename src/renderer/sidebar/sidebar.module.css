@@ -284,6 +284,12 @@
     inset 0 1px rgba(255, 255, 255, 0.035);
 }
 
+.tree-row.highlighted {
+  box-shadow:
+    inset 0 0 0 1px rgba(203, 205, 235, 0.26),
+    inset 0 1px rgba(255, 255, 255, 0.02);
+}
+
 .tree-label {
   flex: 1;
   height: 100%;
@@ -354,7 +360,6 @@
 }
 
 .tree-row:hover .worktree-badges,
-.tree-row > .tree-label:focus-visible .worktree-badges,
 .tree-row:has(> .row-actions:focus-within) .worktree-badges {
   display: none;
 }
@@ -427,14 +432,12 @@
 }
 
 .tree-row:hover > .row-actions,
-.tree-row > .tree-label:focus-visible ~ .row-actions,
 .row-actions:focus-within {
   opacity: 1;
   pointer-events: auto;
 }
 
 .tree-row:hover > .tree-label,
-.tree-row > .tree-label:focus-visible,
 .tree-row:has(> .row-actions:focus-within) > .tree-label {
   padding-right: var(--row-actions-space);
 }
