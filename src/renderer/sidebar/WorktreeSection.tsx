@@ -54,22 +54,15 @@ export function WorktreeSection({
     setPreviousSelectedId(selectedId);
     setHighlightTarget(selectedId);
   }
-  const highlightedId = useMemo(() => {
-    if (highlightTarget !== undefined && visibleWorktreeIds.includes(highlightTarget)) {
-      return highlightTarget;
-    }
-    if (filterOpen && worktreeFilter.trim() !== '') {
-      return visibleWorktrees[0]?.worktree.id;
-    }
-    return resolveHighlightedId(highlightTarget, selectedId, visibleWorktreeIds);
-  }, [
-    filterOpen,
-    worktreeFilter,
-    highlightTarget,
-    selectedId,
-    visibleWorktrees,
-    visibleWorktreeIds,
-  ]);
+  const highlightedId = useMemo(
+    () =>
+      resolveHighlightedId(
+        highlightTarget,
+        filterOpen ? undefined : selectedId,
+        visibleWorktreeIds,
+      ),
+    [highlightTarget, filterOpen, selectedId, visibleWorktreeIds],
+  );
 
   useEffect(() => {
     if (highlightedId === undefined) return;
@@ -137,7 +130,15 @@ export function WorktreeSection({
             }
             placeholder="Filter path or branch…"
             value={worktreeFilter}
-            onChange={(event) => setWorktreeFilter(event.target.value)}
+            onChange={(event) => {
+              const nextFilter = event.target.value;
+              setWorktreeFilter(nextFilter);
+              if (nextFilter.trim() === '') {
+                setHighlightTarget(selectedId);
+              } else {
+                setHighlightTarget(undefined);
+              }
+            }}
             onKeyDown={(event) => {
               if (event.key === 'Escape') {
                 event.preventDefault();
@@ -170,21 +171,25 @@ export function WorktreeSection({
           aria-label={`${repository.name} worktrees`}
         >
           {visibleWorktrees.length ? (
-            visibleWorktrees.map(({ worktree, displayNameIndexes, branchIndexes }) => (
-              <WorktreeRow
-                key={worktree.id}
-                homeDirectory={homeDirectory}
-                mainClonePath={repository.path}
-                worktree={worktree}
-                displayNameIndexes={displayNameIndexes}
-                branchIndexes={branchIndexes}
-                selected={selectedId === worktree.id}
-                highlighted={worktree.id === highlightedId}
-                status={selectedId === worktree.id ? selectedWorktreeStatus : undefined}
-                onSelect={selectWorktree}
-                onRemoveWorktree={onRemoveWorktree}
-              />
-            ))
+            visibleWorktrees.map(({ worktree, displayNameIndexes, branchIndexes }) => {
+              const highlighted = worktree.id === highlightedId;
+              return (
+                <WorktreeRow
+                  key={worktree.id}
+                  homeDirectory={homeDirectory}
+                  mainClonePath={repository.path}
+                  worktree={worktree}
+                  displayNameIndexes={displayNameIndexes}
+                  branchIndexes={branchIndexes}
+                  selected={selectedId === worktree.id}
+                  highlighted={highlighted}
+                  tabbable={!filterOpen && highlighted}
+                  status={selectedId === worktree.id ? selectedWorktreeStatus : undefined}
+                  onSelect={selectWorktree}
+                  onRemoveWorktree={onRemoveWorktree}
+                />
+              );
+            })
           ) : (
             <div className={styles.emptyWorktreeList} role="status">
               No worktrees match “{worktreeFilter.trim()}”

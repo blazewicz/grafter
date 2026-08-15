@@ -22,6 +22,7 @@ interface RenderWorktreeRowOptions {
   branchIndexes?: readonly number[];
   selected?: boolean;
   highlighted?: boolean;
+  tabbable?: boolean;
   status?: WorktreeStatus;
   onSelect?: (id: string) => void;
   onRemoveWorktree?: (worktree: Worktree) => void;
@@ -37,6 +38,7 @@ function renderWorktreeRow(options: RenderWorktreeRowOptions = {}): void {
       branchIndexes={options.branchIndexes ?? []}
       selected={options.selected ?? false}
       highlighted={options.highlighted ?? false}
+      tabbable={options.tabbable ?? true}
       status={options.status}
       onSelect={options.onSelect ?? (() => undefined)}
       onRemoveWorktree={options.onRemoveWorktree ?? (() => undefined)}
@@ -174,12 +176,23 @@ describe('WorktreeRow', () => {
   });
 
   it('renders the row as a focusable option wired to the listbox', () => {
-    renderWorktreeRow({ worktree: scenario.selectableWorktree });
+    renderWorktreeRow({ worktree: scenario.selectableWorktree, tabbable: true });
 
     const option = worktreeOption(scenario.selectableWorktree);
     expect(option.tagName).toBe('BUTTON');
     expect(option.tabIndex).toBe(0);
     expect(option).toHaveAttribute('id', worktreeRowId(scenario.selectableWorktree.id));
+  });
+
+  it('drops the row and its action from the tab order when not tabbable', () => {
+    renderWorktreeRow({ worktree: scenario.selectableWorktree, tabbable: false });
+
+    expect(worktreeOption(scenario.selectableWorktree).tabIndex).toBe(-1);
+    expect(
+      screen.getByRole('button', {
+        name: `Remove ${scenario.selectableWorktree.displayName} worktree`,
+      }),
+    ).toHaveAttribute('tabindex', '-1');
   });
 
   it('marks the highlighted row separately from the selected row', () => {

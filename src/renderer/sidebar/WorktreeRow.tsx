@@ -18,6 +18,7 @@ export function WorktreeRow({
   branchIndexes,
   selected,
   highlighted,
+  tabbable,
   status,
   onSelect,
   onRemoveWorktree,
@@ -29,6 +30,7 @@ export function WorktreeRow({
   branchIndexes: readonly number[];
   selected: boolean;
   highlighted: boolean;
+  tabbable: boolean;
   status: WorktreeStatus | undefined;
   onSelect: (id: string) => void;
   onRemoveWorktree: (worktree: Worktree) => void;
@@ -46,6 +48,7 @@ export function WorktreeRow({
         id={worktreeRowId(worktree.id)}
         className={styles.treeLabel}
         role="option"
+        tabIndex={tabbable ? 0 : -1}
         aria-selected={highlighted}
         aria-current={selected ? 'page' : undefined}
         aria-label={
@@ -88,6 +91,7 @@ export function WorktreeRow({
           <QuickTooltip label="Remove worktree" showDelay={0} align="right">
             <button
               className={styles.dangerAction}
+              tabIndex={tabbable ? 0 : -1}
               aria-label={`Remove ${worktree.displayName} worktree`}
               onClick={() => onRemoveWorktree(worktree)}
             >

@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { api } from '../../../src/renderer/grafter-api';
@@ -322,6 +322,62 @@ describe('WorktreeSection', () => {
     );
   });
 
+  it('limits the tab stops to the highlighted row when the filter is closed', () => {
+    renderWorktreeSection({ selectedId: expectedWorktreeAt(1).id });
+
+    expect(worktreeOption(expectedWorktreeAt(1))).toHaveAttribute('tabindex', '0');
+    expect(worktreeOption(expectedWorktreeAt(0))).toHaveAttribute('tabindex', '-1');
+    const selectedRow = worktreeOption(expectedWorktreeAt(1)).parentElement;
+    if (!selectedRow) throw new Error('Expected a row container.');
+    expect(
+      within(selectedRow).getByRole('button', {
+        name: `Remove ${expectedWorktreeAt(1).displayName} worktree`,
+      }),
+    ).toHaveAttribute('tabindex', '0');
+    expect(
+      screen.getByRole('button', {
+        name: `Remove ${scenario.selectableWorktree.displayName} worktree`,
+      }),
+    ).toHaveAttribute('tabindex', '-1');
+  });
+
+  it('removes the rows from the tab order while the filter is open', async () => {
+    const user = userEvent.setup();
+    renderWorktreeSection({ selectedId: expectedWorktreeAt(1).id });
+
+    await user.click(screen.getByRole('button', { name: 'Filter worktrees' }));
+
+    expect(worktreeOption(expectedWorktreeAt(1))).toHaveAttribute('tabindex', '-1');
+    expect(worktreeOption(expectedWorktreeAt(0))).toHaveAttribute('tabindex', '-1');
+  });
+
+  it('restores the highlight to the selected worktree when the filter query is cleared', async () => {
+    const user = userEvent.setup();
+    renderWorktreeSection({ selectedId: expectedWorktreeAt(1).id });
+
+    await user.click(screen.getByRole('button', { name: 'Filter worktrees' }));
+    const input = screen.getByRole<HTMLInputElement>('combobox', {
+      name: 'Filter worktrees by path or branch',
+    });
+    await user.type(input, scenario.branchFilterWorktree.branch);
+
+    expect(input).toHaveAttribute(
+      'aria-activedescendant',
+      worktreeRowId(scenario.branchFilterWorktree.id),
+    );
+
+    await user.clear(input);
+
+    expect(input).toHaveAttribute(
+      'aria-activedescendant',
+      worktreeRowId(expectedWorktreeAt(1).id),
+    );
+    expect(worktreeOption(expectedWorktreeAt(1))).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+  });
+
   it('highlights the top filtered match while typing in the filter', async () => {
     const user = userEvent.setup();
     renderWorktreeSection();
@@ -340,6 +396,29 @@ describe('WorktreeSection', () => {
       'aria-activedescendant',
       worktreeRowId(scenario.branchFilterWorktree.id),
     );
+  });
+
+  it('highlights the top filtered match over a matching selected worktree', async () => {
+    const user = userEvent.setup();
+    const filtered = filterWorktrees(
+      sortWorktrees(scenario.repository.worktrees, 'path'),
+      scenario.repository.name,
+    );
+    const topMatch = filtered[0]?.worktree;
+    const selectedMatch = filtered[1]?.worktree;
+    if (!topMatch || !selectedMatch) throw new Error('Expected at least two matches.');
+
+    renderWorktreeSection({ selectedId: selectedMatch.id });
+
+    await user.click(screen.getByRole('button', { name: 'Filter worktrees' }));
+    const input = screen.getByRole<HTMLInputElement>('combobox', {
+      name: 'Filter worktrees by path or branch',
+    });
+    await user.type(input, scenario.repository.name);
+
+    expect(worktreeOption(topMatch)).toHaveAttribute('aria-selected', 'true');
+    expect(worktreeOption(selectedMatch)).not.toHaveAttribute('aria-selected', 'true');
+    expect(input).toHaveAttribute('aria-activedescendant', worktreeRowId(topMatch.id));
   });
 
   it('commits the top filtered match with Enter in the filter', async () => {
