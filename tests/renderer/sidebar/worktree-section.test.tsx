@@ -175,6 +175,27 @@ describe('WorktreeSection', () => {
     ).toBeVisible();
   });
 
+  it('swaps the heading label for the inline filter input while open', async () => {
+    const user = userEvent.setup();
+    renderWorktreeSection();
+
+    expect(screen.getByText('Worktrees')).toBeVisible();
+
+    await user.click(screen.getByRole('button', { name: 'Filter worktrees' }));
+
+    expect(screen.queryByText('Worktrees')).toBeNull();
+    expect(
+      screen.getByRole<HTMLInputElement>('combobox', {
+        name: 'Filter worktrees by path or branch',
+      }),
+    ).toBeVisible();
+
+    await user.keyboard('{Escape}');
+
+    expect(screen.getByText('Worktrees')).toBeVisible();
+    expect(screen.queryByRole('combobox')).toBeNull();
+  });
+
   it('opens and refocuses worktree search with Command-F, then closes it on Escape', async () => {
     const user = userEvent.setup();
     renderWorktreeSection();

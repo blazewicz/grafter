@@ -269,12 +269,6 @@
     rgba(35, 36, 39, 0.45) 45%,
     var(--sidebar) 100%
   );
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  mask-image: linear-gradient(180deg, transparent 0%, black 100%);
-  -webkit-mask-image: linear-gradient(180deg, transparent 0%, black 100%);
-  border-bottom-left-radius: 14px;
-  border-bottom-right-radius: 14px;
 }
 
 .repository-worktrees {

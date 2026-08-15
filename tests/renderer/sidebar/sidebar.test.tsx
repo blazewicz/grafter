@@ -94,6 +94,7 @@ describe('Sidebar', () => {
 
     const newWorktree = screen.getByRole('button', { name: 'New worktree' });
     expect(newWorktree).toBeVisible();
+    expect(newWorktree).toHaveAttribute('aria-keyshortcuts', 'Meta+N');
     await user.click(newWorktree);
 
     expect(onAddWorktree).toHaveBeenCalledOnce();
