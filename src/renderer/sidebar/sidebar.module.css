@@ -76,6 +76,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 6px;
   color: #7f8087;
   font-size: 9px;
   font-weight: 650;
@@ -96,6 +97,7 @@
   display: flex;
   align-items: center;
   gap: 2px;
+  flex: 0 0 auto;
 }
 
 .sort-menu {
@@ -157,18 +159,20 @@
 }
 
 .worktree-filter {
-  height: 30px;
-  flex: 0 0 auto;
+  height: 28px;
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin: 0 10px 6px;
   padding: 0 8px;
   border: 1px solid rgba(169, 173, 215, 0.18);
   border-radius: 7px;
   background: rgba(10, 11, 13, 0.32);
   color: var(--faint);
-  animation: worktree-filter-in 110ms ease-out;
+  text-transform: none;
+  letter-spacing: normal;
+  transform-origin: right center;
+  animation: worktree-filter-expand 130ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .worktree-filter:focus-within {
@@ -179,6 +183,7 @@
 
 .worktree-filter input {
   min-width: 0;
+  width: 100%;
   flex: 1;
   border: 0;
   outline: 0;
@@ -192,10 +197,14 @@
   color: var(--faint);
 }
 
-@keyframes worktree-filter-in {
+@keyframes worktree-filter-expand {
   from {
     opacity: 0;
-    transform: translateY(-3px);
+    transform: scaleX(0.2);
+  }
+  to {
+    opacity: 1;
+    transform: scaleX(1);
   }
 }
 

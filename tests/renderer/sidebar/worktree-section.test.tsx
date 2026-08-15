@@ -213,7 +213,7 @@ describe('WorktreeSection', () => {
     });
     expect(input).toHaveFocus();
 
-    await user.click(screen.getByText('Worktrees'));
+    await user.click(screen.getByRole('listbox'));
 
     expect(screen.queryByRole('combobox')).toBeNull();
     expect(screen.getByRole('button', { name: 'Filter worktrees' })).toHaveAttribute(
@@ -234,7 +234,7 @@ describe('WorktreeSection', () => {
       scenario.branchFilterWorktree.branch,
     );
 
-    await user.click(screen.getByText('Worktrees'));
+    await user.click(screen.getByRole('listbox'));
 
     const input = screen.getByRole<HTMLInputElement>('combobox', {
       name: 'Filter worktrees by path or branch',
