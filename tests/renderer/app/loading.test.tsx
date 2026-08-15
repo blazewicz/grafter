@@ -53,9 +53,7 @@ describe('App loading state', () => {
     act(() => publish(repositoryScenario.snapshot));
 
     expect(
-      await screen.findByRole('button', {
-        name: `${repositoryScenario.repository.name} repository details`,
-      }),
+      await screen.findByLabelText(`${repositoryScenario.repository.name} worktrees`),
     ).toBeVisible();
 
     act(() => initial.resolve(welcomeScenario.emptySnapshot));
@@ -64,9 +62,7 @@ describe('App loading state', () => {
       expect(screen.queryByRole('heading', { name: 'Welcome to Grafter' })).toBeNull();
     });
     expect(
-      screen.getByRole('button', {
-        name: `${repositoryScenario.repository.name} repository details`,
-      }),
+      screen.getByLabelText(`${repositoryScenario.repository.name} worktrees`),
     ).toBeVisible();
   });
 });

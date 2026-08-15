@@ -74,18 +74,6 @@
   font-weight: 570;
 }
 
-.title-project-button {
-  min-width: 0;
-  border: 0;
-  padding: 0;
-  background: transparent;
-  cursor: default;
-}
-
-.title-project-button:hover {
-  color: var(--text);
-}
-
 .title-branch {
   color: #87878d;
 }

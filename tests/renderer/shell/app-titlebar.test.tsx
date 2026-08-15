@@ -17,7 +17,6 @@ interface RenderAppTitlebarOptions {
   canGoForward?: boolean;
   onBack?: () => void;
   onForward?: () => void;
-  onSelectRepository?: (() => void) | undefined;
   busy?: boolean;
   onRefresh?: () => void;
 }
@@ -31,11 +30,6 @@ function renderAppTitlebar(options: RenderAppTitlebarOptions = {}): void {
       canGoForward={options.canGoForward ?? true}
       onBack={options.onBack ?? (() => undefined)}
       onForward={options.onForward ?? (() => undefined)}
-      onSelectRepository={
-        Object.hasOwn(options, 'onSelectRepository')
-          ? options.onSelectRepository
-          : () => undefined
-      }
       busy={options.busy ?? false}
       onRefresh={options.onRefresh ?? (() => undefined)}
     />,
@@ -48,57 +42,19 @@ describe('AppTitlebar', () => {
     vi.restoreAllMocks();
   });
 
-  it('renders repository details with an interactive repository and no worktree context', async () => {
-    const user = userEvent.setup();
-    const onSelectRepository = vi.fn();
-    renderAppTitlebar({
-      worktree: undefined,
-      onSelectRepository,
-    });
+  it('renders repository name without worktree when worktree is undefined', () => {
+    renderAppTitlebar({ worktree: undefined });
 
-    const projectDetails = screen.getByRole('button', { name: project.name });
-    expect(projectDetails).toBeVisible();
-    expect(projectDetails).toHaveAttribute(
-      'title',
-      `Open ${project.name} repository details`,
-    );
+    expect(screen.getByText(project.name)).toBeVisible();
+    expect(screen.queryByRole('button', { name: project.name })).toBeNull();
     expect(screen.queryByText(worktree.displayName)).toBeNull();
-
-    await user.click(projectDetails);
-
-    expect(onSelectRepository).toHaveBeenCalledOnce();
   });
 
-  it('renders worktree details with a repository link and worktree context', async () => {
-    const user = userEvent.setup();
-    const onSelectRepository = vi.fn();
-    renderAppTitlebar({ onSelectRepository });
+  it('renders repository name and worktree displayName when worktree is present', () => {
+    renderAppTitlebar();
 
-    const projectDetails = screen.getByRole('button', { name: project.name });
-    expect(projectDetails).toBeVisible();
-    expect(projectDetails).toHaveAttribute(
-      'title',
-      `Open ${project.name} repository details`,
-    );
+    expect(screen.getByText(project.name)).toBeVisible();
     expect(screen.getByText(worktree.displayName)).toBeVisible();
-
-    await user.click(projectDetails);
-
-    expect(onSelectRepository).toHaveBeenCalledOnce();
-  });
-
-  it('renders a non-interactive fallback when no project is active', () => {
-    const fallbackName = 'Worktrees';
-    renderAppTitlebar({
-      repositoryName: fallbackName,
-      worktree: undefined,
-      onSelectRepository: undefined,
-    });
-
-    expect(screen.getByText(fallbackName)).toBeVisible();
-    expect(screen.queryByRole('button', { name: fallbackName })).toBeNull();
-    expect(screen.queryByText(project.name)).toBeNull();
-    expect(screen.queryByText(worktree.displayName)).toBeNull();
   });
 
   it('renders its banner and refresh action', () => {

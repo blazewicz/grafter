@@ -1,14 +1,12 @@
 import { LoaderCircle } from 'lucide-react';
 import type {
   AppSnapshot,
-  Project,
   Settings,
   ToolPickerGroup,
   Worktree,
   WorktreeDetails,
   WorktreeStatus,
 } from '../../shared/contracts';
-import { ProjectDetailsView } from './ProjectDetailsView';
 import { WelcomeView } from './WelcomeView';
 import { WorktreeDetailsView } from './WorktreeDetailsView';
 import styles from './details.module.css';
@@ -17,7 +15,6 @@ export function MainView({
   homeDirectory,
   settings,
   systemLocale,
-  selectedProject,
   selectedWorktree,
   details,
   projectWorktrees,
@@ -26,7 +23,6 @@ export function MainView({
   onSetToolPreference,
   onSnapshot,
   onAdd,
-  onSelectWorktree,
   diffOpening,
   onOpenDiff,
   onOpenCommitDiff,
@@ -35,7 +31,6 @@ export function MainView({
   homeDirectory: string;
   settings: Pick<Settings, 'dateFormat' | 'timeFormat'>;
   systemLocale: string;
-  selectedProject: Project | undefined;
   selectedWorktree: Worktree | undefined;
   details: WorktreeDetails | undefined;
   projectWorktrees: Worktree[];
@@ -44,7 +39,6 @@ export function MainView({
   onSetToolPreference: (group: ToolPickerGroup, tool: string) => void;
   onSnapshot: (snapshot: AppSnapshot) => void;
   onAdd: () => void;
-  onSelectWorktree: (worktreeId: string) => void;
   diffOpening: boolean;
   onOpenDiff: (worktreeId: string) => void;
   onOpenCommitDiff: (commitHash: string) => void;
@@ -70,12 +64,6 @@ export function MainView({
         />
       ) : selectedWorktree ? (
         <DetailsLoadingView />
-      ) : selectedProject ? (
-        <ProjectDetailsView
-          homeDirectory={homeDirectory}
-          project={selectedProject}
-          onSelectWorktree={onSelectWorktree}
-        />
       ) : (
         <WelcomeView onAdd={onAdd} />
       )}

@@ -3,7 +3,6 @@
 import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { api } from '../../../src/renderer/grafter-api';
 import { worktreeListboxId } from '../../../src/renderer/sidebar/WorktreeSection';
 import { WorktreeSection } from '../../../src/renderer/sidebar/WorktreeSection';
 import { worktreeRowId } from '../../../src/renderer/sidebar/WorktreeRow';
@@ -16,7 +15,6 @@ const scenario = buildRepositoryWorktreesScenario();
 interface RenderWorktreeSectionOptions {
   selectedId?: string;
   onSelect?: (id: string) => void;
-  onAddWorktree?: () => void;
   onRemoveWorktree?: (worktree: Worktree) => void;
 }
 
@@ -29,7 +27,6 @@ function renderWorktreeSection(options: RenderWorktreeSectionOptions = {}): {
     selectedId: next.selectedId ?? options.selectedId,
     selectedWorktreeStatus: undefined,
     onSelect: next.onSelect ?? options.onSelect ?? (() => undefined),
-    onAddWorktree: next.onAddWorktree ?? options.onAddWorktree ?? (() => undefined),
     onRemoveWorktree:
       next.onRemoveWorktree ?? options.onRemoveWorktree ?? (() => undefined),
   });
@@ -537,19 +534,15 @@ describe('WorktreeSection', () => {
     );
   });
 
-  it('opens new worktree dialog with the button', async () => {
-    const user = userEvent.setup();
-    vi.spyOn(api, 'listBranches').mockResolvedValue([]);
-    const onAddWorktree = vi.fn();
-    renderWorktreeSection({ onAddWorktree });
+  it('does not include the new-worktree button in heading actions', () => {
+    renderWorktreeSection();
 
-    const addWorktree = screen.getByRole('button', {
-      name: `Add worktree to ${scenario.repository.name}`,
-    });
-    expect(addWorktree).toBeVisible();
-
-    await user.click(addWorktree);
-
-    expect(onAddWorktree).toHaveBeenCalledOnce();
+    expect(
+      screen.queryByRole('button', {
+        name: `Add worktree to ${scenario.repository.name}`,
+      }),
+    ).toBeNull();
+    expect(screen.getByRole('button', { name: 'Filter worktrees' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Worktree list options' })).toBeVisible();
   });
 });

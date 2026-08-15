@@ -1,4 +1,4 @@
-import { Filter, Plus, Search } from 'lucide-react';
+import { Filter, Search } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import type { Project, Worktree, WorktreeStatus } from '../../shared/contracts';
 import type { WorktreeSortOrder } from '../../shared/worktree-list';
@@ -22,7 +22,6 @@ export function WorktreeSection({
   selectedId,
   selectedWorktreeStatus,
   onSelect,
-  onAddWorktree,
   onRemoveWorktree,
 }: {
   homeDirectory: string;
@@ -30,7 +29,6 @@ export function WorktreeSection({
   selectedId: string | undefined;
   selectedWorktreeStatus: WorktreeStatus | undefined;
   onSelect: (id: string) => void;
-  onAddWorktree: () => void;
   onRemoveWorktree: (worktree: Worktree) => void;
 }): React.JSX.Element {
   const [worktreeSortOrder, setWorktreeSortOrder] = useState<WorktreeSortOrder>('path');
@@ -82,16 +80,6 @@ export function WorktreeSection({
       <div className={styles.sidebarHeading}>
         <span>Worktrees</span>
         <div className={styles.headingActions}>
-          <QuickTooltip label="New worktree (⌘N)" showDelay={0} align="right">
-            <button
-              className={`${controls.iconButton} ${styles.headingAction}`}
-              aria-label={`Add worktree to ${repository.name}`}
-              aria-keyshortcuts="Meta+N"
-              onClick={onAddWorktree}
-            >
-              <Plus size={15} />
-            </button>
-          </QuickTooltip>
           <QuickTooltip
             label={filterOpen ? undefined : 'Filter worktrees (⌘F)'}
             showDelay={0}

@@ -48,26 +48,31 @@ describe('Sidebar', () => {
     vi.restoreAllMocks();
   });
 
-  it('composes repository identity, worktree section, and settings in order', () => {
+  it('composes menu section and worktree section in order', () => {
     renderSidebar();
 
     const title = screen.getByText('Grafter');
-    const repository = screen.getByRole('button', {
-      name: `${scenario.repository.name} repository details`,
-    });
-    const worktrees = screen.getByText('Worktrees');
+    const menu = screen.getByRole('navigation', { name: 'Menu' });
+    const newWorktree = screen.getByRole('button', { name: 'New worktree' });
     const settings = screen.getByRole('button', { name: 'Settings' });
+    const worktrees = screen.getByText('Worktrees');
 
     expect(title).toBeVisible();
-    expect(repository).toBeVisible();
-    expect(worktrees).toBeVisible();
+    expect(menu).toBeVisible();
+    expect(newWorktree).toBeVisible();
     expect(settings).toBeVisible();
-    expect(title).toAppearBefore(repository);
-    expect(repository).toAppearBefore(worktrees);
-    expect(worktrees).toAppearBefore(settings);
+    expect(worktrees).toBeVisible();
+    expect(title).toAppearBefore(newWorktree);
+    expect(newWorktree).toAppearBefore(settings);
+    expect(settings).toAppearBefore(worktrees);
     expect(screen.queryByRole('button', { name: /Collapse|Expand/ })).toBeNull();
     expect(screen.queryByText('Projects')).toBeNull();
     expect(screen.queryByTitle('Remove from Grafter')).toBeNull();
+    expect(
+      screen.queryByRole('button', {
+        name: `${scenario.repository.name} repository details`,
+      }),
+    ).toBeNull();
   });
 
   it('renders the worktree rows from the worktree section', () => {
@@ -82,22 +87,19 @@ describe('Sidebar', () => {
     );
   });
 
-  it('navigates to repository details and exposes selected state', async () => {
+  it('opens new worktree dialog from menu item', async () => {
     const user = userEvent.setup();
-    const onSelect = vi.fn();
-    renderSidebar({ selectedId: scenario.repository.id, onSelect });
+    const onAddWorktree = vi.fn();
+    renderSidebar({ onAddWorktree });
 
-    const repository = screen.getByRole('button', {
-      name: `${scenario.repository.name} repository details`,
-    });
-    expect(repository).toHaveAttribute('aria-current', 'page');
-    await user.click(repository);
+    const newWorktree = screen.getByRole('button', { name: 'New worktree' });
+    expect(newWorktree).toBeVisible();
+    await user.click(newWorktree);
 
-    expect(onSelect).toHaveBeenCalledOnce();
-    expect(onSelect).toHaveBeenCalledWith(scenario.repository.id);
+    expect(onAddWorktree).toHaveBeenCalledOnce();
   });
 
-  it('opens settings dialog with the button', async () => {
+  it('opens settings dialog from menu item', async () => {
     const user = userEvent.setup();
     const onOpenSettings = vi.fn();
     renderSidebar({ onOpenSettings });

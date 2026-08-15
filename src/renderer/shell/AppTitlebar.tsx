@@ -18,7 +18,6 @@ export function AppTitlebar({
   canGoForward,
   onBack,
   onForward,
-  onSelectRepository,
   busy,
   onRefresh,
 }: {
@@ -28,7 +27,6 @@ export function AppTitlebar({
   canGoForward: boolean;
   onBack: () => void;
   onForward: () => void;
-  onSelectRepository: (() => void) | undefined;
   busy: boolean;
   onRefresh: () => void;
 }): React.JSX.Element {
@@ -58,17 +56,7 @@ export function AppTitlebar({
         </div>
         <div className={styles.titleBreadcrumb}>
           <FolderOpen size={14} />
-          {onSelectRepository ? (
-            <button
-              className={`${styles.titleProject} ${styles.titleProjectButton}`}
-              title={`Open ${repositoryName} repository details`}
-              onClick={onSelectRepository}
-            >
-              {repositoryName}
-            </button>
-          ) : (
-            <span className={styles.titleProject}>{repositoryName}</span>
-          )}
+          <span className={styles.titleProject}>{repositoryName}</span>
           {worktree && (
             <>
               <ChevronRight size={13} />
