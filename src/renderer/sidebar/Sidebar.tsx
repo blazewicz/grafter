@@ -58,6 +58,7 @@ export function Sidebar({
         onSelect={onSelect}
         onRemoveWorktree={onRemoveWorktree}
       />
+      <div className={styles.sidebarTerminator} aria-hidden="true" />
       <ResizeHandle width={width} onResize={onResize} />
     </aside>
   );
