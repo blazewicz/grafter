@@ -1,82 +1,16 @@
 import { Trash2 } from 'lucide-react';
-import { useEffect } from 'react';
-import type { Project, Worktree, WorktreeStatus } from '../../shared/contracts';
+import type { Worktree, WorktreeStatus } from '../../shared/contracts';
 import { displayWorktreePath } from '../../shared/path-display';
-import type { WorktreeFilterMatch } from '../../shared/worktree-list';
-import { PullRequestStateIcon } from '../ui/PullRequestStateIcon';
 import { HighlightedText } from '../ui/HighlightedText';
+import { PullRequestStateIcon } from '../ui/PullRequestStateIcon';
 import { QuickTooltip } from '../ui/QuickTooltip';
 import styles from './sidebar.module.css';
-
-export const worktreeListboxId = 'worktree-listbox';
 
 export function worktreeRowId(worktreeId: string): string {
   return `worktree-row-${worktreeId}`;
 }
 
-export function WorktreeList({
-  homeDirectory,
-  project,
-  visibleWorktrees,
-  selectedId,
-  highlightedId,
-  selectedWorktreeStatus,
-  filterQuery,
-  onSelect,
-  onRemoveWorktree,
-}: {
-  homeDirectory: string;
-  project: Project;
-  visibleWorktrees: readonly WorktreeFilterMatch[];
-  selectedId: string | undefined;
-  highlightedId: string | undefined;
-  selectedWorktreeStatus: WorktreeStatus | undefined;
-  filterQuery: string;
-  onSelect: (id: string) => void;
-  onRemoveWorktree: (worktree: Worktree) => void;
-}): React.JSX.Element {
-  useEffect(() => {
-    if (highlightedId === undefined) return;
-    document
-      .getElementById(worktreeRowId(highlightedId))
-      ?.scrollIntoView({ block: 'nearest' });
-  }, [highlightedId]);
-
-  return (
-    <div>
-      <div
-        id={worktreeListboxId}
-        className={`${styles.branchList} ${styles.flatWorktreeList}`}
-        role="listbox"
-        aria-label={`${project.name} worktrees`}
-      >
-        {visibleWorktrees.length ? (
-          visibleWorktrees.map(({ worktree, displayNameIndexes, branchIndexes }) => (
-            <WorktreeRow
-              key={worktree.id}
-              homeDirectory={homeDirectory}
-              mainClonePath={project.path}
-              worktree={worktree}
-              displayNameIndexes={displayNameIndexes}
-              branchIndexes={branchIndexes}
-              selected={selectedId === worktree.id}
-              highlighted={worktree.id === highlightedId}
-              status={selectedId === worktree.id ? selectedWorktreeStatus : undefined}
-              onSelect={onSelect}
-              onRemoveWorktree={onRemoveWorktree}
-            />
-          ))
-        ) : (
-          <div className={styles.emptyWorktreeList} role="status">
-            No worktrees match “{filterQuery.trim()}”
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function WorktreeRow({
+export function WorktreeRow({
   homeDirectory,
   mainClonePath,
   worktree,
