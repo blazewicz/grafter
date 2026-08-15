@@ -3,8 +3,8 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { api } from '../../../src/renderer/grafter-api';
-import { defaultSidebarWidth, Sidebar } from '../../../src/renderer/sidebar/Sidebar';
+import { defaultSidebarWidth } from '../../../src/renderer/sidebar/ResizeHandle';
+import { Sidebar } from '../../../src/renderer/sidebar/Sidebar';
 import type { Worktree } from '../../../src/shared/contracts';
 import { buildRepositoryWorktreesScenario } from '../../scenarios/sidebar/repository-worktrees';
 
@@ -20,21 +20,26 @@ interface RenderSidebarOptions {
   onResize?: (width: number) => void;
 }
 
-function renderSidebar(options: RenderSidebarOptions = {}): void {
-  render(
-    <Sidebar
-      homeDirectory={scenario.homeDirectory}
-      repository={scenario.repository}
-      width={options.width ?? defaultSidebarWidth}
-      selectedId={options.selectedId}
-      selectedWorktreeStatus={undefined}
-      onSelect={options.onSelect ?? (() => undefined)}
-      onAddWorktree={options.onAddWorktree ?? (() => undefined)}
-      onRemoveWorktree={options.onRemoveWorktree ?? (() => undefined)}
-      onOpenSettings={options.onOpenSettings ?? (() => undefined)}
-      onResize={options.onResize ?? (() => undefined)}
-    />,
-  );
+function renderSidebar(options: RenderSidebarOptions = {}): {
+  rerender: (nextOptions: RenderSidebarOptions) => void;
+} {
+  const props = (next: RenderSidebarOptions = options) => ({
+    homeDirectory: scenario.homeDirectory,
+    repository: scenario.repository,
+    width: next.width ?? options.width ?? defaultSidebarWidth,
+    selectedId: next.selectedId ?? options.selectedId,
+    selectedWorktreeStatus: undefined,
+    onSelect: next.onSelect ?? options.onSelect ?? (() => undefined),
+    onAddWorktree: next.onAddWorktree ?? options.onAddWorktree ?? (() => undefined),
+    onRemoveWorktree:
+      next.onRemoveWorktree ?? options.onRemoveWorktree ?? (() => undefined),
+    onOpenSettings: next.onOpenSettings ?? options.onOpenSettings ?? (() => undefined),
+    onResize: next.onResize ?? options.onResize ?? (() => undefined),
+  });
+  const view = render(<Sidebar {...props()} />);
+  return {
+    rerender: (nextOptions) => view.rerender(<Sidebar {...props(nextOptions)} />),
+  };
 }
 
 describe('Sidebar', () => {
@@ -43,7 +48,7 @@ describe('Sidebar', () => {
     vi.restoreAllMocks();
   });
 
-  it('composes repository identity, flat worktrees, and settings in order', () => {
+  it('composes repository identity, worktree section, and settings in order', () => {
     renderSidebar();
 
     const title = screen.getByText('Grafter');
@@ -65,6 +70,18 @@ describe('Sidebar', () => {
     expect(screen.queryByTitle('Remove from Grafter')).toBeNull();
   });
 
+  it('renders the worktree rows from the worktree section', () => {
+    renderSidebar();
+
+    const listbox = screen.getByRole('listbox', {
+      name: `${scenario.repository.name} worktrees`,
+    });
+    expect(listbox).toBeVisible();
+    expect(screen.getAllByRole('option', { name: /checked out branch/ })).toHaveLength(
+      scenario.repository.worktrees.length,
+    );
+  });
+
   it('navigates to repository details and exposes selected state', async () => {
     const user = userEvent.setup();
     const onSelect = vi.fn();
@@ -80,223 +97,6 @@ describe('Sidebar', () => {
     expect(onSelect).toHaveBeenCalledWith(scenario.repository.id);
   });
 
-  it('sorts worktrees from the header options menu', async () => {
-    const user = userEvent.setup();
-    renderSidebar();
-
-    expect(screen.queryByRole('button', { name: 'Open Repository...' })).toBeNull();
-    const trigger = screen.getByRole('button', { name: 'Worktree list options' });
-    expect(trigger).toHaveAttribute('aria-expanded', 'false');
-    await user.click(trigger);
-
-    const menu = screen.getByRole('menu', { name: 'Sort worktrees' });
-    const byPath = screen.getByRole('menuitemradio', { name: 'By path' });
-    const byBranch = screen.getByRole('menuitemradio', { name: 'By branch' });
-    expect(menu).toBeVisible();
-    expect(byPath).toHaveAttribute('aria-checked', 'true');
-    expect(byPath).toHaveFocus();
-    expect(byBranch).toHaveAttribute('aria-checked', 'false');
-
-    await user.click(byBranch);
-
-    expect(screen.queryByRole('menu', { name: 'Sort worktrees' })).toBeNull();
-    expect(trigger).toHaveAttribute('aria-expanded', 'false');
-    expect(trigger).toHaveFocus();
-    let previous: HTMLElement | undefined;
-    for (const worktree of scenario.expectedWorktreesByBranch) {
-      const button = screen.getByRole('button', {
-        name: worktree.isMain
-          ? `Main worktree, checked out branch ${worktree.branch}`
-          : `${worktree.displayName}, checked out branch ${worktree.branch}`,
-      });
-      if (previous) expect(previous).toAppearBefore(button);
-      previous = button;
-    }
-
-    await user.click(trigger);
-    expect(screen.getByRole('menuitemradio', { name: 'By branch' })).toHaveAttribute(
-      'aria-checked',
-      'true',
-    );
-  });
-
-  it('navigates and dismisses the sort menu with the keyboard', async () => {
-    const user = userEvent.setup();
-    renderSidebar();
-    const trigger = screen.getByRole('button', { name: 'Worktree list options' });
-
-    trigger.focus();
-    await user.keyboard('{Enter}');
-    const byBranch = screen.getByRole('menuitemradio', { name: 'By branch' });
-    await user.keyboard('{ArrowDown}');
-    expect(byBranch).toHaveFocus();
-    await user.keyboard('{Escape}');
-
-    expect(screen.queryByRole('menu', { name: 'Sort worktrees' })).toBeNull();
-    expect(trigger).toHaveFocus();
-  });
-
-  it('unfolds, filters, and clears the worktree search from its header action', async () => {
-    const user = userEvent.setup();
-    renderSidebar();
-    const trigger = screen.getByRole('button', { name: 'Filter worktrees' });
-
-    expect(trigger).toHaveAttribute('aria-expanded', 'false');
-    expect(
-      screen.queryByRole('searchbox', { name: 'Filter worktrees by path or branch' }),
-    ).toBeNull();
-    await user.click(trigger);
-
-    const input = screen.getByRole<HTMLInputElement>('searchbox', {
-      name: 'Filter worktrees by path or branch',
-    });
-    expect(trigger).toHaveAttribute('aria-expanded', 'true');
-    expect(input).toHaveFocus();
-    await user.type(input, scenario.branchFilterWorktree.branch);
-
-    expect(
-      screen.getByRole('button', {
-        name: `${scenario.branchFilterWorktree.displayName}, checked out branch ${scenario.branchFilterWorktree.branch}`,
-      }),
-    ).toBeVisible();
-    expect(
-      screen.queryByRole('button', {
-        name: `Main worktree, checked out branch ${scenario.expectedWorktrees[0]?.branch}`,
-      }),
-    ).toBeNull();
-
-    await user.click(trigger);
-
-    expect(trigger).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.queryByRole('searchbox')).toBeNull();
-    expect(
-      screen.getByRole('button', {
-        name: `Main worktree, checked out branch ${scenario.expectedWorktrees[0]?.branch}`,
-      }),
-    ).toBeVisible();
-  });
-
-  it('opens and refocuses worktree search with Command-F, then closes it on Escape', async () => {
-    const user = userEvent.setup();
-    renderSidebar();
-
-    await user.keyboard('{Meta>}f{/Meta}');
-    const input = screen.getByRole<HTMLInputElement>('searchbox', {
-      name: 'Filter worktrees by path or branch',
-    });
-    expect(input).toHaveFocus();
-
-    await user.type(input, scenario.branchFilterWorktree.branch);
-    screen.getByRole('button', { name: 'Settings' }).focus();
-    await user.keyboard('{Meta>}f{/Meta}');
-
-    expect(input).toHaveFocus();
-    expect(input.selectionStart).toBe(0);
-    expect(input.selectionEnd).toBe(scenario.branchFilterWorktree.branch.length);
-
-    await user.keyboard('{Escape}');
-
-    expect(screen.queryByRole('searchbox')).toBeNull();
-    expect(
-      screen.getByRole('button', {
-        name: `Main worktree, checked out branch ${scenario.expectedWorktrees[0]?.branch}`,
-      }),
-    ).toBeVisible();
-  });
-
-  it('closes an empty worktree search when clicking outside it', async () => {
-    const user = userEvent.setup();
-    renderSidebar();
-
-    await user.click(screen.getByRole('button', { name: 'Filter worktrees' }));
-    const input = screen.getByRole<HTMLInputElement>('searchbox', {
-      name: 'Filter worktrees by path or branch',
-    });
-    expect(input).toHaveFocus();
-
-    await user.click(screen.getByText('Worktrees'));
-
-    expect(screen.queryByRole('searchbox')).toBeNull();
-    expect(screen.getByRole('button', { name: 'Filter worktrees' })).toHaveAttribute(
-      'aria-expanded',
-      'false',
-    );
-  });
-
-  it('keeps the worktree search open on outside clicks while a query exists', async () => {
-    const user = userEvent.setup();
-    renderSidebar();
-
-    await user.click(screen.getByRole('button', { name: 'Filter worktrees' }));
-    await user.type(
-      screen.getByRole<HTMLInputElement>('searchbox', {
-        name: 'Filter worktrees by path or branch',
-      }),
-      scenario.branchFilterWorktree.branch,
-    );
-
-    await user.click(screen.getByText('Worktrees'));
-
-    const input = screen.getByRole<HTMLInputElement>('searchbox', {
-      name: 'Filter worktrees by path or branch',
-    });
-    expect(input).toBeVisible();
-    expect(input).toHaveValue(scenario.branchFilterWorktree.branch);
-    expect(
-      screen.getByRole('button', {
-        name: `${scenario.branchFilterWorktree.displayName}, checked out branch ${scenario.branchFilterWorktree.branch}`,
-      }),
-    ).toBeVisible();
-  });
-
-  it('closes and clears worktree search after selecting a filtered worktree', async () => {
-    const user = userEvent.setup();
-    const onSelect = vi.fn();
-    renderSidebar({ onSelect });
-
-    await user.click(screen.getByRole('button', { name: 'Filter worktrees' }));
-    await user.type(
-      screen.getByRole('searchbox', {
-        name: 'Filter worktrees by path or branch',
-      }),
-      scenario.branchFilterWorktree.branch,
-    );
-    await user.click(
-      screen.getByRole('button', {
-        name: `${scenario.branchFilterWorktree.displayName}, checked out branch ${scenario.branchFilterWorktree.branch}`,
-      }),
-    );
-
-    expect(onSelect).toHaveBeenCalledOnce();
-    expect(onSelect).toHaveBeenCalledWith(scenario.branchFilterWorktree.id);
-    expect(screen.queryByRole('searchbox')).toBeNull();
-    expect(screen.getByRole('button', { name: 'Filter worktrees' })).toHaveAttribute(
-      'aria-expanded',
-      'false',
-    );
-    expect(
-      screen.getByRole('button', {
-        name: `Main worktree, checked out branch ${scenario.expectedWorktrees[0]?.branch}`,
-      }),
-    ).toBeVisible();
-  });
-
-  it('opens new worktree dialog with the button', async () => {
-    const user = userEvent.setup();
-    vi.spyOn(api, 'listBranches').mockResolvedValue([]);
-    const onAddWorktree = vi.fn();
-    renderSidebar({ onAddWorktree });
-
-    const addWorktree = screen.getByRole('button', {
-      name: `Add worktree to ${scenario.repository.name}`,
-    });
-    expect(addWorktree).toBeVisible();
-
-    await user.click(addWorktree);
-
-    expect(onAddWorktree).toHaveBeenCalledOnce();
-  });
-
   it('opens settings dialog with the button', async () => {
     const user = userEvent.setup();
     const onOpenSettings = vi.fn();
@@ -308,98 +108,5 @@ describe('Sidebar', () => {
     await user.click(settings);
 
     expect(onOpenSettings).toHaveBeenCalledOnce();
-  });
-
-  it.each([
-    {
-      label: 'left',
-      width: defaultSidebarWidth,
-      key: '{ArrowLeft}',
-      expectedWidth: defaultSidebarWidth - 16,
-    },
-    {
-      label: 'right',
-      width: defaultSidebarWidth,
-      key: '{ArrowRight}',
-      expectedWidth: defaultSidebarWidth + 16,
-    },
-    {
-      label: 'home',
-      width: 360,
-      key: '{Home}',
-      expectedWidth: defaultSidebarWidth,
-    },
-    {
-      label: 'minimum boundary',
-      width: 230,
-      key: '{ArrowLeft}',
-      expectedWidth: 230,
-    },
-    {
-      label: 'maximum boundary',
-      width: 480,
-      key: '{ArrowRight}',
-      expectedWidth: 480,
-    },
-  ])('resizes $label with the keyboard', async ({ width, key, expectedWidth }) => {
-    const user = userEvent.setup();
-    const onResize = vi.fn();
-    renderSidebar({ width, onResize });
-
-    const resizeHandle = screen.getByRole('separator', {
-      name: 'Resize repository sidebar',
-    });
-    expect(resizeHandle).toHaveAttribute('aria-valuenow', String(width));
-    resizeHandle.focus();
-    expect(resizeHandle).toHaveFocus();
-    await user.keyboard(key);
-
-    expect(onResize).toHaveBeenCalledOnce();
-    expect(onResize).toHaveBeenCalledWith(expectedWidth);
-  });
-
-  it('resets the sidebar width with a double click', async () => {
-    const user = userEvent.setup();
-    const onResize = vi.fn();
-    renderSidebar({ width: 360, onResize });
-
-    await user.dblClick(
-      screen.getByRole('separator', { name: 'Resize repository sidebar' }),
-    );
-
-    expect(onResize).toHaveBeenCalledOnce();
-    expect(onResize).toHaveBeenCalledWith(defaultSidebarWidth);
-  });
-
-  it('resizes the sidebar by dragging its handle', async () => {
-    const user = userEvent.setup();
-    const onResize = vi.fn();
-    renderSidebar({ onResize });
-
-    const resizeHandle = screen.getByRole('separator', {
-      name: 'Resize repository sidebar',
-    });
-    const setPointerCapture = vi.spyOn(resizeHandle, 'setPointerCapture');
-    const releasePointerCapture = vi.spyOn(resizeHandle, 'releasePointerCapture');
-    await user.pointer([
-      {
-        keys: '[MouseLeft>]',
-        target: resizeHandle,
-        coords: { clientX: 300 },
-      },
-      {
-        target: resizeHandle,
-        coords: { clientX: 350 },
-      },
-      {
-        keys: '[/MouseLeft]',
-        target: resizeHandle,
-        coords: { clientX: 350 },
-      },
-    ]);
-
-    expect(setPointerCapture).toHaveBeenCalledOnce();
-    expect(onResize).toHaveBeenCalledWith(defaultSidebarWidth + 50);
-    expect(releasePointerCapture).toHaveBeenCalledOnce();
   });
 });

@@ -1,18 +1,9 @@
-import { Filter, FolderOpen, Plus, Search, Settings } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { Settings } from 'lucide-react';
 import type { Project, Worktree, WorktreeStatus } from '../../shared/contracts';
-import type { WorktreeSortOrder } from '../../shared/worktree-list';
-import controls from '../styles/controls.module.css';
-import { QuickTooltip } from '../ui/QuickTooltip';
+import { RepositoryIdentity } from './RepositoryIdentity';
+import { ResizeHandle } from './ResizeHandle';
 import styles from './sidebar.module.css';
-import { WorktreeList } from './WorktreeList';
-import { WorktreeSortMenu } from './WorktreeSortMenu';
-import { useWorktreeFilter } from './useWorktreeFilter';
-
-const minimumSidebarWidth = 230;
-const maximumSidebarWidth = 480;
-export const defaultSidebarWidth = 292;
-const keyboardResizeStep = 16;
+import { WorktreeSection } from './WorktreeSection';
 
 export function Sidebar({
   homeDirectory,
@@ -37,17 +28,6 @@ export function Sidebar({
   onOpenSettings: () => void;
   onResize: (width: number) => void;
 }): React.JSX.Element {
-  const [worktreeSortOrder, setWorktreeSortOrder] = useState<WorktreeSortOrder>('path');
-  const {
-    filterOpen,
-    worktreeFilter,
-    filterInputRef,
-    filterToggleRef,
-    setWorktreeFilter,
-    openWorktreeFilter,
-    closeWorktreeFilter,
-  } = useWorktreeFilter();
-
   return (
     <aside className={styles.sidebar} id="sidebar">
       <div className={styles.sidebarChrome} aria-hidden="true" />
@@ -57,177 +37,19 @@ export function Sidebar({
         selected={selectedId === repository.id}
         onSelect={() => onSelect(repository.id)}
       />
-      <div className={styles.sidebarHeading}>
-        <span>Worktrees</span>
-        <div className={styles.headingActions}>
-          <QuickTooltip label="New worktree (⌘N)" showDelay={0} align="right">
-            <button
-              className={`${controls.iconButton} ${styles.headingAction}`}
-              aria-label={`Add worktree to ${repository.name}`}
-              aria-keyshortcuts="Meta+N"
-              onClick={onAddWorktree}
-            >
-              <Plus size={15} />
-            </button>
-          </QuickTooltip>
-          <QuickTooltip
-            label={filterOpen ? undefined : 'Filter worktrees (⌘F)'}
-            showDelay={0}
-            align="right"
-          >
-            <button
-              ref={filterToggleRef}
-              className={`${controls.iconButton} ${styles.headingAction}`}
-              aria-label="Filter worktrees"
-              aria-keyshortcuts="Meta+F"
-              aria-expanded={filterOpen}
-              onClick={() => {
-                if (filterOpen) closeWorktreeFilter();
-                else openWorktreeFilter();
-              }}
-            >
-              <Filter size={14} />
-            </button>
-          </QuickTooltip>
-          <WorktreeSortMenu value={worktreeSortOrder} onChange={setWorktreeSortOrder} />
-        </div>
-      </div>
-      {filterOpen && (
-        <label className={styles.worktreeFilter}>
-          <Search size={13} aria-hidden="true" />
-          <input
-            ref={filterInputRef}
-            type="search"
-            aria-label="Filter worktrees by path or branch"
-            placeholder="Filter path or branch…"
-            value={worktreeFilter}
-            onChange={(event) => setWorktreeFilter(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key !== 'Escape') return;
-              event.preventDefault();
-              event.stopPropagation();
-              closeWorktreeFilter();
-            }}
-          />
-        </label>
-      )}
-      <div className={styles.repositoryWorktrees}>
-        <WorktreeList
-          homeDirectory={homeDirectory}
-          project={repository}
-          selectedId={selectedId}
-          selectedWorktreeStatus={selectedWorktreeStatus}
-          sortOrder={worktreeSortOrder}
-          filterQuery={worktreeFilter}
-          flat
-          onSelect={(id) => {
-            if (filterOpen) closeWorktreeFilter();
-            onSelect(id);
-          }}
-          onRemoveWorktree={onRemoveWorktree}
-        />
-      </div>
+      <WorktreeSection
+        homeDirectory={homeDirectory}
+        repository={repository}
+        selectedId={selectedId}
+        selectedWorktreeStatus={selectedWorktreeStatus}
+        onSelect={onSelect}
+        onAddWorktree={onAddWorktree}
+        onRemoveWorktree={onRemoveWorktree}
+      />
       <button className={styles.sidebarSettings} onClick={onOpenSettings}>
         <Settings size={15} /> Settings
       </button>
       <ResizeHandle width={width} onResize={onResize} />
     </aside>
-  );
-}
-
-function RepositoryIdentity({
-  repository,
-  selected,
-  onSelect,
-}: {
-  repository: Project;
-  selected: boolean;
-  onSelect: () => void;
-}): React.JSX.Element {
-  return (
-    <div className={`${styles.repositoryIdentity} ${selected ? styles.selected : ''}`}>
-      <button
-        className={styles.repositoryIdentityButton}
-        aria-label={`${repository.name} repository details`}
-        aria-current={selected ? 'page' : undefined}
-        title={`Open ${repository.name} repository details`}
-        onClick={onSelect}
-      >
-        <FolderOpen size={16} />
-        <span>{repository.name}</span>
-      </button>
-    </div>
-  );
-}
-
-function ResizeHandle({
-  width,
-  onResize,
-}: {
-  width: number;
-  onResize: (width: number) => void;
-}): React.JSX.Element {
-  const resizeStart = useRef<
-    | {
-        pointerId: number;
-        pointerX: number;
-        width: number;
-      }
-    | undefined
-  >(undefined);
-
-  const resizeTo = (nextWidth: number): void => {
-    onResize(Math.min(maximumSidebarWidth, Math.max(minimumSidebarWidth, nextWidth)));
-  };
-
-  return (
-    <div
-      className={styles.sidebarResizeHandle}
-      role="separator"
-      aria-label="Resize repository sidebar"
-      aria-controls="sidebar"
-      aria-orientation="vertical"
-      aria-valuemin={minimumSidebarWidth}
-      aria-valuemax={maximumSidebarWidth}
-      aria-valuenow={width}
-      tabIndex={0}
-      title="Drag to resize · Double-click to reset"
-      onDoubleClick={() => resizeTo(defaultSidebarWidth)}
-      onKeyDown={(event) => {
-        if (event.key === 'ArrowLeft') {
-          event.preventDefault();
-          resizeTo(width - keyboardResizeStep);
-        } else if (event.key === 'ArrowRight') {
-          event.preventDefault();
-          resizeTo(width + keyboardResizeStep);
-        } else if (event.key === 'Home') {
-          event.preventDefault();
-          resizeTo(defaultSidebarWidth);
-        }
-      }}
-      onPointerDown={(event) => {
-        if (event.button !== 0) return;
-        event.preventDefault();
-        resizeStart.current = {
-          pointerId: event.pointerId,
-          pointerX: event.clientX,
-          width,
-        };
-        event.currentTarget.setPointerCapture(event.pointerId);
-      }}
-      onPointerMove={(event) => {
-        const start = resizeStart.current;
-        if (start?.pointerId !== event.pointerId) return;
-        resizeTo(start.width + event.clientX - start.pointerX);
-      }}
-      onPointerUp={(event) => {
-        if (resizeStart.current?.pointerId !== event.pointerId) return;
-        resizeStart.current = undefined;
-        event.currentTarget.releasePointerCapture(event.pointerId);
-      }}
-      onPointerCancel={() => {
-        resizeStart.current = undefined;
-      }}
-    />
   );
 }

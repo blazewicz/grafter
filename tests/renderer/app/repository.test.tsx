@@ -36,10 +36,10 @@ describe('App repository state', () => {
     const worktreeList = await screen.findByLabelText(
       `${repositoryScenario.repository.name} worktrees`,
     );
-    const mainButton = within(worktreeList).getByRole('button', {
+    const mainButton = within(worktreeList).getByRole('option', {
       name: `Main worktree, checked out branch ${repositoryScenario.mainWorktree.branch}`,
     });
-    const linkedButton = within(worktreeList).getByRole('button', {
+    const linkedButton = within(worktreeList).getByRole('option', {
       name: `${repositoryScenario.linkedWorktree.displayName}, checked out branch ${repositoryScenario.linkedWorktree.branch}`,
     });
 
@@ -235,7 +235,7 @@ describe('App repository state', () => {
     expect(await screen.findByRole('dialog', { name: 'Review command' })).toBeVisible();
     expect(screen.getByText(approval.warning)).toBeVisible();
     expect(
-      screen.getByRole('button', {
+      screen.getByRole('option', {
         name: `${createdWorktree.displayName}, checked out branch ${createdWorktree.branch}`,
       }),
     ).toHaveAttribute('aria-current', 'page');

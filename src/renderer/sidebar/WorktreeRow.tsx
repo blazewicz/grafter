@@ -1,78 +1,24 @@
 import { Trash2 } from 'lucide-react';
-import { useMemo } from 'react';
-import type { Project, Worktree, WorktreeStatus } from '../../shared/contracts';
+import type { Worktree, WorktreeStatus } from '../../shared/contracts';
 import { displayWorktreePath } from '../../shared/path-display';
-import { filterWorktrees, sortWorktrees } from '../../shared/worktree-list';
-import type { WorktreeSortOrder } from '../../shared/worktree-list';
-import { PullRequestStateIcon } from '../ui/PullRequestStateIcon';
 import { HighlightedText } from '../ui/HighlightedText';
+import { PullRequestStateIcon } from '../ui/PullRequestStateIcon';
 import { QuickTooltip } from '../ui/QuickTooltip';
 import styles from './sidebar.module.css';
 
-export function WorktreeList({
-  homeDirectory,
-  project,
-  selectedId,
-  selectedWorktreeStatus,
-  sortOrder,
-  filterQuery,
-  flat = false,
-  onSelect,
-  onRemoveWorktree,
-}: {
-  homeDirectory: string;
-  project: Project;
-  selectedId: string | undefined;
-  selectedWorktreeStatus: WorktreeStatus | undefined;
-  sortOrder: WorktreeSortOrder;
-  filterQuery: string;
-  flat?: boolean;
-  onSelect: (id: string) => void;
-  onRemoveWorktree: (worktree: Worktree) => void;
-}): React.JSX.Element {
-  const visibleWorktrees = useMemo(
-    () => filterWorktrees(sortWorktrees(project.worktrees, sortOrder), filterQuery),
-    [filterQuery, project.worktrees, sortOrder],
-  );
-
-  return (
-    <div>
-      <div
-        className={`${styles.branchList} ${flat ? styles.flatWorktreeList : ''}`}
-        aria-label={`${project.name} worktrees`}
-      >
-        {visibleWorktrees.length ? (
-          visibleWorktrees.map(({ worktree, displayNameIndexes, branchIndexes }) => (
-            <WorktreeRow
-              key={worktree.id}
-              homeDirectory={homeDirectory}
-              mainClonePath={project.path}
-              worktree={worktree}
-              displayNameIndexes={displayNameIndexes}
-              branchIndexes={branchIndexes}
-              selected={selectedId === worktree.id}
-              status={selectedId === worktree.id ? selectedWorktreeStatus : undefined}
-              onSelect={onSelect}
-              onRemoveWorktree={onRemoveWorktree}
-            />
-          ))
-        ) : (
-          <div className={styles.emptyWorktreeList} role="status">
-            No worktrees match “{filterQuery.trim()}”
-          </div>
-        )}
-      </div>
-    </div>
-  );
+export function worktreeRowId(worktreeId: string): string {
+  return `worktree-row-${worktreeId}`;
 }
 
-function WorktreeRow({
+export function WorktreeRow({
   homeDirectory,
   mainClonePath,
   worktree,
   displayNameIndexes,
   branchIndexes,
   selected,
+  highlighted,
+  tabbable,
   status,
   onSelect,
   onRemoveWorktree,
@@ -83,6 +29,8 @@ function WorktreeRow({
   displayNameIndexes: readonly number[];
   branchIndexes: readonly number[];
   selected: boolean;
+  highlighted: boolean;
+  tabbable: boolean;
   status: WorktreeStatus | undefined;
   onSelect: (id: string) => void;
   onRemoveWorktree: (worktree: Worktree) => void;
@@ -93,10 +41,15 @@ function WorktreeRow({
     <div
       className={`${styles.treeRow} ${styles.branchRow} ${
         worktree.isMain ? styles.mainWorktreeRow : ''
-      } ${selected ? styles.selected : ''}`}
+      } ${selected ? styles.selected : ''} ${highlighted ? styles.highlighted : ''}`}
     >
       <button
+        type="button"
+        id={worktreeRowId(worktree.id)}
         className={styles.treeLabel}
+        role="option"
+        tabIndex={tabbable ? 0 : -1}
+        aria-selected={highlighted}
         aria-current={selected ? 'page' : undefined}
         aria-label={
           worktree.isMain
@@ -138,6 +91,7 @@ function WorktreeRow({
           <QuickTooltip label="Remove worktree" showDelay={0} align="right">
             <button
               className={styles.dangerAction}
+              tabIndex={tabbable ? 0 : -1}
               aria-label={`Remove ${worktree.displayName} worktree`}
               onClick={() => onRemoveWorktree(worktree)}
             >
