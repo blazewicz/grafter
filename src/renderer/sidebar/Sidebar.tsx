@@ -1,6 +1,5 @@
-import { Settings } from 'lucide-react';
+import { Plus, Settings } from 'lucide-react';
 import type { Project, Worktree, WorktreeStatus } from '../../shared/contracts';
-import { RepositoryIdentity } from './RepositoryIdentity';
 import { ResizeHandle } from './ResizeHandle';
 import styles from './sidebar.module.css';
 import { WorktreeSection } from './WorktreeSection';
@@ -32,23 +31,34 @@ export function Sidebar({
     <aside className={styles.sidebar} id="sidebar">
       <div className={styles.sidebarChrome} aria-hidden="true" />
       <div className={styles.sidebarBrand}>Grafter</div>
-      <RepositoryIdentity
-        repository={repository}
-        selected={selectedId === repository.id}
-        onSelect={() => onSelect(repository.id)}
-      />
+      <nav className={styles.sidebarMenu} aria-label="Menu">
+        <button
+          className={styles.menuItem}
+          aria-label="New worktree"
+          aria-keyshortcuts="Meta+N"
+          onClick={onAddWorktree}
+        >
+          <Plus size={15} />
+          <span>New worktree</span>
+        </button>
+        <button
+          className={styles.menuItem}
+          aria-label="Settings"
+          onClick={onOpenSettings}
+        >
+          <Settings size={15} />
+          <span>Settings</span>
+        </button>
+      </nav>
       <WorktreeSection
         homeDirectory={homeDirectory}
         repository={repository}
         selectedId={selectedId}
         selectedWorktreeStatus={selectedWorktreeStatus}
         onSelect={onSelect}
-        onAddWorktree={onAddWorktree}
         onRemoveWorktree={onRemoveWorktree}
       />
-      <button className={styles.sidebarSettings} onClick={onOpenSettings}>
-        <Settings size={15} /> Settings
-      </button>
+      <div className={styles.sidebarTerminator} aria-hidden="true" />
       <ResizeHandle width={width} onResize={onResize} />
     </aside>
   );

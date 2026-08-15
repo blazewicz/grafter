@@ -84,9 +84,7 @@ describe('App welcome state', () => {
 
     expect(chooseRepository).toHaveBeenCalledOnce();
     expect(
-      await screen.findByRole('button', {
-        name: `${repositoryScenario.repository.name} repository details`,
-      }),
+      await screen.findByLabelText(`${repositoryScenario.repository.name} worktrees`),
     ).toBeVisible();
     expect(screen.queryByRole('heading', { name: 'Welcome to Grafter' })).toBeNull();
   });
@@ -141,9 +139,7 @@ describe('App welcome state', () => {
     opening.resolve(repositoryScenario.snapshot);
 
     expect(
-      await screen.findByRole('button', {
-        name: `${repositoryScenario.repository.name} repository details`,
-      }),
+      await screen.findByLabelText(`${repositoryScenario.repository.name} worktrees`),
     ).toBeVisible();
   });
 });

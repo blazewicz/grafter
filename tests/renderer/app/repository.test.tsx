@@ -44,11 +44,13 @@ describe('App repository state', () => {
     });
 
     expect(mainButton).toAppearBefore(linkedButton);
+    expect(screen.getByRole('button', { name: 'New worktree' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Settings' })).toBeVisible();
     expect(
-      screen.getByRole('button', {
+      screen.queryByRole('button', {
         name: `${repositoryScenario.repository.name} repository details`,
       }),
-    ).toBeVisible();
+    ).toBeNull();
     expect(screen.queryByText(repositoryScenario.secondRepository.name)).toBeNull();
     expect(
       screen.queryByLabelText(`${repositoryScenario.secondRepository.name} worktrees`),
@@ -68,7 +70,7 @@ describe('App repository state', () => {
     });
   });
 
-  it('navigates between worktree and repository details with back and forward', async () => {
+  it('navigates between worktrees with back and forward', async () => {
     const user = userEvent.setup();
     const { getWorktreeDetails } = stubRepositoryWindowApis(repositoryScenario.snapshot);
     renderApp(Promise.resolve(repositoryScenario.snapshot));
@@ -78,25 +80,33 @@ describe('App repository state', () => {
         repositoryScenario.linkedWorktree.id,
       );
     });
-    await user.click(
-      screen.getByRole('button', {
-        name: `${repositoryScenario.repository.name} repository details`,
-      }),
-    );
 
-    expect(await screen.findByRole('region', { name: 'Worktrees' })).toBeVisible();
+    const mainWorktreeOption = screen.getByRole('option', {
+      name: `Main worktree, checked out branch ${repositoryScenario.mainWorktree.branch}`,
+    });
+    await user.click(mainWorktreeOption);
+
+    await waitFor(() => {
+      expect(getWorktreeDetails).toHaveBeenLastCalledWith(
+        repositoryScenario.mainWorktree.id,
+      );
+    });
+
     expect(screen.getByRole('button', { name: 'Back' })).toBeEnabled();
     await user.click(screen.getByRole('button', { name: 'Back' }));
     await waitFor(() => {
-      expect(getWorktreeDetails).toHaveBeenCalledTimes(2);
+      expect(getWorktreeDetails).toHaveBeenLastCalledWith(
+        repositoryScenario.linkedWorktree.id,
+      );
     });
-    expect(getWorktreeDetails).toHaveBeenLastCalledWith(
-      repositoryScenario.linkedWorktree.id,
-    );
 
     expect(screen.getByRole('button', { name: 'Forward' })).toBeEnabled();
     await user.click(screen.getByRole('button', { name: 'Forward' }));
-    expect(await screen.findByRole('region', { name: 'Worktrees' })).toBeVisible();
+    await waitFor(() => {
+      expect(getWorktreeDetails).toHaveBeenLastCalledWith(
+        repositoryScenario.mainWorktree.id,
+      );
+    });
   });
 
   it('reconciles selection when the repository snapshot identity changes', async () => {
@@ -126,22 +136,14 @@ describe('App repository state', () => {
       });
 
     expect(
-      await screen.findByRole('button', {
-        name: `${first.repository.name} repository details`,
-      }),
+      await screen.findByLabelText(`${first.repository.name} worktrees`),
     ).toBeVisible();
     act(() => publish(second));
 
     expect(
-      await screen.findByRole('button', {
-        name: `${second.repository.name} repository details`,
-      }),
+      await screen.findByLabelText(`${second.repository.name} worktrees`),
     ).toBeVisible();
-    expect(
-      screen.queryByRole('button', {
-        name: `${first.repository.name} repository details`,
-      }),
-    ).toBeNull();
+    expect(screen.queryByLabelText(`${first.repository.name} worktrees`)).toBeNull();
     await waitFor(() => {
       expect(getWorktreeDetails).toHaveBeenLastCalledWith(
         second.repository.worktrees[0]?.id,
@@ -212,9 +214,7 @@ describe('App repository state', () => {
     });
     renderApp(Promise.resolve(initialSnapshot));
 
-    await user.click(
-      await screen.findByRole('button', { name: `Add worktree to ${project.name}` }),
-    );
+    await user.click(await screen.findByRole('button', { name: 'New worktree' }));
     await user.click(
       await screen.findByRole('button', { name: newWorktreeScenario.availableBranch }),
     );
@@ -248,7 +248,7 @@ describe('App repository state', () => {
     renderApp(Promise.resolve(repositoryScenario.snapshot));
 
     await screen.findByRole('button', {
-      name: `${repositoryScenario.repository.name} repository details`,
+      name: 'New worktree',
     });
     await user.keyboard('{Meta>}n{/Meta}');
 
@@ -266,7 +266,7 @@ describe('App repository state', () => {
     renderApp(Promise.resolve(repositoryScenario.snapshot));
 
     await screen.findByRole('button', {
-      name: `${repositoryScenario.repository.name} repository details`,
+      name: 'New worktree',
     });
     await user.keyboard('{Meta>}n{/Meta}');
     await user.keyboard('{Meta>}n{/Meta}');
@@ -281,7 +281,7 @@ describe('App repository state', () => {
     renderApp(Promise.resolve(repositoryScenario.snapshot));
 
     await screen.findByRole('button', {
-      name: `${repositoryScenario.repository.name} repository details`,
+      name: 'New worktree',
     });
     await user.keyboard('{Meta>}n{/Meta}');
     await user.keyboard('{Escape}');
@@ -425,12 +425,15 @@ describe('App repository state', () => {
     expect(screen.queryByRole('region', { name: 'Command history' })).toBeNull();
 
     await user.click(
-      screen.getByRole('button', {
-        name: `${repositoryScenario.repository.name} repository details`,
+      screen.getByRole('option', {
+        name: `Main worktree, checked out branch ${repositoryScenario.mainWorktree.branch}`,
       }),
     );
     await waitFor(() => {
-      expect(getCommandLog).toHaveBeenLastCalledWith({ kind: 'repository' });
+      expect(getCommandLog).toHaveBeenLastCalledWith({
+        kind: 'worktree',
+        worktreeId: repositoryScenario.mainWorktree.id,
+      });
     });
   });
 

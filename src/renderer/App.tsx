@@ -51,19 +51,14 @@ export function App(): React.JSX.Element {
   };
 
   const repository = snapshot.kind === 'repository' ? snapshot.repository : undefined;
-  const selectedRepository = repository?.id === selectedId ? repository : undefined;
   const selectedWorktree = repository?.worktrees.find(
     (worktree) => worktree.id === selectedId,
   );
-  const selectedRepositoryId = selectedRepository?.id;
   const selectedWorktreeId = selectedWorktree?.id;
   const selectedScope = useMemo<CommandLogScope | undefined>(() => {
     if (selectedWorktreeId) return { kind: 'worktree', worktreeId: selectedWorktreeId };
-    if (selectedRepositoryId) {
-      return { kind: 'repository' };
-    }
     return undefined;
-  }, [selectedRepositoryId, selectedWorktreeId]);
+  }, [selectedWorktreeId]);
   const {
     commands,
     contextKey: selectedContextKey,
@@ -90,7 +85,7 @@ export function App(): React.JSX.Element {
         case 'repository': {
           const worktrees = next.repository.worktrees;
           reconcileNavigation(
-            [next.repository.id, ...worktrees.map((worktree) => worktree.id)],
+            worktrees.map((worktree) => worktree.id),
             next.selectedWorktreeId ?? worktrees[1]?.id ?? worktrees[0]?.id,
           );
           if (
@@ -224,7 +219,6 @@ export function App(): React.JSX.Element {
           canGoForward={canGoForward}
           onBack={goBack}
           onForward={goForward}
-          onSelectRepository={() => navigate(activeRepository.id)}
           busy={busy}
           onRefresh={() => void run(() => api.refresh(), applySnapshot)}
         />
@@ -249,7 +243,6 @@ export function App(): React.JSX.Element {
             homeDirectory={snapshot.homeDirectory}
             settings={snapshot.settings}
             systemLocale={snapshot.systemLocale}
-            selectedProject={selectedRepository}
             selectedWorktree={selectedWorktree}
             details={details}
             projectWorktrees={repositoryWorktrees}
@@ -258,7 +251,6 @@ export function App(): React.JSX.Element {
             onSetToolPreference={setToolPreference}
             onSnapshot={applySnapshot}
             onAdd={chooseRepository}
-            onSelectWorktree={navigate}
             diffOpening={diffOpening}
             onOpenDiff={openDiff}
             onOpenCommitDiff={openCommitDiff}

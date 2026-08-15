@@ -1,4 +1,4 @@
-import { Filter, Plus, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import type { Project, Worktree, WorktreeStatus } from '../../shared/contracts';
 import type { WorktreeSortOrder } from '../../shared/worktree-list';
@@ -22,7 +22,6 @@ export function WorktreeSection({
   selectedId,
   selectedWorktreeStatus,
   onSelect,
-  onAddWorktree,
   onRemoveWorktree,
 }: {
   homeDirectory: string;
@@ -30,7 +29,6 @@ export function WorktreeSection({
   selectedId: string | undefined;
   selectedWorktreeStatus: WorktreeStatus | undefined;
   onSelect: (id: string) => void;
-  onAddWorktree: () => void;
   onRemoveWorktree: (worktree: Worktree) => void;
 }): React.JSX.Element {
   const [worktreeSortOrder, setWorktreeSortOrder] = useState<WorktreeSortOrder>('path');
@@ -80,18 +78,57 @@ export function WorktreeSection({
   return (
     <>
       <div className={styles.sidebarHeading}>
-        <span>Worktrees</span>
+        {filterOpen ? (
+          <label className={styles.worktreeFilter}>
+            <input
+              ref={filterInputRef}
+              type="search"
+              role="combobox"
+              aria-label="Filter worktrees by path or branch"
+              aria-expanded
+              aria-autocomplete="list"
+              aria-controls={worktreeListboxId}
+              aria-activedescendant={
+                highlightedId !== undefined ? worktreeRowId(highlightedId) : undefined
+              }
+              placeholder="Filter path or branch…"
+              value={worktreeFilter}
+              onChange={(event) => {
+                const nextFilter = event.target.value;
+                setWorktreeFilter(nextFilter);
+                if (nextFilter.trim() === '') {
+                  setHighlightTarget(selectedId);
+                } else {
+                  setHighlightTarget(undefined);
+                }
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setHighlightTarget(selectedId);
+                  closeWorktreeFilter();
+                  return;
+                }
+                const action = worktreeKeyAction(
+                  event.key,
+                  highlightedId,
+                  visibleWorktreeIds,
+                );
+                if (action?.kind === 'highlight') {
+                  event.preventDefault();
+                  setHighlightTarget(action.id);
+                } else if (action?.kind === 'select') {
+                  event.preventDefault();
+                  selectWorktree(action.id);
+                }
+              }}
+            />
+          </label>
+        ) : (
+          <span>Worktrees</span>
+        )}
         <div className={styles.headingActions}>
-          <QuickTooltip label="New worktree (⌘N)" showDelay={0} align="right">
-            <button
-              className={`${controls.iconButton} ${styles.headingAction}`}
-              aria-label={`Add worktree to ${repository.name}`}
-              aria-keyshortcuts="Meta+N"
-              onClick={onAddWorktree}
-            >
-              <Plus size={15} />
-            </button>
-          </QuickTooltip>
           <QuickTooltip
             label={filterOpen ? undefined : 'Filter worktrees (⌘F)'}
             showDelay={0}
@@ -108,61 +145,12 @@ export function WorktreeSection({
                 else openWorktreeFilter();
               }}
             >
-              <Filter size={14} />
+              <Search size={14} />
             </button>
           </QuickTooltip>
           <WorktreeSortMenu value={worktreeSortOrder} onChange={setWorktreeSortOrder} />
         </div>
       </div>
-      {filterOpen && (
-        <label className={styles.worktreeFilter}>
-          <Search size={13} aria-hidden="true" />
-          <input
-            ref={filterInputRef}
-            type="search"
-            role="combobox"
-            aria-label="Filter worktrees by path or branch"
-            aria-expanded
-            aria-autocomplete="list"
-            aria-controls={worktreeListboxId}
-            aria-activedescendant={
-              highlightedId !== undefined ? worktreeRowId(highlightedId) : undefined
-            }
-            placeholder="Filter path or branch…"
-            value={worktreeFilter}
-            onChange={(event) => {
-              const nextFilter = event.target.value;
-              setWorktreeFilter(nextFilter);
-              if (nextFilter.trim() === '') {
-                setHighlightTarget(selectedId);
-              } else {
-                setHighlightTarget(undefined);
-              }
-            }}
-            onKeyDown={(event) => {
-              if (event.key === 'Escape') {
-                event.preventDefault();
-                event.stopPropagation();
-                setHighlightTarget(selectedId);
-                closeWorktreeFilter();
-                return;
-              }
-              const action = worktreeKeyAction(
-                event.key,
-                highlightedId,
-                visibleWorktreeIds,
-              );
-              if (action?.kind === 'highlight') {
-                event.preventDefault();
-                setHighlightTarget(action.id);
-              } else if (action?.kind === 'select') {
-                event.preventDefault();
-                selectWorktree(action.id);
-              }
-            }}
-          />
-        </label>
-      )}
       <div className={styles.repositoryWorktrees}>
         <div
           id={worktreeListboxId}
