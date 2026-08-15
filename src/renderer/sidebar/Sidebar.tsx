@@ -58,6 +58,11 @@ export function Sidebar({
     [visibleWorktrees],
   );
   const [highlightTarget, setHighlightTarget] = useState<string | undefined>(selectedId);
+  const [previousSelectedId, setPreviousSelectedId] = useState(selectedId);
+  if (previousSelectedId !== selectedId) {
+    setPreviousSelectedId(selectedId);
+    setHighlightTarget(selectedId);
+  }
   const highlightedId = useMemo(() => {
     if (highlightTarget !== undefined && visibleWorktreeIds.includes(highlightTarget)) {
       return highlightTarget;
@@ -134,6 +139,7 @@ export function Sidebar({
             role="combobox"
             aria-label="Filter worktrees by path or branch"
             aria-expanded
+            aria-autocomplete="list"
             aria-controls={worktreeListboxId}
             aria-activedescendant={
               highlightedId !== undefined ? worktreeRowId(highlightedId) : undefined
@@ -159,7 +165,7 @@ export function Sidebar({
                 setHighlightTarget(action.id);
               } else if (action?.kind === 'select') {
                 event.preventDefault();
-                if (action.id !== undefined) selectWorktree(action.id);
+                selectWorktree(action.id);
               }
             }}
           />

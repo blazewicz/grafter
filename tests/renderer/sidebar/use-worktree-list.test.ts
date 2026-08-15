@@ -70,6 +70,17 @@ describe('worktreeKeyAction', () => {
     });
   });
 
+  it('jumps to the first or last option when the highlight is no longer visible', () => {
+    expect(worktreeKeyAction('ArrowDown', 'grafter:gone', visibleIds)).toEqual({
+      kind: 'highlight',
+      id: 'grafter:main',
+    });
+    expect(worktreeKeyAction('ArrowUp', 'grafter:gone', visibleIds)).toEqual({
+      kind: 'highlight',
+      id: 'grafter:hotfix',
+    });
+  });
+
   it('jumps to the first and last option with Home and End', () => {
     expect(worktreeKeyAction('Home', 'grafter:hotfix', visibleIds)).toEqual({
       kind: 'highlight',

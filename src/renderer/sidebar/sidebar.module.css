@@ -360,6 +360,7 @@
 }
 
 .tree-row:hover .worktree-badges,
+.tree-row > .tree-label:focus-visible .worktree-badges,
 .tree-row:has(> .row-actions:focus-within) .worktree-badges {
   display: none;
 }
@@ -432,12 +433,14 @@
 }
 
 .tree-row:hover > .row-actions,
+.tree-row > .tree-label:focus-visible ~ .row-actions,
 .row-actions:focus-within {
   opacity: 1;
   pointer-events: auto;
 }
 
 .tree-row:hover > .tree-label,
+.tree-row > .tree-label:focus-visible,
 .tree-row:has(> .row-actions:focus-within) > .tree-label {
   padding-right: var(--row-actions-space);
 }

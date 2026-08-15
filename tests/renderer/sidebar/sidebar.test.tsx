@@ -5,6 +5,10 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { api } from '../../../src/renderer/grafter-api';
 import { defaultSidebarWidth, Sidebar } from '../../../src/renderer/sidebar/Sidebar';
+import {
+  worktreeListboxId,
+  worktreeRowId,
+} from '../../../src/renderer/sidebar/WorktreeList';
 import type { Worktree } from '../../../src/shared/contracts';
 import { filterWorktrees, sortWorktrees } from '../../../src/shared/worktree-list';
 import { buildRepositoryWorktreesScenario } from '../../scenarios/sidebar/repository-worktrees';
@@ -21,21 +25,26 @@ interface RenderSidebarOptions {
   onResize?: (width: number) => void;
 }
 
-function renderSidebar(options: RenderSidebarOptions = {}): void {
-  render(
-    <Sidebar
-      homeDirectory={scenario.homeDirectory}
-      repository={scenario.repository}
-      width={options.width ?? defaultSidebarWidth}
-      selectedId={options.selectedId}
-      selectedWorktreeStatus={undefined}
-      onSelect={options.onSelect ?? (() => undefined)}
-      onAddWorktree={options.onAddWorktree ?? (() => undefined)}
-      onRemoveWorktree={options.onRemoveWorktree ?? (() => undefined)}
-      onOpenSettings={options.onOpenSettings ?? (() => undefined)}
-      onResize={options.onResize ?? (() => undefined)}
-    />,
-  );
+function renderSidebar(options: RenderSidebarOptions = {}): {
+  rerender: (nextOptions: RenderSidebarOptions) => void;
+} {
+  const props = (next: RenderSidebarOptions = options) => ({
+    homeDirectory: scenario.homeDirectory,
+    repository: scenario.repository,
+    width: next.width ?? options.width ?? defaultSidebarWidth,
+    selectedId: next.selectedId ?? options.selectedId,
+    selectedWorktreeStatus: undefined,
+    onSelect: next.onSelect ?? options.onSelect ?? (() => undefined),
+    onAddWorktree: next.onAddWorktree ?? options.onAddWorktree ?? (() => undefined),
+    onRemoveWorktree:
+      next.onRemoveWorktree ?? options.onRemoveWorktree ?? (() => undefined),
+    onOpenSettings: next.onOpenSettings ?? options.onOpenSettings ?? (() => undefined),
+    onResize: next.onResize ?? options.onResize ?? (() => undefined),
+  });
+  const view = render(<Sidebar {...props()} />);
+  return {
+    rerender: (nextOptions) => view.rerender(<Sidebar {...props(nextOptions)} />),
+  };
 }
 
 function worktreeOption(worktree: Worktree): HTMLElement {
@@ -307,10 +316,24 @@ describe('Sidebar', () => {
 
     expect(onSelect).toHaveBeenCalledOnce();
     expect(onSelect).toHaveBeenCalledWith(scenario.selectableWorktree.id);
-    const listbox = screen.getByRole('listbox', {
-      name: `${scenario.repository.name} worktrees`,
+    expect(worktreeOption(scenario.selectableWorktree)).not.toHaveFocus();
+  });
+
+  it('wires the filter combobox to the listbox and active row', async () => {
+    const user = userEvent.setup();
+    renderSidebar({ selectedId: expectedWorktreeAt(1).id });
+
+    await user.click(screen.getByRole('button', { name: 'Filter worktrees' }));
+    const input = screen.getByRole<HTMLInputElement>('combobox', {
+      name: 'Filter worktrees by path or branch',
     });
-    expect(listbox).not.toHaveFocus();
+
+    expect(input).toHaveAttribute('aria-controls', worktreeListboxId);
+    expect(input).toHaveAttribute('aria-autocomplete', 'list');
+    expect(input).toHaveAttribute(
+      'aria-activedescendant',
+      worktreeRowId(expectedWorktreeAt(1).id),
+    );
   });
 
   it('highlights the top filtered match while typing in the filter', async () => {
@@ -318,16 +341,18 @@ describe('Sidebar', () => {
     renderSidebar();
 
     await user.click(screen.getByRole('button', { name: 'Filter worktrees' }));
-    await user.type(
-      screen.getByRole<HTMLInputElement>('combobox', {
-        name: 'Filter worktrees by path or branch',
-      }),
-      scenario.branchFilterWorktree.branch,
-    );
+    const input = screen.getByRole<HTMLInputElement>('combobox', {
+      name: 'Filter worktrees by path or branch',
+    });
+    await user.type(input, scenario.branchFilterWorktree.branch);
 
     expect(worktreeOption(scenario.branchFilterWorktree)).toHaveAttribute(
       'aria-selected',
       'true',
+    );
+    expect(input).toHaveAttribute(
+      'aria-activedescendant',
+      worktreeRowId(scenario.branchFilterWorktree.id),
     );
   });
 
@@ -356,12 +381,10 @@ describe('Sidebar', () => {
     renderSidebar({ onSelect });
 
     await user.click(screen.getByRole('button', { name: 'Filter worktrees' }));
-    await user.type(
-      screen.getByRole<HTMLInputElement>('combobox', {
-        name: 'Filter worktrees by path or branch',
-      }),
-      scenario.repository.name,
-    );
+    const input = screen.getByRole<HTMLInputElement>('combobox', {
+      name: 'Filter worktrees by path or branch',
+    });
+    await user.type(input, scenario.repository.name);
 
     const filtered = filterWorktrees(
       sortWorktrees(scenario.repository.worktrees, 'path'),
@@ -374,11 +397,59 @@ describe('Sidebar', () => {
     expect(worktreeOption(firstMatch)).toHaveAttribute('aria-selected', 'true');
     await user.keyboard('{ArrowDown}');
     expect(worktreeOption(secondMatch)).toHaveAttribute('aria-selected', 'true');
+    expect(input).toHaveAttribute('aria-activedescendant', worktreeRowId(secondMatch.id));
     await user.keyboard('{Enter}');
 
     expect(onSelect).toHaveBeenCalledOnce();
     expect(onSelect).toHaveBeenCalledWith(secondMatch.id);
     expect(screen.queryByRole('combobox')).toBeNull();
+  });
+
+  it('jumps to the first and last worktree with Home and End in the filter', async () => {
+    const user = userEvent.setup();
+    renderSidebar();
+
+    await user.click(screen.getByRole('button', { name: 'Filter worktrees' }));
+    const input = screen.getByRole<HTMLInputElement>('combobox', {
+      name: 'Filter worktrees by path or branch',
+    });
+
+    await user.keyboard('{End}');
+    expect(input).toHaveAttribute(
+      'aria-activedescendant',
+      worktreeRowId(expectedWorktreeAt(scenario.expectedWorktrees.length - 1).id),
+    );
+    await user.keyboard('{Home}');
+    expect(input).toHaveAttribute(
+      'aria-activedescendant',
+      worktreeRowId(expectedWorktreeAt(0).id),
+    );
+  });
+
+  it('follows the selected worktree when it changes outside the filter', async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    const { rerender } = renderSidebar({
+      selectedId: expectedWorktreeAt(0).id,
+      onSelect,
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Filter worktrees' }));
+    const input = screen.getByRole<HTMLInputElement>('combobox', {
+      name: 'Filter worktrees by path or branch',
+    });
+    await user.keyboard('{ArrowDown}');
+    expect(input).toHaveAttribute(
+      'aria-activedescendant',
+      worktreeRowId(expectedWorktreeAt(1).id),
+    );
+
+    rerender({ selectedId: expectedWorktreeAt(2).id });
+
+    expect(input).toHaveAttribute(
+      'aria-activedescendant',
+      worktreeRowId(expectedWorktreeAt(2).id),
+    );
   });
 
   it('closes the filter and restores the highlight on Escape', async () => {

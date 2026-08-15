@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   WorktreeList,
   worktreeListboxId,
+  worktreeRowId,
 } from '../../../src/renderer/sidebar/WorktreeList';
 import type { Project, Worktree, WorktreeStatus } from '../../../src/shared/contracts';
 import {
@@ -261,17 +262,32 @@ describe('WorktreeList', () => {
     expect(screen.queryByRole('button', { name: 'Remove main worktree' })).toBeNull();
   });
 
-  it('marks the highlighted option without making the list focusable', () => {
+  it('renders rows as focusable options wired to the listbox', () => {
     renderWorktreeList({ highlightedId: scenario.selectableWorktree.id });
 
     const listbox = screen.getByRole('listbox', {
       name: `${scenario.repository.name} worktrees`,
     });
     expect(listbox).toHaveAttribute('id', worktreeListboxId);
-    expect(listbox).not.toHaveAttribute('tabindex');
+    const option = worktreeOption(scenario.selectableWorktree);
+    expect(option.tagName).toBe('BUTTON');
+    expect(option.tabIndex).toBe(0);
+    expect(option).toHaveAttribute('id', worktreeRowId(scenario.selectableWorktree.id));
+  });
+
+  it('marks the highlighted option as the active selection separately from the selected row', () => {
+    const selected = scenario.expectedWorktrees[0];
+    if (!selected) throw new Error('Expected a selected worktree.');
+
+    renderWorktreeList({
+      selectedId: selected.id,
+      highlightedId: scenario.selectableWorktree.id,
+    });
+
     expect(worktreeOption(scenario.selectableWorktree)).toHaveAttribute(
       'aria-selected',
       'true',
     );
+    expect(worktreeOption(selected)).toHaveAttribute('aria-current', 'page');
   });
 });

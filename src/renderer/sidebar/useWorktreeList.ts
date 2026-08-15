@@ -34,8 +34,7 @@ export function resolveHighlightedId(
 }
 
 export type WorktreeKeyAction =
-  | { kind: 'highlight'; id: string | undefined }
-  | { kind: 'select'; id: string | undefined };
+  { kind: 'highlight'; id: string } | { kind: 'select'; id: string };
 
 /**
  * Maps a key press to a highlight or commit action over the visible worktrees.
@@ -50,6 +49,11 @@ export function worktreeKeyAction(
   const action = menuKeyAction(key);
   if (!visibleIds.length) return undefined;
 
+  const highlight = (index: number): WorktreeKeyAction | undefined => {
+    const id = visibleIds[index];
+    return id === undefined ? undefined : { kind: 'highlight', id };
+  };
+
   switch (action?.kind) {
     case 'move': {
       const current = visibleIds.indexOf(highlightedId ?? '');
@@ -59,14 +63,16 @@ export function worktreeKeyAction(
             ? 0
             : visibleIds.length - 1
           : nextWrapIndex(current, action.offset, visibleIds.length);
-      return { kind: 'highlight', id: visibleIds[next] };
+      return highlight(next);
     }
     case 'home':
-      return { kind: 'highlight', id: visibleIds[0] };
+      return highlight(0);
     case 'end':
-      return { kind: 'highlight', id: visibleIds[visibleIds.length - 1] };
-    case 'select':
-      return { kind: 'select', id: highlightedId ?? visibleIds[0] };
+      return highlight(visibleIds.length - 1);
+    case 'select': {
+      const id = highlightedId ?? visibleIds[0];
+      return id === undefined ? undefined : { kind: 'select', id };
+    }
     default:
       return undefined;
   }

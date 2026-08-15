@@ -11,7 +11,7 @@ import styles from './sidebar.module.css';
 export const worktreeListboxId = 'worktree-listbox';
 
 export function worktreeRowId(worktreeId: string): string {
-  return `worktree-row-${worktreeId.replace(/[:/]/g, '-')}`;
+  return `worktree-row-${worktreeId}`;
 }
 
 export function WorktreeList({
@@ -107,7 +107,8 @@ function WorktreeRow({
         worktree.isMain ? styles.mainWorktreeRow : ''
       } ${selected ? styles.selected : ''} ${highlighted ? styles.highlighted : ''}`}
     >
-      <div
+      <button
+        type="button"
         id={worktreeRowId(worktree.id)}
         className={styles.treeLabel}
         role="option"
@@ -119,6 +120,7 @@ function WorktreeRow({
             : `${worktree.displayName}, checked out branch ${worktree.branch}`
         }
         onClick={() => onSelect(worktree.id)}
+        onPointerUp={(event) => event.currentTarget.blur()}
       >
         <span className={styles.worktreeCopy}>
           <span className={styles.worktreeTopLine}>
@@ -146,7 +148,7 @@ function WorktreeRow({
             </span>
           </span>
         </span>
-      </div>
+      </button>
       {!worktree.isMain && (
         <div className={styles.rowActions}>
           <QuickTooltip label="Remove worktree" showDelay={0} align="right">
