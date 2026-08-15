@@ -48,11 +48,7 @@ export function WorktreeList({
         id={worktreeListboxId}
         className={`${styles.branchList} ${styles.flatWorktreeList}`}
         role="listbox"
-        tabIndex={0}
         aria-label={`${project.name} worktrees`}
-        aria-activedescendant={
-          highlightedId !== undefined ? worktreeRowId(highlightedId) : undefined
-        }
       >
         {visibleWorktrees.length ? (
           visibleWorktrees.map(({ worktree, displayNameIndexes, branchIndexes }) => (

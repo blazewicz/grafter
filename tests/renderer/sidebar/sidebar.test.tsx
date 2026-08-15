@@ -280,90 +280,37 @@ describe('Sidebar', () => {
     ).toBeVisible();
   });
 
-  it('moves the worktree highlight with arrow keys and commits with Enter', async () => {
+  it('leaves the worktree highlight untouched by arrow keys when the filter is closed', async () => {
     const user = userEvent.setup();
     const onSelect = vi.fn();
-    renderSidebar({ onSelect });
+    renderSidebar({ selectedId: expectedWorktreeAt(0).id, onSelect });
 
     await user.keyboard('{ArrowDown}');
-    expect(worktreeOption(expectedWorktreeAt(1))).toHaveAttribute(
+    await user.keyboard('{ArrowUp}');
+    await user.keyboard('{Enter}');
+
+    expect(worktreeOption(expectedWorktreeAt(0))).toHaveAttribute(
       'aria-selected',
       'true',
     );
     expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it('does not move keyboard control to the list when clicking a row', async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    renderSidebar({ selectedId: scenario.selectableWorktree.id, onSelect });
+
+    await user.click(worktreeOption(scenario.selectableWorktree));
     await user.keyboard('{ArrowDown}');
     await user.keyboard('{Enter}');
 
     expect(onSelect).toHaveBeenCalledOnce();
-    expect(onSelect).toHaveBeenCalledWith(expectedWorktreeAt(2).id);
-  });
-
-  it('wraps the worktree highlight around the list edges', async () => {
-    const user = userEvent.setup();
-    renderSidebar({ selectedId: expectedWorktreeAt(0).id });
-
-    await user.keyboard('{ArrowUp}');
-    expect(
-      worktreeOption(expectedWorktreeAt(scenario.expectedWorktrees.length - 1)),
-    ).toHaveAttribute('aria-selected', 'true');
-    await user.keyboard('{ArrowDown}');
-    expect(worktreeOption(expectedWorktreeAt(0))).toHaveAttribute(
-      'aria-selected',
-      'true',
-    );
-  });
-
-  it('jumps the worktree highlight to first and last with Home and End', async () => {
-    const user = userEvent.setup();
-    renderSidebar({ selectedId: expectedWorktreeAt(1).id });
-
-    await user.keyboard('{End}');
-    expect(
-      worktreeOption(expectedWorktreeAt(scenario.expectedWorktrees.length - 1)),
-    ).toHaveAttribute('aria-selected', 'true');
-    await user.keyboard('{Home}');
-    expect(worktreeOption(expectedWorktreeAt(0))).toHaveAttribute(
-      'aria-selected',
-      'true',
-    );
-  });
-
-  it('restores the highlight to the selection with Escape', async () => {
-    const user = userEvent.setup();
-    renderSidebar({ selectedId: expectedWorktreeAt(0).id });
-
-    await user.keyboard('{ArrowDown}');
-    expect(worktreeOption(expectedWorktreeAt(1))).toHaveAttribute(
-      'aria-selected',
-      'true',
-    );
-    await user.keyboard('{Escape}');
-
-    expect(worktreeOption(expectedWorktreeAt(0))).toHaveAttribute(
-      'aria-selected',
-      'true',
-    );
-  });
-
-  it('does not hijack Enter from a focused row action', async () => {
-    const user = userEvent.setup();
-    const onSelect = vi.fn();
-    const onRemoveWorktree = vi.fn();
-    renderSidebar({
-      selectedId: scenario.selectableWorktree.id,
-      onSelect,
-      onRemoveWorktree,
+    expect(onSelect).toHaveBeenCalledWith(scenario.selectableWorktree.id);
+    const listbox = screen.getByRole('listbox', {
+      name: `${scenario.repository.name} worktrees`,
     });
-
-    const remove = screen.getByRole('button', {
-      name: `Remove ${scenario.selectableWorktree.displayName} worktree`,
-    });
-    remove.focus();
-    await user.keyboard('{Enter}');
-
-    expect(onRemoveWorktree).toHaveBeenCalledOnce();
-    expect(onRemoveWorktree).toHaveBeenCalledWith(scenario.selectableWorktree);
-    expect(onSelect).not.toHaveBeenCalled();
+    expect(listbox).not.toHaveFocus();
   });
 
   it('highlights the top filtered match while typing in the filter', async () => {

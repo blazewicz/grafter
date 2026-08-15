@@ -6,7 +6,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   WorktreeList,
   worktreeListboxId,
-  worktreeRowId,
 } from '../../../src/renderer/sidebar/WorktreeList';
 import type { Project, Worktree, WorktreeStatus } from '../../../src/shared/contracts';
 import {
@@ -262,17 +261,14 @@ describe('WorktreeList', () => {
     expect(screen.queryByRole('button', { name: 'Remove main worktree' })).toBeNull();
   });
 
-  it('points the listbox at the highlighted option and marks it selected', () => {
+  it('marks the highlighted option without making the list focusable', () => {
     renderWorktreeList({ highlightedId: scenario.selectableWorktree.id });
 
     const listbox = screen.getByRole('listbox', {
       name: `${scenario.repository.name} worktrees`,
     });
     expect(listbox).toHaveAttribute('id', worktreeListboxId);
-    expect(listbox).toHaveAttribute(
-      'aria-activedescendant',
-      worktreeRowId(scenario.selectableWorktree.id),
-    );
+    expect(listbox).not.toHaveAttribute('tabindex');
     expect(worktreeOption(scenario.selectableWorktree)).toHaveAttribute(
       'aria-selected',
       'true',

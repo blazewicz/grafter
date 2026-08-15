@@ -1,5 +1,5 @@
 import { Filter, FolderOpen, Plus, Search, Settings } from 'lucide-react';
-import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type { Project, Worktree, WorktreeStatus } from '../../shared/contracts';
 import type { WorktreeSortOrder } from '../../shared/worktree-list';
 import controls from '../styles/controls.module.css';
@@ -80,40 +80,6 @@ export function Sidebar({
     if (filterOpen) closeWorktreeFilter();
     onSelect(id);
   };
-
-  const handleWorktreeKeys = useEffectEvent((event: KeyboardEvent): void => {
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      setHighlightTarget(selectedId);
-      if (filterOpen) closeWorktreeFilter();
-      return;
-    }
-    const action = worktreeKeyAction(event.key, highlightedId, visibleWorktreeIds);
-    if (!action) return;
-    event.preventDefault();
-    if (action.kind === 'highlight') {
-      setHighlightTarget(action.id);
-    } else if (action.id !== undefined) {
-      selectWorktree(action.id);
-    }
-  });
-
-  useEffect(() => {
-    const handleWorktreeListKeys = (event: KeyboardEvent): void => {
-      if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
-      const target = event.target as HTMLElement | null;
-      if (target?.closest('input, textarea, select, button, [contenteditable="true"]')) {
-        return;
-      }
-      if (document.querySelector('dialog[open], [role="dialog"][aria-modal="true"]')) {
-        return;
-      }
-      if (document.querySelector('[role="menu"]')) return;
-      handleWorktreeKeys(event);
-    };
-    document.addEventListener('keydown', handleWorktreeListKeys);
-    return () => document.removeEventListener('keydown', handleWorktreeListKeys);
-  }, []);
 
   return (
     <aside className={styles.sidebar} id="sidebar">
