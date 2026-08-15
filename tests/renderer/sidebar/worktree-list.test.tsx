@@ -2,9 +2,12 @@
 
 import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { createRef, useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { WorktreeList, worktreeRowId } from '../../../src/renderer/sidebar/WorktreeList';
+import {
+  WorktreeList,
+  worktreeListboxId,
+  worktreeRowId,
+} from '../../../src/renderer/sidebar/WorktreeList';
 import type { Project, Worktree, WorktreeStatus } from '../../../src/shared/contracts';
 import {
   filterWorktrees,
@@ -29,7 +32,6 @@ interface RenderWorktreeListOptions {
   sortOrder?: WorktreeSortOrder;
   filterQuery?: string;
   onSelect?: (id: string) => void;
-  onHighlight?: (id: string | undefined) => void;
   onRemoveWorktree?: (worktree: Worktree) => void;
 }
 
@@ -48,9 +50,7 @@ function renderWorktreeList(options: RenderWorktreeListOptions = {}): void {
       highlightedId={options.highlightedId}
       selectedWorktreeStatus={options.selectedWorktreeStatus}
       filterQuery={options.filterQuery ?? ''}
-      listRef={createRef<HTMLDivElement>()}
       onSelect={options.onSelect ?? (() => undefined)}
-      onHighlight={options.onHighlight ?? (() => undefined)}
       onRemoveWorktree={options.onRemoveWorktree ?? (() => undefined)}
     />,
   );
@@ -62,47 +62,6 @@ function worktreeOption(worktree: Worktree): HTMLElement {
       ? `Main worktree, checked out branch ${worktree.branch}`
       : `${worktree.displayName}, checked out branch ${worktree.branch}`,
   });
-}
-
-function worktreeListbox(): HTMLElement {
-  return screen.getByRole('listbox', { name: `${scenario.repository.name} worktrees` });
-}
-
-function expectedWorktreeAt(index: number): Worktree {
-  const worktree = scenario.expectedWorktrees[index];
-  if (!worktree) throw new Error(`Expected a worktree at index ${index}.`);
-  return worktree;
-}
-
-function InteractiveWorktreeList({
-  selectedId,
-  onSelect = () => undefined,
-  onRemoveWorktree = () => undefined,
-}: {
-  selectedId?: string;
-  onSelect?: (id: string) => void;
-  onRemoveWorktree?: (worktree: Worktree) => void;
-}): React.JSX.Element {
-  const [highlightedId, setHighlightedId] = useState<string | undefined>(selectedId);
-  const visibleWorktrees = filterWorktrees(
-    sortWorktrees(scenario.repository.worktrees, 'path'),
-    '',
-  );
-  return (
-    <WorktreeList
-      homeDirectory={scenario.homeDirectory}
-      project={scenario.repository}
-      visibleWorktrees={visibleWorktrees}
-      selectedId={selectedId}
-      highlightedId={highlightedId}
-      selectedWorktreeStatus={undefined}
-      filterQuery=""
-      listRef={createRef<HTMLDivElement>()}
-      onHighlight={setHighlightedId}
-      onSelect={onSelect}
-      onRemoveWorktree={onRemoveWorktree}
-    />
-  );
 }
 
 function buildFuzzyProject(): { project: Project; tight: Worktree; scattered: Worktree } {
@@ -303,90 +262,14 @@ describe('WorktreeList', () => {
     expect(screen.queryByRole('button', { name: 'Remove main worktree' })).toBeNull();
   });
 
-  it('moves the highlighted option with arrow keys and wraps around', async () => {
-    const user = userEvent.setup();
-    render(<InteractiveWorktreeList selectedId={expectedWorktreeAt(0).id} />);
-
-    worktreeListbox().focus();
-    await user.keyboard('{ArrowDown}');
-    expect(worktreeOption(expectedWorktreeAt(1))).toHaveAttribute(
-      'aria-selected',
-      'true',
-    );
-    await user.keyboard('{ArrowUp}');
-    expect(worktreeOption(expectedWorktreeAt(0))).toHaveAttribute(
-      'aria-selected',
-      'true',
-    );
-    await user.keyboard('{ArrowUp}');
-    expect(
-      worktreeOption(expectedWorktreeAt(scenario.expectedWorktrees.length - 1)),
-    ).toHaveAttribute('aria-selected', 'true');
-  });
-
-  it('starts navigation from the first option when nothing is highlighted', async () => {
-    const user = userEvent.setup();
-    render(<InteractiveWorktreeList />);
-
-    worktreeListbox().focus();
-    await user.keyboard('{ArrowDown}');
-
-    expect(worktreeOption(expectedWorktreeAt(0))).toHaveAttribute(
-      'aria-selected',
-      'true',
-    );
-  });
-
-  it('jumps to the first and last option with Home and End', async () => {
-    const user = userEvent.setup();
-    render(<InteractiveWorktreeList selectedId={expectedWorktreeAt(1).id} />);
-
-    worktreeListbox().focus();
-    await user.keyboard('{End}');
-    expect(
-      worktreeOption(expectedWorktreeAt(scenario.expectedWorktrees.length - 1)),
-    ).toHaveAttribute('aria-selected', 'true');
-    await user.keyboard('{Home}');
-    expect(worktreeOption(expectedWorktreeAt(0))).toHaveAttribute(
-      'aria-selected',
-      'true',
-    );
-  });
-
-  it('commits the highlighted option with Enter', async () => {
-    const user = userEvent.setup();
-    const onSelect = vi.fn();
-    render(
-      <InteractiveWorktreeList
-        selectedId={expectedWorktreeAt(0).id}
-        onSelect={onSelect}
-      />,
-    );
-
-    worktreeListbox().focus();
-    await user.keyboard('{ArrowDown}');
-    await user.keyboard('{Enter}');
-
-    expect(onSelect).toHaveBeenCalledOnce();
-    expect(onSelect).toHaveBeenCalledWith(expectedWorktreeAt(1).id);
-  });
-
-  it('commits the first option with Enter when nothing is highlighted', async () => {
-    const user = userEvent.setup();
-    const onSelect = vi.fn();
-    render(<InteractiveWorktreeList onSelect={onSelect} />);
-
-    worktreeListbox().focus();
-    await user.keyboard('{Enter}');
-
-    expect(onSelect).toHaveBeenCalledOnce();
-    expect(onSelect).toHaveBeenCalledWith(expectedWorktreeAt(0).id);
-  });
-
   it('points the listbox at the highlighted option and marks it selected', () => {
     renderWorktreeList({ highlightedId: scenario.selectableWorktree.id });
 
-    expect(worktreeListbox()).toHaveAttribute(
+    const listbox = screen.getByRole('listbox', {
+      name: `${scenario.repository.name} worktrees`,
+    });
+    expect(listbox).toHaveAttribute('id', worktreeListboxId);
+    expect(listbox).toHaveAttribute(
       'aria-activedescendant',
       worktreeRowId(scenario.selectableWorktree.id),
     );
@@ -394,48 +277,5 @@ describe('WorktreeList', () => {
       'aria-selected',
       'true',
     );
-  });
-
-  it('restores the highlight to the selection and blurs on Escape', async () => {
-    const user = userEvent.setup();
-    const onHighlight = vi.fn();
-    renderWorktreeList({
-      selectedId: scenario.selectableWorktree.id,
-      highlightedId: expectedWorktreeAt(0).id,
-      onHighlight,
-    });
-
-    const listbox = worktreeListbox();
-    listbox.focus();
-    await user.keyboard('{Escape}');
-
-    expect(onHighlight).toHaveBeenCalledOnce();
-    expect(onHighlight).toHaveBeenCalledWith(scenario.selectableWorktree.id);
-    expect(listbox).not.toHaveFocus();
-  });
-
-  it('keeps keyboard navigation inside the list while focused on a row action', async () => {
-    const user = userEvent.setup();
-    const onHighlight = vi.fn();
-    const onSelect = vi.fn();
-    const onRemoveWorktree = vi.fn();
-    renderWorktreeList({
-      selectedId: scenario.selectableWorktree.id,
-      highlightedId: scenario.selectableWorktree.id,
-      onSelect,
-      onHighlight,
-      onRemoveWorktree,
-    });
-
-    const remove = screen.getByRole('button', {
-      name: `Remove ${scenario.selectableWorktree.displayName} worktree`,
-    });
-    remove.focus();
-    await user.keyboard('{Enter}');
-
-    expect(onRemoveWorktree).toHaveBeenCalledOnce();
-    expect(onRemoveWorktree).toHaveBeenCalledWith(scenario.selectableWorktree);
-    expect(onSelect).not.toHaveBeenCalled();
-    expect(onHighlight).not.toHaveBeenCalled();
   });
 });

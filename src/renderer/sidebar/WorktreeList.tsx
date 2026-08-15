@@ -1,13 +1,14 @@
 import { Trash2 } from 'lucide-react';
-import type { KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react';
+import { useEffect } from 'react';
 import type { Project, Worktree, WorktreeStatus } from '../../shared/contracts';
 import { displayWorktreePath } from '../../shared/path-display';
 import type { WorktreeFilterMatch } from '../../shared/worktree-list';
 import { PullRequestStateIcon } from '../ui/PullRequestStateIcon';
 import { HighlightedText } from '../ui/HighlightedText';
 import { QuickTooltip } from '../ui/QuickTooltip';
-import { menuKeyAction, nextWrapIndex } from '../ui/menu-navigation';
 import styles from './sidebar.module.css';
+
+export const worktreeListboxId = 'worktree-listbox';
 
 export function worktreeRowId(worktreeId: string): string {
   return `worktree-row-${worktreeId.replace(/[:/]/g, '-')}`;
@@ -21,9 +22,7 @@ export function WorktreeList({
   highlightedId,
   selectedWorktreeStatus,
   filterQuery,
-  listRef,
   onSelect,
-  onHighlight,
   onRemoveWorktree,
 }: {
   homeDirectory: string;
@@ -33,59 +32,20 @@ export function WorktreeList({
   highlightedId: string | undefined;
   selectedWorktreeStatus: WorktreeStatus | undefined;
   filterQuery: string;
-  listRef: RefObject<HTMLDivElement | null>;
   onSelect: (id: string) => void;
-  onHighlight: (id: string | undefined) => void;
   onRemoveWorktree: (worktree: Worktree) => void;
 }): React.JSX.Element {
-  const worktreeIds = visibleWorktrees.map((match) => match.worktree.id);
-
-  const handleKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>): void => {
-    if ((event.target as Element | null)?.closest('button')) return;
-    const action = menuKeyAction(event.key);
-    if (!worktreeIds.length) return;
-
-    switch (action?.kind) {
-      case 'move': {
-        event.preventDefault();
-        const current = worktreeIds.indexOf(highlightedId ?? '');
-        const next =
-          current < 0
-            ? action.offset > 0
-              ? 0
-              : worktreeIds.length - 1
-            : nextWrapIndex(current, action.offset, worktreeIds.length);
-        onHighlight(worktreeIds[next]);
-        break;
-      }
-      case 'home':
-        event.preventDefault();
-        onHighlight(worktreeIds[0]);
-        break;
-      case 'end':
-        event.preventDefault();
-        onHighlight(worktreeIds[worktreeIds.length - 1]);
-        break;
-      case 'select': {
-        event.preventDefault();
-        const id = highlightedId ?? worktreeIds[0];
-        if (id) onSelect(id);
-        break;
-      }
-      case 'close':
-        event.preventDefault();
-        onHighlight(selectedId);
-        listRef.current?.blur();
-        break;
-      default:
-        break;
-    }
-  };
+  useEffect(() => {
+    if (highlightedId === undefined) return;
+    document
+      .getElementById(worktreeRowId(highlightedId))
+      ?.scrollIntoView({ block: 'nearest' });
+  }, [highlightedId]);
 
   return (
     <div>
       <div
-        ref={listRef}
+        id={worktreeListboxId}
         className={`${styles.branchList} ${styles.flatWorktreeList}`}
         role="listbox"
         tabIndex={0}
@@ -93,8 +53,6 @@ export function WorktreeList({
         aria-activedescendant={
           highlightedId !== undefined ? worktreeRowId(highlightedId) : undefined
         }
-        onKeyDown={handleKeyDown}
-        onPointerUp={() => listRef.current?.focus()}
       >
         {visibleWorktrees.length ? (
           visibleWorktrees.map(({ worktree, displayNameIndexes, branchIndexes }) => (

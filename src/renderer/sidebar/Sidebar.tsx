@@ -1,12 +1,16 @@
 import { Filter, FolderOpen, Plus, Search, Settings } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import type { Project, Worktree, WorktreeStatus } from '../../shared/contracts';
 import type { WorktreeSortOrder } from '../../shared/worktree-list';
 import controls from '../styles/controls.module.css';
 import { QuickTooltip } from '../ui/QuickTooltip';
 import styles from './sidebar.module.css';
-import { useWorktreeList, resolveHighlightedId } from './useWorktreeList';
-import { WorktreeList } from './WorktreeList';
+import {
+  useWorktreeList,
+  resolveHighlightedId,
+  worktreeKeyAction,
+} from './useWorktreeList';
+import { WorktreeList, worktreeListboxId, worktreeRowId } from './WorktreeList';
 import { WorktreeSortMenu } from './WorktreeSortMenu';
 import { useWorktreeFilter } from './useWorktreeFilter';
 
@@ -49,27 +53,66 @@ export function Sidebar({
     closeWorktreeFilter,
   } = useWorktreeFilter();
   const visibleWorktrees = useWorktreeList(repository, worktreeSortOrder, worktreeFilter);
-  const [highlightTarget, setHighlightTarget] = useState<string | undefined>(selectedId);
-  const worktreeListRef = useRef<HTMLDivElement>(null);
-  const focusedWorktreeList = useRef(false);
-  const highlightedId = useMemo(
-    () =>
-      filterOpen && worktreeFilter.trim() !== ''
-        ? visibleWorktrees[0]?.worktree.id
-        : resolveHighlightedId(
-            highlightTarget,
-            selectedId,
-            visibleWorktrees.map((match) => match.worktree.id),
-          ),
-    [filterOpen, worktreeFilter, visibleWorktrees, highlightTarget, selectedId],
+  const visibleWorktreeIds = useMemo(
+    () => visibleWorktrees.map((match) => match.worktree.id),
+    [visibleWorktrees],
   );
+  const [highlightTarget, setHighlightTarget] = useState<string | undefined>(selectedId);
+  const highlightedId = useMemo(() => {
+    if (highlightTarget !== undefined && visibleWorktreeIds.includes(highlightTarget)) {
+      return highlightTarget;
+    }
+    if (filterOpen && worktreeFilter.trim() !== '') {
+      return visibleWorktrees[0]?.worktree.id;
+    }
+    return resolveHighlightedId(highlightTarget, selectedId, visibleWorktreeIds);
+  }, [
+    filterOpen,
+    worktreeFilter,
+    highlightTarget,
+    selectedId,
+    visibleWorktrees,
+    visibleWorktreeIds,
+  ]);
+
+  const selectWorktree = (id: string): void => {
+    setHighlightTarget(id);
+    if (filterOpen) closeWorktreeFilter();
+    onSelect(id);
+  };
+
+  const handleWorktreeKeys = useEffectEvent((event: KeyboardEvent): void => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      setHighlightTarget(selectedId);
+      if (filterOpen) closeWorktreeFilter();
+      return;
+    }
+    const action = worktreeKeyAction(event.key, highlightedId, visibleWorktreeIds);
+    if (!action) return;
+    event.preventDefault();
+    if (action.kind === 'highlight') {
+      setHighlightTarget(action.id);
+    } else if (action.id !== undefined) {
+      selectWorktree(action.id);
+    }
+  });
 
   useEffect(() => {
-    if (focusedWorktreeList.current) return;
-    focusedWorktreeList.current = true;
-    if (!document.querySelector('dialog[open], [role="dialog"][aria-modal="true"]')) {
-      worktreeListRef.current?.focus();
-    }
+    const handleWorktreeListKeys = (event: KeyboardEvent): void => {
+      if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('input, textarea, select, button, [contenteditable="true"]')) {
+        return;
+      }
+      if (document.querySelector('dialog[open], [role="dialog"][aria-modal="true"]')) {
+        return;
+      }
+      if (document.querySelector('[role="menu"]')) return;
+      handleWorktreeKeys(event);
+    };
+    document.addEventListener('keydown', handleWorktreeListKeys);
+    return () => document.removeEventListener('keydown', handleWorktreeListKeys);
   }, []);
 
   return (
@@ -122,7 +165,13 @@ export function Sidebar({
           <input
             ref={filterInputRef}
             type="search"
+            role="combobox"
             aria-label="Filter worktrees by path or branch"
+            aria-expanded
+            aria-controls={worktreeListboxId}
+            aria-activedescendant={
+              highlightedId !== undefined ? worktreeRowId(highlightedId) : undefined
+            }
             placeholder="Filter path or branch…"
             value={worktreeFilter}
             onChange={(event) => setWorktreeFilter(event.target.value)}
@@ -132,15 +181,19 @@ export function Sidebar({
                 event.stopPropagation();
                 setHighlightTarget(selectedId);
                 closeWorktreeFilter();
-                worktreeListRef.current?.focus();
-              } else if (event.key === 'Enter') {
+                return;
+              }
+              const action = worktreeKeyAction(
+                event.key,
+                highlightedId,
+                visibleWorktreeIds,
+              );
+              if (action?.kind === 'highlight') {
                 event.preventDefault();
-                const top = visibleWorktrees[0]?.worktree.id;
-                if (top) {
-                  onSelect(top);
-                  closeWorktreeFilter();
-                  worktreeListRef.current?.focus();
-                }
+                setHighlightTarget(action.id);
+              } else if (action?.kind === 'select') {
+                event.preventDefault();
+                if (action.id !== undefined) selectWorktree(action.id);
               }
             }}
           />
@@ -155,12 +208,7 @@ export function Sidebar({
           highlightedId={highlightedId}
           selectedWorktreeStatus={selectedWorktreeStatus}
           filterQuery={worktreeFilter}
-          listRef={worktreeListRef}
-          onHighlight={setHighlightTarget}
-          onSelect={(id) => {
-            if (filterOpen) closeWorktreeFilter();
-            onSelect(id);
-          }}
+          onSelect={selectWorktree}
           onRemoveWorktree={onRemoveWorktree}
         />
       </div>
