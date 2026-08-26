@@ -23,6 +23,7 @@ interface Harness {
   openRepository: ReturnType<typeof vi.fn>;
   openRecentRepository: ReturnType<typeof vi.fn>;
   updateSettings: ReturnType<typeof vi.fn>;
+  setToolPreference: ReturnType<typeof vi.fn>;
   openDiffWindow: ReturnType<typeof vi.fn>;
   diffWindowInit: ReturnType<typeof vi.fn>;
 }
@@ -48,6 +49,7 @@ function createHarness(
   const openRepository = vi.fn().mockResolvedValue(undefined);
   const openRecentRepository = vi.fn().mockResolvedValue(undefined);
   const updateSettings = vi.fn().mockResolvedValue(undefined);
+  const setToolPreference = vi.fn().mockResolvedValue(undefined);
   const openDiffWindow = vi.fn().mockResolvedValue(undefined);
   const diffWindowInit = vi.fn().mockReturnValue(undefined);
 
@@ -58,6 +60,7 @@ function createHarness(
       openRepository,
       openRecentRepository,
       updateSettings,
+      setToolPreference,
       openDiffWindow,
       diffWindowInit,
     },
@@ -80,6 +83,7 @@ function createHarness(
     openRepository,
     openRecentRepository,
     updateSettings,
+    setToolPreference,
     openDiffWindow,
     diffWindowInit,
   };
@@ -189,19 +193,18 @@ describe('registerIpcHandlers', () => {
     expect(harness.launchTerminal).toHaveBeenCalledWith('iterm2', '/code/worktree-a');
   });
 
-  it('persists a tool preference through the session service', async () => {
+  it('persists a tool preference through the window manager', async () => {
     const sender = {} as WebContents;
     const window = {} as BrowserWindow;
-    const setToolPreference = vi.fn().mockResolvedValue(undefined);
     const harness = createHarness(() => ({
-      service: serviceStub({ setToolPreference }),
+      service: serviceStub({}),
       dialogParent: window,
     }));
 
     await invoke(harness, ipc.setToolPreference, sender, 'editor', 'vscode');
 
-    expect(setToolPreference).toHaveBeenCalledOnce();
-    expect(setToolPreference).toHaveBeenCalledWith('editor', 'vscode');
+    expect(harness.setToolPreference).toHaveBeenCalledOnce();
+    expect(harness.setToolPreference).toHaveBeenCalledWith(sender, 'editor', 'vscode');
   });
 
   it('preserves approval, URL, and clipboard validation behind session resolution', async () => {

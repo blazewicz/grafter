@@ -11,9 +11,9 @@ describe('diffWindowKey', () => {
       targetBranch: 'main',
     });
 
-    const key = diffWindowKey(session);
-
-    expect(key).toBe('project-1|branch|feature|main');
+    expect(diffWindowKey(session)).toBe(
+      JSON.stringify(['project-1', 'branch', 'feature', 'main']),
+    );
   });
 
   it('treats swapped branch pairs as distinct diffs', () => {
@@ -29,6 +29,21 @@ describe('diffWindowKey', () => {
     });
 
     expect(diffWindowKey(swapped)).not.toBe(diffWindowKey(source));
+  });
+
+  it('does not collide when separators appear inside branch names', () => {
+    const splitPair = branchDiffSessionFactory.build({
+      projectId: 'project-1',
+      branch: 'a|branch',
+      targetBranch: 'main',
+    });
+    const joinedPair = branchDiffSessionFactory.build({
+      projectId: 'project-1',
+      branch: 'a',
+      targetBranch: 'branch|main',
+    });
+
+    expect(diffWindowKey(splitPair)).not.toBe(diffWindowKey(joinedPair));
   });
 
   it('identifies commit diffs by project and head revision regardless of id', () => {

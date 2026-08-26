@@ -37,6 +37,11 @@ interface IpcHandlerDependencies {
     updateSettings(sender: WebContents, settings: Settings): Promise<unknown>;
     openDiffWindow(sender: WebContents, request: OpenDiffWindowRequest): Promise<void>;
     diffWindowInit(sender: WebContents): DiffSession | undefined;
+    setToolPreference(
+      sender: WebContents,
+      group: ToolPickerGroup,
+      tool: string,
+    ): Promise<unknown>;
   };
   dialog: Pick<Dialog, 'showOpenDialog'>;
   shell: Pick<Shell, 'openPath' | 'openExternal'>;
@@ -150,9 +155,10 @@ export function registerIpcHandlers(dependencies: IpcHandlerDependencies): void 
     sessions.resolve(event.sender);
     return windowManager.updateSettings(event.sender, settings);
   });
-  ipcMain.handle(ipc.setToolPreference, (event, group: ToolPickerGroup, tool: string) =>
-    sessions.resolve(event.sender).service.setToolPreference(group, tool),
-  );
+  ipcMain.handle(ipc.setToolPreference, (event, group: ToolPickerGroup, tool: string) => {
+    sessions.resolve(event.sender);
+    return windowManager.setToolPreference(event.sender, group, tool);
+  });
   ipcMain.handle(ipc.updateRepositorySetup, (event, script: string) =>
     sessions.resolve(event.sender).service.updateRepositorySetup(script),
   );

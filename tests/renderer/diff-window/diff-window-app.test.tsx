@@ -1,15 +1,26 @@
 // @vitest-environment happy-dom
 
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '../../../src/renderer/grafter-api';
 import { DiffWindowApp } from '../../../src/renderer/diff-window/DiffWindowApp';
 import type { AppSnapshot } from '../../../src/shared/contracts';
-import { commitDiffSessionFactory, settingsFactory } from '../../factories';
 import {
+  branchDiffSessionFactory,
+  commitDiffSessionFactory,
+  settingsFactory,
+} from '../../factories';
+import {
+  getFileSection,
   installDiffViewerObservers,
   type IntersectionObserverHarness,
 } from '../diff/diff-viewer-test-harness';
+import { buildDiffViewerScenario } from '../../scenarios/diff/diff-viewer';
+
+const scenario = buildDiffViewerScenario();
+const textualHunk = scenario.patches.textual.hunks[0];
+if (!textualHunk) throw new Error('Expected the scenario to include a textual hunk.');
 
 let intersectionObservers: IntersectionObserverHarness | undefined;
 
@@ -82,5 +93,76 @@ describe('DiffWindowApp', () => {
     await waitFor(() => {
       expect(closeDiffWindow).toHaveBeenCalledOnce();
     });
+  });
+
+  it('reloads patches from scratch when the toolbar replaces the session', async () => {
+    const user = userEvent.setup();
+    // A rebased comparison whose single file keeps the positional file id of
+    // the first session's content, like two real git sessions do.
+    const rebasedSession = branchDiffSessionFactory.build({
+      id: 'rebased-diff-session',
+      projectId: scenario.projectId,
+      branch: scenario.branches.alternativeSource,
+      targetBranch: scenario.branches.target,
+      baseSha: scenario.branchSession.baseSha,
+      headSha: scenario.branchSession.headSha,
+      githubRepository: scenario.githubRepository,
+      stats: { files: 1, additions: 2, deletions: 1 },
+      files: [scenario.files.renamed],
+    });
+    vi.spyOn(api, 'getDiffWindowInit').mockResolvedValue({
+      session: scenario.branchSession,
+    });
+    vi.spyOn(api, 'getSnapshot').mockResolvedValue(diffSnapshot());
+    vi.spyOn(api, 'onSnapshotUpdate').mockReturnValue(() => undefined);
+    vi.spyOn(api, 'listBranches').mockResolvedValue(scenario.branches.available);
+    const openBranchDiff = vi
+      .spyOn(api, 'openBranchDiff')
+      .mockResolvedValue(rebasedSession);
+    const getDiffFile = vi
+      .spyOn(api, 'getDiffFile')
+      .mockReturnValue(Promise.resolve(scenario.patches.textual));
+
+    render(<DiffWindowApp />);
+    await screen.findByRole('region', {
+      name: `Committed changes from ${scenario.branches.source} against ${scenario.branches.target}`,
+    });
+
+    act(() =>
+      intersectionObservers?.notify(getFileSection(scenario.files.renamed), true),
+    );
+    await waitFor(() =>
+      expect(getDiffFile).toHaveBeenCalledWith({
+        sessionId: scenario.branchSession.id,
+        fileId: scenario.files.renamed.id,
+      }),
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Choose source branch' }));
+    await user.click(
+      await screen.findByRole('button', { name: scenario.branches.alternativeSource }),
+    );
+    expect(openBranchDiff).toHaveBeenCalledOnce();
+    expect(openBranchDiff).toHaveBeenCalledWith({
+      sourceBranch: scenario.branches.alternativeSource,
+      targetBranch: scenario.branches.target,
+    });
+
+    await screen.findByRole('region', {
+      name: `Committed changes from ${scenario.branches.alternativeSource} against ${scenario.branches.target}`,
+    });
+
+    // The viewer restarts per session: positional file ids repeat across git
+    // sessions, so the stale patch cache and request ledger must not survive.
+    act(() =>
+      intersectionObservers?.notify(getFileSection(scenario.files.renamed), true),
+    );
+    await waitFor(() =>
+      expect(getDiffFile).toHaveBeenCalledWith({
+        sessionId: rebasedSession.id,
+        fileId: scenario.files.renamed.id,
+      }),
+    );
+    expect(getDiffFile).toHaveBeenCalledTimes(2);
   });
 });

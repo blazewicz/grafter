@@ -101,6 +101,9 @@ export function DiffWindowApp(): React.JSX.Element {
   return (
     <>
       <DiffViewer
+        // Diff file ids are positional and repeat across sessions, so patch
+        // caches and viewer state must never outlive one session.
+        key={session.id}
         session={session}
         onSessionChange={setSession}
         onClose={() => void api.closeDiffWindow()}

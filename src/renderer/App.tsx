@@ -206,8 +206,8 @@ export function App(): React.JSX.Element {
     );
   }
 
-  // A repository window never renders diff-window snapshots; they belong to
-  // the dedicated diff surface.
+  // Unreachable via applySnapshot, which drops diff-window snapshots before
+  // they reach state; this branch exists for type narrowing and defense.
   if (snapshot.kind === 'diff') {
     return (
       <AppFrame error={error} onDismissError={dismissError}>

@@ -13,9 +13,27 @@ import { StubCommandRunner } from './support/stub-command-runner';
 
 const commitSha = 'a'.repeat(40);
 const parentSha = 'b'.repeat(40);
+const projectId = 'repository-1';
+
+/** A non-main feature worktree and the main worktree it compares against. */
+const featureOne = {
+  id: `${projectId}:/repositories/alpha`,
+  branch: 'feature/one',
+};
+const featureTwo = {
+  id: `${projectId}:/repositories/alpha-two`,
+  branch: 'feature/two',
+};
+function shaFor(seed: string): string {
+  const encoded = [...seed]
+    .map((character) => character.charCodeAt(0).toString(16).padStart(2, '0'))
+    .join('');
+  return encoded.padEnd(40, '0').slice(0, 40);
+}
 
 interface DiffHarness {
   manager: WindowManager<FakeSender, FakeWindow>;
+  sessions: WindowSessionRegistry<FakeSender, FakeWindow, WindowSessionService>;
   windows: FakeWindow[];
   loadedKinds: ('app' | 'diff')[];
   runner: StubCommandRunner;
@@ -34,7 +52,16 @@ function repositoryLocation(name: string): RepositoryLocation {
 }
 
 function worktreeOutput(location: RepositoryLocation): string {
-  return `worktree ${location.mainWorktreePath}\nHEAD 1111111\nbranch refs/heads/main\n`;
+  return [
+    `worktree ${location.mainWorktreePath}`,
+    `HEAD ${shaFor(featureOne.branch)}`,
+    `branch refs/heads/${featureOne.branch}`,
+    '',
+    `worktree /repositories/alpha-two`,
+    `HEAD ${shaFor(featureTwo.branch)}`,
+    `branch refs/heads/${featureTwo.branch}`,
+    '',
+  ].join('\n');
 }
 
 function gitStub(locations: Map<string, RepositoryLocation>) {
@@ -55,11 +82,25 @@ function gitStub(locations: Map<string, RepositoryLocation>) {
     }
     if (
       spec.tool === 'git' &&
+      spec.args[0] === 'symbolic-ref' &&
+      spec.args[1] === '--short'
+    ) {
+      // The remote HEAD becomes the automatic comparison target branch.
+      return { stdout: 'origin/main\n' };
+    }
+    if (
+      spec.tool === 'git' &&
       spec.args[0] === 'rev-parse' &&
       spec.args[1] === '--verify' &&
-      spec.args[2]?.endsWith('^{commit}')
+      typeof spec.args[2] === 'string'
     ) {
-      return { stdout: `${spec.args[2].replace(/\^\{commit\}$/, '')}\n` };
+      const reference = spec.args[2].replace(/\^\{commit\}$/, '');
+      // Full object ids resolve to themselves; branch names get stable ids.
+      if (/^[0-9a-f]{40}$/.test(reference)) return { stdout: `${reference}\n` };
+      return { stdout: `${shaFor(reference.replace('refs/heads/', ''))}\n` };
+    }
+    if (spec.tool === 'git' && spec.args[0] === 'merge-base') {
+      return { stdout: `${parentSha}\n` };
     }
     if (spec.tool === 'git' && spec.args[0] === 'show') {
       return { stdout: `${parentSha}\n` };
@@ -130,7 +171,7 @@ function createHarness(repositoryName = 'alpha'): DiffHarness {
           : Promise.reject(new Error(`Missing repository: ${selectedPath}`));
       },
     },
-    createRepositoryId: () => 'repository-1',
+    createRepositoryId: () => projectId,
     createRepositoryService: (project, canonicalRepositoryKey) => {
       const service = new RepositoryService(
         project,
@@ -144,6 +185,7 @@ function createHarness(repositoryName = 'alpha'): DiffHarness {
   });
   return {
     manager,
+    sessions,
     windows,
     loadedKinds,
     runner,
@@ -361,6 +403,116 @@ describe('WindowManager diff windows', () => {
     if (!diffWindow) throw new Error('Expected a diff window.');
 
     expect(harness.manager.diffWindowInit(diffWindow.webContents)).toBeDefined();
+  });
+
+  it('dedupes worktree diffs by their comparison pair and follows toolbar retargets', async () => {
+    const harness = createHarness();
+    const repoWindow = await openRepository(harness);
+    await harness.manager.openDiffWindow(repoWindow.webContents, {
+      kind: 'worktree',
+      worktreeId: featureOne.id,
+    });
+    const firstDiff = harness.windows[1];
+    if (!firstDiff) throw new Error('Expected a diff window.');
+
+    // Opening the same worktree again focuses the existing window.
+    const focusCalls = firstDiff.focusCalls;
+    await harness.manager.openDiffWindow(repoWindow.webContents, {
+      kind: 'worktree',
+      worktreeId: featureOne.id,
+    });
+    expect(harness.windows).toHaveLength(2);
+    expect(firstDiff.focusCalls).toBe(focusCalls + 1);
+
+    // A toolbar rebase inside the window retargets its dedupe identity.
+    const diffSession = harness.sessions.resolve(firstDiff.webContents).service;
+    await diffSession.openBranchDiff({
+      sourceBranch: featureTwo.branch,
+      targetBranch: 'main',
+    });
+
+    // The vacated identity must create a fresh window instead of focusing
+    // the one that moved away…
+    await harness.manager.openDiffWindow(repoWindow.webContents, {
+      kind: 'worktree',
+      worktreeId: featureOne.id,
+    });
+    expect(harness.windows).toHaveLength(3);
+    const freshWindow = harness.windows[2];
+    if (!freshWindow) throw new Error('Expected a new diff window.');
+    expect(harness.manager.diffWindowInit(freshWindow.webContents)?.headSha).toBe(
+      shaFor(featureOne.branch),
+    );
+
+    // …while the retargeted identity still dedupes onto the rebased window.
+    const beforeRetargetFocus = firstDiff.focusCalls;
+    await harness.manager.openDiffWindow(repoWindow.webContents, {
+      kind: 'worktree',
+      worktreeId: featureTwo.id,
+    });
+    expect(harness.windows).toHaveLength(3);
+    expect(firstDiff.focusCalls).toBe(beforeRetargetFocus + 1);
+  });
+
+  it('caps live diff windows per repository instead of letting the LRU evict them', async () => {
+    const harness = createHarness();
+    const repoWindow = await openRepository(harness);
+    const commitAt = (index: number): string =>
+      `${String(index)}${'f'.repeat(40 - String(index).length)}`;
+
+    for (let index = 0; index < 10; index += 1) {
+      await harness.manager.openDiffWindow(repoWindow.webContents, {
+        kind: 'commit',
+        commitHash: commitAt(index),
+      });
+    }
+    expect(harness.windows).toHaveLength(11);
+
+    await expect(
+      harness.manager.openDiffWindow(repoWindow.webContents, {
+        kind: 'commit',
+        commitHash: commitAt(10),
+      }),
+    ).rejects.toThrow('Too many open diff windows for this repository.');
+    expect(harness.windows).toHaveLength(11);
+
+    // Closing one window frees capacity.
+    const firstDiff = harness.windows[1];
+    if (!firstDiff) throw new Error('Expected an open diff window.');
+    firstDiff.close();
+    await harness.manager.openDiffWindow(repoWindow.webContents, {
+      kind: 'commit',
+      commitHash: commitAt(10),
+    });
+    const replacement = harness.windows[11];
+    if (!replacement) throw new Error('Expected the replacement diff window.');
+    expect(replacement.destroyed).toBe(false);
+    expect(harness.manager.diffWindowInit(replacement.webContents)?.headSha).toBe(
+      commitAt(10),
+    );
+  });
+
+  it('propagates tool preference changes from any window to every other window', async () => {
+    const harness = createHarness();
+    const repoWindow = await openRepository(harness);
+    await harness.manager.openDiffWindow(repoWindow.webContents, {
+      kind: 'commit',
+      commitHash: commitSha,
+    });
+    const diffWindow = harness.windows[1];
+    if (!diffWindow) throw new Error('Expected a diff window.');
+
+    await harness.manager.setToolPreference(diffWindow.webContents, 'terminal', 'iterm2');
+
+    const pushedToRepository = repoWindow.webContents.sent.filter(
+      (update) => update.channel === ipc.snapshotUpdate,
+    );
+    const latest = pushedToRepository[pushedToRepository.length - 1]?.value;
+    if (!latest || typeof latest !== 'object' || !('repository' in latest)) {
+      throw new Error('Expected a repository snapshot push.');
+    }
+    const snapshot = latest as Extract<AppSnapshot, { kind: 'repository' }>;
+    expect(snapshot.toolPreferences.terminal).toBe('iterm2');
   });
 });
 
