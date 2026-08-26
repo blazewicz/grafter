@@ -947,18 +947,20 @@ export const previewApi: GrafterApi = {
       }),
     );
   },
-  openDiffWindow: (request) => {
-    const session =
-      request.kind === 'worktree'
-        ? buildWorktreeDiffSession(request.worktreeId)
-        : buildCommitDiffSession(request.commitHash);
-    previewDiffWindow = session;
-    return Promise.resolve();
-  },
-  getDiffWindowInit: () =>
-    Promise.resolve({
-      session: structuredClone(previewDiffWindow ?? fallbackPreviewDiffWindow()),
+  // Deferred bodies so session construction failures surface as rejected
+  // promises, matching the Electron IPC contract instead of throwing at the
+  // call site.
+  openDiffWindow: (request) =>
+    Promise.resolve().then(() => {
+      previewDiffWindow =
+        request.kind === 'worktree'
+          ? buildWorktreeDiffSession(request.worktreeId)
+          : buildCommitDiffSession(request.commitHash);
     }),
+  getDiffWindowInit: () =>
+    Promise.resolve().then(() => ({
+      session: structuredClone(previewDiffWindow ?? fallbackPreviewDiffWindow()),
+    })),
   closeDiffWindow: () => Promise.resolve(),
   openBranchDiff: ({ sourceBranch, targetBranch }) => {
     const project = repositorySnapshot().repository;

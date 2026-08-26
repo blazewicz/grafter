@@ -21,4 +21,15 @@ describe('preview API window contracts', () => {
       repository: { id: initial.repository.id, setupScript: 'npm run preview' },
     });
   });
+
+  it('surfaces diff window failures as rejected promises, not synchronous throws', async () => {
+    // Renderer launchers attach .catch() to the returned promise; a throw at
+    // the call site would bypass them and strand loading state.
+    await expect(
+      previewApi.openDiffWindow({ kind: 'commit', commitHash: 'missing' }),
+    ).rejects.toThrow('Commit not found.');
+    await expect(
+      previewApi.openDiffWindow({ kind: 'worktree', worktreeId: 'missing' }),
+    ).rejects.toThrow();
+  });
 });

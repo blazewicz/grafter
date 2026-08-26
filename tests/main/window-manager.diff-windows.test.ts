@@ -1,8 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { ApplicationRuntime } from '../../src/main/application-runtime';
 import type { RepositoryLocation } from '../../src/main/services/repository-locator';
 import { RepositoryService } from '../../src/main/services/repository-service';
 import { StateStore } from '../../src/main/store';
+import type { AppSnapshot } from '../../src/shared/contracts';
+import { ipc } from '../../src/shared/ipc';
 import { WindowManager } from '../../src/main/window-manager';
 import type { WindowSessionService } from '../../src/main/window-session-services';
 import { WindowSessionRegistry } from '../../src/main/window-sessions';
@@ -17,6 +19,8 @@ interface DiffHarness {
   windows: FakeWindow[];
   loadedKinds: ('app' | 'diff')[];
   runner: StubCommandRunner;
+  repositoryServices: RepositoryService[];
+  setLoader(load: (kind: 'app' | 'diff') => Promise<void>): void;
 }
 
 function repositoryLocation(name: string): RepositoryLocation {
@@ -101,6 +105,8 @@ function createHarness(repositoryName = 'alpha'): DiffHarness {
   >();
   const windows: FakeWindow[] = [];
   const loadedKinds: ('app' | 'diff')[] = [];
+  const repositoryServices: RepositoryService[] = [];
+  let load: (kind: 'app' | 'diff') => Promise<void> = () => Promise.resolve();
   const manager = new WindowManager({
     store,
     runtime,
@@ -112,7 +118,7 @@ function createHarness(repositoryName = 'alpha'): DiffHarness {
     },
     loadWindow: (_window, kind) => {
       loadedKinds.push(kind);
-      return Promise.resolve();
+      return load(kind);
     },
     homeDirectory: '/Users/developer',
     systemLocale: 'en-GB',
@@ -125,10 +131,27 @@ function createHarness(repositoryName = 'alpha'): DiffHarness {
       },
     },
     createRepositoryId: () => 'repository-1',
-    createRepositoryService: (project, canonicalRepositoryKey) =>
-      new RepositoryService(project, canonicalRepositoryKey, store, runtime),
+    createRepositoryService: (project, canonicalRepositoryKey) => {
+      const service = new RepositoryService(
+        project,
+        canonicalRepositoryKey,
+        store,
+        runtime,
+      );
+      repositoryServices.push(service);
+      return service;
+    },
   });
-  return { manager, windows, loadedKinds, runner };
+  return {
+    manager,
+    windows,
+    loadedKinds,
+    runner,
+    repositoryServices,
+    setLoader: (next) => {
+      load = next;
+    },
+  };
 }
 
 async function openRepository(harness: DiffHarness): Promise<FakeWindow> {
@@ -185,6 +208,67 @@ describe('WindowManager diff windows', () => {
     expect(diffWindow.focusCalls).toBe(focusCalls + 1);
   });
 
+  it('evicts the freshly created session when an identical diff is already open', async () => {
+    const harness = createHarness();
+    const repoWindow = await openRepository(harness);
+    await harness.manager.openDiffWindow(repoWindow.webContents, {
+      kind: 'commit',
+      commitHash: commitSha,
+    });
+    const diffWindow = harness.windows[1];
+    if (!diffWindow) throw new Error('Expected a diff window.');
+    const keptId = harness.manager.diffWindowInit(diffWindow.webContents)?.id;
+    if (!keptId) throw new Error('Expected an initialization payload.');
+    const repository = harness.repositoryServices[0];
+    if (!repository) throw new Error('Expected a repository service.');
+    const closeDiff = vi.spyOn(repository, 'closeDiff');
+
+    await harness.manager.openDiffWindow(repoWindow.webContents, {
+      kind: 'commit',
+      commitHash: commitSha,
+    });
+
+    // The duplicate open must not leak its freshly minted git session into the
+    // session LRU, where it could eventually evict a live window's session.
+    expect(closeDiff).toHaveBeenCalledOnce();
+    expect(closeDiff).not.toHaveBeenCalledWith(keptId);
+  });
+
+  it('leaves no stale bookkeeping when loading a diff window fails', async () => {
+    const harness = createHarness();
+    const repoWindow = await openRepository(harness);
+
+    harness.setLoader((kind) =>
+      kind === 'diff' ? Promise.reject(new Error('load failed')) : Promise.resolve(),
+    );
+    await expect(
+      harness.manager.openDiffWindow(repoWindow.webContents, {
+        kind: 'commit',
+        commitHash: commitSha,
+      }),
+    ).rejects.toThrow('load failed');
+    const failedWindow = harness.windows[1];
+    if (!failedWindow) throw new Error('Expected the discarded window.');
+    expect(failedWindow.destroyed).toBe(true);
+    expect(harness.manager.diffWindowInit(failedWindow.webContents)).toBeUndefined();
+
+    harness.setLoader(() => Promise.resolve());
+    await harness.manager.openDiffWindow(repoWindow.webContents, {
+      kind: 'commit',
+      commitHash: commitSha,
+    });
+
+    // The failed attempt must not linger in the dedupe index or the retry
+    // would focus-and-leak instead of creating a working window.
+    expect(harness.windows).toHaveLength(3);
+    const retryWindow = harness.windows[2];
+    if (!retryWindow) throw new Error('Expected the retry to create a window.');
+    expect(retryWindow.destroyed).toBe(false);
+    expect(harness.manager.diffWindowInit(retryWindow.webContents)?.headSha).toBe(
+      commitSha,
+    );
+  });
+
   it('coalesces concurrent opens of the same commit into one window', async () => {
     const harness = createHarness();
     const repoWindow = await openRepository(harness);
@@ -224,6 +308,31 @@ describe('WindowManager diff windows', () => {
     );
   });
 
+  it('propagates shared settings updates to open diff windows', async () => {
+    const harness = createHarness();
+    const repoWindow = await openRepository(harness);
+    await harness.manager.openDiffWindow(repoWindow.webContents, {
+      kind: 'commit',
+      commitHash: commitSha,
+    });
+    const diffWindow = harness.windows[1];
+    if (!diffWindow) throw new Error('Expected a diff window.');
+
+    await harness.manager.updateSettings(repoWindow.webContents, {
+      defaultWorktreePath: '../<repo_name>.worktrees',
+      dateFormat: 'month-day-year',
+      timeFormat: '12-hour',
+    });
+
+    const pushed = diffWindow.webContents.sent.filter(
+      (update) => update.channel === ipc.snapshotUpdate,
+    );
+    const latest = pushed[pushed.length - 1]?.value;
+    if (!isDiffSnapshot(latest)) throw new Error('Expected a diff snapshot push.');
+    expect(latest.settings.dateFormat).toBe('month-day-year');
+    expect(latest.settings.timeFormat).toBe('12-hour');
+  });
+
   it('cascades closing the repository window to its diff windows', async () => {
     const harness = createHarness();
     const repoWindow = await openRepository(harness);
@@ -254,3 +363,12 @@ describe('WindowManager diff windows', () => {
     expect(harness.manager.diffWindowInit(diffWindow.webContents)).toBeDefined();
   });
 });
+
+function isDiffSnapshot(value: unknown): value is Extract<AppSnapshot, { kind: 'diff' }> {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'kind' in value &&
+    value.kind === 'diff'
+  );
+}

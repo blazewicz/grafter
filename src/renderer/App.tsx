@@ -109,6 +109,7 @@ export function App(): React.JSX.Element {
   );
 
   useRepositoryRefresh(snapshot.kind === 'repository', applySnapshot, setError);
+
   const run = useCallback(
     async <T,>(
       action: () => Promise<T>,

@@ -6,7 +6,11 @@ import {
   type WindowSessionService,
 } from '../../src/main/window-session-services';
 import type { DiffSession } from '../../src/shared/contracts';
-import { branchDiffSessionFactory, commitDiffSessionFactory } from '../factories';
+import {
+  branchDiffSessionFactory,
+  commitDiffSessionFactory,
+  settingsFactory,
+} from '../factories';
 
 interface RepositoryStub {
   listBranches: ReturnType<typeof vi.fn>;
@@ -116,6 +120,23 @@ describe('DiffWindowSession', () => {
     await expect(
       session.openBranchDiff({ sourceBranch: 'x', targetBranch: 'y' }),
     ).resolves.toEqual(next);
+  });
+
+  it('persists shared settings changes and reflects them in its snapshot', async () => {
+    const session = createSession(repositoryStub(), initial());
+
+    const result = await session.updateSettings(
+      settingsFactory.build({ dateFormat: 'month-day-year', timeFormat: '12-hour' }),
+    );
+
+    if (result.kind !== 'diff') throw new Error('Expected a diff snapshot.');
+    expect(result.settings.dateFormat).toBe('month-day-year');
+    expect(result.settings.timeFormat).toBe('12-hour');
+
+    // Re-reads come from persisted shared state, not a cached copy.
+    const refreshed = session.snapshot();
+    if (refreshed.kind !== 'diff') throw new Error('Expected a diff snapshot.');
+    expect(refreshed.settings.dateFormat).toBe('month-day-year');
   });
 
   it('rejects unavailable operations with a helpful error', () => {

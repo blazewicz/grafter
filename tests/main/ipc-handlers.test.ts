@@ -23,6 +23,8 @@ interface Harness {
   openRepository: ReturnType<typeof vi.fn>;
   openRecentRepository: ReturnType<typeof vi.fn>;
   updateSettings: ReturnType<typeof vi.fn>;
+  openDiffWindow: ReturnType<typeof vi.fn>;
+  diffWindowInit: ReturnType<typeof vi.fn>;
 }
 
 function createHarness(
@@ -78,6 +80,8 @@ function createHarness(
     openRepository,
     openRecentRepository,
     updateSettings,
+    openDiffWindow,
+    diffWindowInit,
   };
 }
 
@@ -237,5 +241,121 @@ describe('registerIpcHandlers', () => {
     expect(() => invoke(harness, ipc.copyText, sender, 'text')).toThrow(unavailable);
     expect(harness.openExternal).not.toHaveBeenCalled();
     expect(harness.writeText).not.toHaveBeenCalled();
+  });
+
+  it('rejects malformed diff window requests before reaching the window manager', () => {
+    const sender = {} as WebContents;
+    const window = {} as BrowserWindow;
+    const harness = createHarness(() => ({
+      service: serviceStub({}),
+      dialogParent: window,
+    }));
+
+    for (const payload of [
+      { kind: 'worktree' },
+      { kind: 'worktree', worktreeId: '' },
+      { kind: 'worktree', worktreeId: 'x', extra: true },
+      { kind: 'commit', commitHash: 42 },
+      { kind: 'worktree', worktreeId: 'x', commitHash: 'y' },
+      { kind: 'nonsense' },
+      'worktree-1',
+    ]) {
+      expect(() => invoke(harness, ipc.openDiffWindow, sender, payload)).toThrow(
+        'Invalid diff window request.',
+      );
+    }
+
+    expect(harness.resolve).toHaveBeenCalledTimes(7);
+    expect(harness.openDiffWindow).not.toHaveBeenCalled();
+  });
+
+  it('rejects a diff window bootstrap when no initialization is pending', () => {
+    const sender = {} as WebContents;
+    const window = {} as BrowserWindow;
+    const harness = createHarness(() => ({
+      service: serviceStub({}),
+      dialogParent: window,
+    }));
+
+    expect(() => invoke(harness, ipc.getDiffWindowInit, sender)).toThrow(
+      'No pending diff window initialization.',
+    );
+  });
+
+  it('hands a valid pending initialization to its own window only', () => {
+    const sender = {} as WebContents;
+    const window = {} as BrowserWindow;
+    const sessionPayload = { kind: 'commit', id: 'diff-1' };
+    const harness = createHarness(() => ({
+      service: serviceStub({}),
+      dialogParent: window,
+    }));
+    harness.diffWindowInit.mockImplementation((requestingSender: unknown) =>
+      requestingSender === sender ? sessionPayload : undefined,
+    );
+
+    expect(invoke(harness, ipc.getDiffWindowInit, sender)).toEqual({
+      session: sessionPayload,
+    });
+    expect(() => invoke(harness, ipc.getDiffWindowInit, {} as WebContents)).toThrow(
+      'No pending diff window initialization.',
+    );
+  });
+
+  it('closes the invoking session window without exposing any escape hatches', async () => {
+    const sender = {} as WebContents;
+    const close = vi.fn();
+    const window = { close } as unknown as BrowserWindow;
+    const harness = createHarness(() => ({
+      service: serviceStub({}),
+      dialogParent: window,
+    }));
+
+    await invoke(harness, ipc.closeDiffWindow, sender);
+
+    expect(close).toHaveBeenCalledOnce();
+  });
+
+  it('validates a well-formed diff window request shape end to end', async () => {
+    const sender = {} as WebContents;
+    const window = {} as BrowserWindow;
+    const harness = createHarness(() => ({
+      service: serviceStub({}),
+      dialogParent: window,
+    }));
+
+    await invoke(harness, ipc.openDiffWindow, sender, {
+      kind: 'commit',
+      commitHash: '1'.repeat(40),
+    });
+
+    expect(harness.openDiffWindow).toHaveBeenCalledOnce();
+    expect(harness.openDiffWindow).toHaveBeenCalledWith(sender, {
+      kind: 'commit',
+      commitHash: '1'.repeat(40),
+    });
+  });
+
+  it('rejects malformed branch diff requests before reaching the session service', () => {
+    const sender = {} as WebContents;
+    const window = {} as BrowserWindow;
+    const openBranchDiff = vi.fn().mockResolvedValue(undefined);
+    const harness = createHarness(() => ({
+      service: serviceStub({ openBranchDiff }),
+      dialogParent: window,
+    }));
+
+    for (const payload of [
+      { sourceBranch: 'feature' },
+      { sourceBranch: '', targetBranch: 'main' },
+      { sourceBranch: 'feature', targetBranch: 'main', extra: true },
+      undefined,
+    ]) {
+      expect(() => invoke(harness, ipc.openBranchDiff, sender, payload)).toThrow(
+        'Invalid branch diff request.',
+      );
+    }
+
+    expect(openBranchDiff).not.toHaveBeenCalled();
   });
 });

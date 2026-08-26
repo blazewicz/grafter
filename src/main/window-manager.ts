@@ -219,11 +219,16 @@ export class WindowManager<
           });
 
     try {
-      await this.#installDiffWindow(
+      const outcome = await this.#installDiffWindow(
         invoking.service.repository,
         invoking.canonicalRepositoryKey,
         session,
       );
+      if (outcome === 'reused') {
+        // An existing window already owns this content; the fresh session lost
+        // the race and is evicted before it can leak an LRU slot.
+        invokeQuietly(() => invoking.service.repository.closeDiff(session.id));
+      }
     } catch (error) {
       // The window never took ownership of the session; evict it so nothing leaks.
       invokeQuietly(() => invoking.service.repository.closeDiff(session.id));
@@ -231,16 +236,21 @@ export class WindowManager<
     }
   }
 
+  /**
+   * Installs a freshly created diff session into its own window. Returns
+   * 'reused' when a window showing the same content already exists; the caller
+   * must then evict the fresh session.
+   */
   async #installDiffWindow(
     repository: RepositoryService,
     canonicalRepositoryKey: string,
     session: DiffSession,
-  ): Promise<void> {
+  ): Promise<'created' | 'reused'> {
     const key = diffWindowKey(session);
     const existing = this.#diffWindows.get(key);
     if (existing && !existing.isDestroyed()) {
       existing.focus();
-      return;
+      return 'reused';
     }
     this.#diffWindows.delete(key);
 
@@ -279,6 +289,7 @@ export class WindowManager<
       throw error;
     }
     window.focus();
+    return 'created';
   }
 
   /** Keeps the dedupe index aligned when the toolbar replaces the shown diff. */

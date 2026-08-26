@@ -29,6 +29,10 @@ import { GitHubService } from './github-service';
 
 const pullRequestFreshnessMs = 30_000;
 
+interface OpenCommitDiffRequest {
+  commitHash: string;
+}
+
 export interface RepositoryServiceOptions {
   onSnapshotUpdate?: (project: Project) => void;
   now?: () => number;
@@ -582,10 +586,6 @@ function isListBranchCommitsRequest(value: unknown): value is ListBranchCommitsR
     request.limit >= 1 &&
     request.limit <= 50
   );
-}
-
-interface OpenCommitDiffRequest {
-  commitHash: string;
 }
 
 function isOpenCommitDiffRequest(value: unknown): value is OpenCommitDiffRequest {
