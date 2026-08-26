@@ -119,6 +119,44 @@ export interface CommitDiffSession extends DiffSessionBase {
 
 export type DiffSession = BranchDiffSession | CommitDiffSession;
 
+export type OpenDiffWindowRequest =
+  { kind: 'worktree'; worktreeId: string } | { kind: 'commit'; commitHash: string };
+
+/** Initial state delivered to a freshly opened diff window. */
+export interface DiffWindowInit {
+  session: DiffSession;
+}
+
+export function isOpenBranchDiffRequest(value: unknown): value is OpenBranchDiffRequest {
+  if (!value || typeof value !== 'object') return false;
+  const request = value as Record<string, unknown>;
+  return (
+    typeof request.sourceBranch === 'string' &&
+    Boolean(request.sourceBranch) &&
+    typeof request.targetBranch === 'string' &&
+    Boolean(request.targetBranch) &&
+    Object.keys(request).length === 2
+  );
+}
+
+export function isOpenDiffWindowRequest(value: unknown): value is OpenDiffWindowRequest {
+  if (!value || typeof value !== 'object') return false;
+  const request = value as Record<string, unknown>;
+  if (request.kind === 'worktree') {
+    return (
+      typeof request.worktreeId === 'string' &&
+      Boolean(request.worktreeId) &&
+      Object.keys(request).length === 2
+    );
+  }
+  return (
+    request.kind === 'commit' &&
+    typeof request.commitHash === 'string' &&
+    Boolean(request.commitHash) &&
+    Object.keys(request).length === 2
+  );
+}
+
 export interface OpenBranchDiffRequest {
   sourceBranch: string;
   targetBranch: string;
@@ -134,10 +172,6 @@ export interface ListBranchCommitsRequest {
   targetBranch: string;
   offset: number;
   limit: number;
-}
-
-export interface OpenCommitDiffRequest {
-  commitHash: string;
 }
 
 export type DiffLineKind = 'context' | 'addition' | 'deletion' | 'annotation';
@@ -257,8 +291,15 @@ export interface RepositoryWindowSnapshot extends WindowSnapshotBase {
   worktreeSelectionRequestId?: number;
 }
 
+export interface DiffWindowSnapshot extends WindowSnapshotBase {
+  kind: 'diff';
+}
+
 export type AppSnapshot =
-  LoadingWindowSnapshot | WelcomeWindowSnapshot | RepositoryWindowSnapshot;
+  | LoadingWindowSnapshot
+  | WelcomeWindowSnapshot
+  | RepositoryWindowSnapshot
+  | DiffWindowSnapshot;
 
 export interface ApprovalRequest {
   approvalId: string;
@@ -295,9 +336,10 @@ export interface GrafterApi {
   getWorktreeDetails(worktreeId: string): Promise<WorktreeDetails>;
   setComparisonBase(request: SetComparisonBaseRequest): Promise<WorktreeComparison>;
   listBranchCommits(request: ListBranchCommitsRequest): Promise<CommitPage>;
-  openDiff(worktreeId: string): Promise<DiffSession>;
+  openDiffWindow(request: OpenDiffWindowRequest): Promise<void>;
+  getDiffWindowInit(): Promise<DiffWindowInit>;
+  closeDiffWindow(): Promise<void>;
   openBranchDiff(request: OpenBranchDiffRequest): Promise<DiffSession>;
-  openCommitDiff(request: OpenCommitDiffRequest): Promise<DiffSession>;
   getDiffFile(request: DiffFileRequest): Promise<DiffFilePatch>;
   closeDiff(sessionId: string): Promise<void>;
   refreshPullRequest(worktreeId: string): Promise<PullRequest | undefined>;

@@ -9,7 +9,6 @@ import type {
   EditorTool,
   ListBranchCommitsRequest,
   OpenBranchDiffRequest,
-  OpenCommitDiffRequest,
   OpenDiffFileRequest,
   Project,
   ProjectConfig,
@@ -583,6 +582,10 @@ function isListBranchCommitsRequest(value: unknown): value is ListBranchCommitsR
     request.limit >= 1 &&
     request.limit <= 50
   );
+}
+
+interface OpenCommitDiffRequest {
+  commitHash: string;
 }
 
 function isOpenCommitDiffRequest(value: unknown): value is OpenCommitDiffRequest {

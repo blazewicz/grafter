@@ -10,12 +10,15 @@ import type {
 import { validateClipboardText } from '../shared/clipboard';
 import type {
   CreateWorktreeRequest,
+  DiffSession,
   EditorTool,
+  OpenDiffWindowRequest,
   Settings,
   SwitchBranchRequest,
   TerminalTool,
   ToolPickerGroup,
 } from '../shared/contracts';
+import { isOpenBranchDiffRequest, isOpenDiffWindowRequest } from '../shared/contracts';
 import { ipc } from '../shared/ipc';
 import { editorFileUrl } from './editors';
 import type { WindowSessionService } from './window-session-services';
@@ -32,6 +35,8 @@ interface IpcHandlerDependencies {
     openRepository(sender: WebContents, selectedPath: string): Promise<unknown>;
     openRecentRepository(sender: WebContents, repositoryId: string): Promise<unknown>;
     updateSettings(sender: WebContents, settings: Settings): Promise<unknown>;
+    openDiffWindow(sender: WebContents, request: OpenDiffWindowRequest): Promise<void>;
+    diffWindowInit(sender: WebContents): DiffSession | undefined;
   };
   dialog: Pick<Dialog, 'showOpenDialog'>;
   shell: Pick<Shell, 'openPath' | 'openExternal'>;
@@ -107,15 +112,28 @@ export function registerIpcHandlers(dependencies: IpcHandlerDependencies): void 
   ipcMain.handle(ipc.listBranchCommits, (event, request: unknown) =>
     sessions.resolve(event.sender).service.listBranchCommits(request),
   );
-  ipcMain.handle(ipc.openDiff, (event, worktreeId: string) =>
-    sessions.resolve(event.sender).service.openDiff(worktreeId),
-  );
-  ipcMain.handle(ipc.openBranchDiff, (event, request: unknown) =>
-    sessions.resolve(event.sender).service.openBranchDiff(request),
-  );
-  ipcMain.handle(ipc.openCommitDiff, (event, request: unknown) =>
-    sessions.resolve(event.sender).service.openCommitDiff(request),
-  );
+  ipcMain.handle(ipc.openBranchDiff, (event, request: unknown) => {
+    const session = sessions.resolve(event.sender);
+    if (!isOpenBranchDiffRequest(request))
+      throw new Error('Invalid branch diff request.');
+    return session.service.openBranchDiff(request);
+  });
+  ipcMain.handle(ipc.openDiffWindow, (event, request: unknown) => {
+    sessions.resolve(event.sender);
+    if (!isOpenDiffWindowRequest(request)) {
+      throw new Error('Invalid diff window request.');
+    }
+    return windowManager.openDiffWindow(event.sender, request);
+  });
+  ipcMain.handle(ipc.getDiffWindowInit, (event) => {
+    sessions.resolve(event.sender);
+    const init = windowManager.diffWindowInit(event.sender);
+    if (!init) throw new Error('No pending diff window initialization.');
+    return { session: init };
+  });
+  ipcMain.handle(ipc.closeDiffWindow, (event) => {
+    sessions.resolve(event.sender).dialogParent.close();
+  });
   ipcMain.handle(ipc.diffFile, (event, request: unknown) =>
     sessions.resolve(event.sender).service.diffFile(request),
   );

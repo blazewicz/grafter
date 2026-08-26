@@ -29,7 +29,7 @@ describe('DiffViewer', () => {
     renderDiffViewer();
 
     expect(
-      screen.getByRole('dialog', {
+      screen.getByRole('region', {
         name: `Committed changes from ${scenario.branches.source} against ${scenario.branches.target}`,
       }),
     ).toBeVisible();
@@ -131,7 +131,7 @@ describe('DiffViewer', () => {
     renderDiffViewer(commitSession);
 
     expect(
-      screen.getByRole('dialog', {
+      screen.getByRole('region', {
         name: `Changes in commit ${commitSession.commit.hash}`,
       }),
     ).toBeVisible();

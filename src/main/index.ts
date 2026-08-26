@@ -17,15 +17,22 @@ import { openRepositoryFromNativeMenu } from './native-open-repository';
 import { StateStore } from './store';
 import { launchTerminal } from './terminal';
 import { WindowManager } from './window-manager';
+import type { WindowKind } from './window-manager';
 import type { WindowSessionService } from './window-session-services';
 import { WindowSessionRegistry } from './window-sessions';
 
-function createBrowserWindow(): BrowserWindow {
+const windowSurfaces: Record<WindowKind, { page: string }> = {
+  app: { page: 'index.html' },
+  diff: { page: 'index.diff.html' },
+};
+
+function createBrowserWindow(kind: WindowKind): BrowserWindow {
+  const isDiff = kind === 'diff';
   const window = new BrowserWindow({
-    width: 1220,
-    height: 790,
-    minWidth: 860,
-    minHeight: 560,
+    width: isDiff ? 960 : 1220,
+    height: isDiff ? 640 : 790,
+    minWidth: isDiff ? 720 : 860,
+    minHeight: isDiff ? 420 : 560,
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 30, y: 20 },
     backgroundColor: '#141517',
@@ -50,14 +57,16 @@ function createBrowserWindow(): BrowserWindow {
   return window;
 }
 
-async function loadBrowserWindow(window: BrowserWindow): Promise<void> {
-  if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
-    await window.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
-  } else {
-    await window.loadFile(
-      path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`),
-    );
+async function loadBrowserWindow(window: BrowserWindow, kind: WindowKind): Promise<void> {
+  const { page } = windowSurfaces[kind];
+  const devServerUrl =
+    kind === 'diff' ? DIFF_WINDOW_VITE_DEV_SERVER_URL : MAIN_WINDOW_VITE_DEV_SERVER_URL;
+  const prodName = kind === 'diff' ? DIFF_WINDOW_VITE_NAME : MAIN_WINDOW_VITE_NAME;
+  if (devServerUrl) {
+    await window.loadURL(`${devServerUrl.replace(/\/?$/, '/')}${page}`);
+    return;
   }
+  await window.loadFile(path.join(__dirname, `../renderer/${prodName}/${page}`));
 }
 
 async function startApplication(): Promise<void> {

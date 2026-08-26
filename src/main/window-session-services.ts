@@ -7,6 +7,7 @@ import type {
   DiffFilePatch,
   DiffSession,
   EditorTool,
+  OpenBranchDiffRequest,
   Settings,
   SwitchBranchRequest,
   ToolPickerGroup,
@@ -39,9 +40,7 @@ export interface WindowSessionService {
   details(worktreeId: string): Promise<WorktreeDetails>;
   setComparisonBase(request: unknown): Promise<WorktreeComparison>;
   listBranchCommits(request: unknown): ReturnType<RepositoryService['listBranchCommits']>;
-  openDiff(worktreeId: string): Promise<DiffSession>;
-  openBranchDiff(request: unknown): Promise<DiffSession>;
-  openCommitDiff(request: unknown): Promise<DiffSession>;
+  openBranchDiff(request: OpenBranchDiffRequest): Promise<DiffSession>;
   diffFile(request: unknown): Promise<DiffFilePatch>;
   closeDiff(sessionId: string): void;
   refreshPullRequest(
@@ -220,16 +219,8 @@ export class RepositoryWindowSession implements WindowSessionService {
     return this.repository.listBranchCommits(request);
   }
 
-  openDiff(worktreeId: string): Promise<DiffSession> {
-    return this.repository.openDiff(worktreeId);
-  }
-
-  openBranchDiff(request: unknown): Promise<DiffSession> {
+  openBranchDiff(request: OpenBranchDiffRequest): Promise<DiffSession> {
     return this.repository.openBranchDiff(request);
-  }
-
-  openCommitDiff(request: unknown): Promise<DiffSession> {
-    return this.repository.openCommitDiff(request);
   }
 
   diffFile(request: unknown): Promise<DiffFilePatch> {
@@ -404,15 +395,7 @@ export class WelcomeWindowSession implements WindowSessionService {
     return this.#unavailable();
   }
 
-  openDiff(): Promise<DiffSession> {
-    return this.#unavailable();
-  }
-
   openBranchDiff(): Promise<DiffSession> {
-    return this.#unavailable();
-  }
-
-  openCommitDiff(): Promise<DiffSession> {
     return this.#unavailable();
   }
 
@@ -461,6 +444,199 @@ export class WelcomeWindowSession implements WindowSessionService {
   #unavailable(): never {
     this.#assertActive();
     throw new Error('This operation requires an open repository.');
+  }
+}
+
+/**
+ * Owns the process boundary for one floating diff window. Diff operations are
+ * delegated to the repository service that created the initial diff session;
+ * the session currently displayed is tracked so it can be evicted on teardown.
+ */
+export class DiffWindowSession implements WindowSessionService {
+  readonly #snapshotSubscribers = new Set<SnapshotSubscriber>();
+  #disposed = false;
+  #currentSession: DiffSession | undefined;
+
+  constructor(
+    readonly repository: RepositoryService,
+    readonly store: StateStore,
+    readonly context: WindowSnapshotContext,
+    initialSession: DiffSession,
+    private readonly onCurrentSessionChange: (session: DiffSession) => void,
+  ) {
+    this.#track(initialSession);
+  }
+
+  snapshot(): AppSnapshot {
+    this.#assertActive();
+    const persisted = this.store.state;
+    return {
+      kind: 'diff',
+      homeDirectory: this.context.homeDirectory,
+      systemLocale: this.context.systemLocale,
+      settings: persisted.settings,
+      toolPreferences: persisted.toolPreferences,
+    };
+  }
+
+  subscribeToSnapshotUpdates(subscriber: SnapshotSubscriber): () => void {
+    this.#assertActive();
+    this.#snapshotSubscribers.add(subscriber);
+    return once(() => this.#snapshotSubscribers.delete(subscriber));
+  }
+
+  subscribeToCommandUpdates(_subscriber: (record: CommandRecord) => void): () => void {
+    this.#assertActive();
+    void _subscriber;
+    return () => undefined;
+  }
+
+  publishSnapshot(): void {
+    if (this.#disposed) return;
+    const snapshot = this.snapshot();
+    for (const subscriber of this.#snapshotSubscribers) subscriber(snapshot);
+  }
+
+  listBranches(): Promise<string[]> {
+    return this.repository.listBranches();
+  }
+
+  /** Rebase within an open diff window; supersedes the previously shown session. */
+  async openBranchDiff(request: OpenBranchDiffRequest): Promise<DiffSession> {
+    this.#assertActive();
+    const next = await this.repository.openBranchDiff(request);
+    this.#track(next);
+    return next;
+  }
+
+  diffFile(request: unknown): Promise<DiffFilePatch> {
+    return this.repository.diffFile(request);
+  }
+
+  closeDiff(sessionId: string): void {
+    this.repository.closeDiff(sessionId);
+    if (this.#currentSession?.id === sessionId) this.#currentSession = undefined;
+  }
+
+  async updateSettings(settings: Settings): Promise<AppSnapshot> {
+    await updateSettings(this.store, settings);
+    return this.snapshot();
+  }
+
+  async setToolPreference(group: ToolPickerGroup, tool: string): Promise<AppSnapshot> {
+    await this.store.setToolPreference(group, tool);
+    return this.snapshot();
+  }
+
+  commandLog(): CommandRecord[] {
+    return this.#unavailable();
+  }
+
+  refresh(): Promise<AppSnapshot> {
+    return this.#unavailable();
+  }
+
+  suggestWorktreePath(): string {
+    return this.#unavailable();
+  }
+
+  createWorktree(): Promise<{
+    snapshot: AppSnapshot;
+    setupApproval?: ApprovalRequest;
+  }> {
+    return this.#unavailable();
+  }
+
+  switchBranch(): Promise<AppSnapshot> {
+    return this.#unavailable();
+  }
+
+  prepareRemove(): ApprovalRequest {
+    return this.#unavailable();
+  }
+
+  approve(): Promise<AppSnapshot> {
+    return this.#unavailable();
+  }
+
+  reject(): AppSnapshot {
+    return this.#unavailable();
+  }
+
+  details(): Promise<WorktreeDetails> {
+    return this.#unavailable();
+  }
+
+  setComparisonBase(): Promise<WorktreeComparison> {
+    return this.#unavailable();
+  }
+
+  listBranchCommits(): ReturnType<RepositoryService['listBranchCommits']> {
+    return this.#unavailable();
+  }
+
+  refreshPullRequest(): ReturnType<RepositoryService['refreshPullRequest']> {
+    return this.#unavailable();
+  }
+
+  worktreeStatus(): Promise<WorktreeStatus> {
+    return this.#unavailable();
+  }
+
+  updateRepositorySetup(): Promise<AppSnapshot> {
+    return this.#unavailable();
+  }
+
+  worktreePath(): string {
+    return this.#unavailable();
+  }
+
+  diffFileEditorTarget(request: unknown): {
+    editor: EditorTool;
+    filePath: string;
+    line?: number;
+  } {
+    return this.repository.diffFileEditorTarget(request);
+  }
+
+  dispose(): void {
+    if (this.#disposed) return;
+    this.#disposed = true;
+    this.#snapshotSubscribers.clear();
+    if (this.#currentSession) {
+      try {
+        this.repository.closeDiff(this.#currentSession.id);
+      } catch (error) {
+        console.error('Failed to dispose a diff window session.', error);
+      }
+      this.#currentSession = undefined;
+    }
+  }
+
+  #assertActive(): void {
+    if (this.#disposed) throw new Error('The diff window session is disposed.');
+  }
+
+  #unavailable(): never {
+    this.#assertActive();
+    throw new Error('This operation is not available in a diff window.');
+  }
+
+  /**
+   * Replaces the tracked session, evicting the previous one server-side so a
+   * rebase in the toolbar can never leak the superseded git diff session.
+   */
+  #track(session: DiffSession): void {
+    const previous = this.#currentSession;
+    this.#currentSession = session;
+    this.onCurrentSessionChange(session);
+    if (previous && previous.id !== session.id) {
+      try {
+        this.repository.closeDiff(previous.id);
+      } catch (error) {
+        console.error('Failed to evict the replaced diff session.', error);
+      }
+    }
   }
 }
 

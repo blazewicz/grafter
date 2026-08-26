@@ -46,11 +46,19 @@ function createHarness(
   const openRepository = vi.fn().mockResolvedValue(undefined);
   const openRecentRepository = vi.fn().mockResolvedValue(undefined);
   const updateSettings = vi.fn().mockResolvedValue(undefined);
+  const openDiffWindow = vi.fn().mockResolvedValue(undefined);
+  const diffWindowInit = vi.fn().mockReturnValue(undefined);
 
   registerIpcHandlers({
     ipcMain: { handle },
     sessions: { resolve } as unknown as Sessions,
-    windowManager: { openRepository, openRecentRepository, updateSettings },
+    windowManager: {
+      openRepository,
+      openRecentRepository,
+      updateSettings,
+      openDiffWindow,
+      diffWindowInit,
+    },
     dialog: { showOpenDialog },
     shell: { openPath, openExternal },
     clipboard: { writeText },

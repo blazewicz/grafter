@@ -40,21 +40,16 @@ describe('DiffViewer commands', () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
-  it('prevents native cancel dismissal and requests a close exactly once', () => {
+  it('closes with a window-level Escape even when focus is not in the viewer', () => {
     const onClose = vi.fn();
     renderDiffViewer(scenario.branchSession, {
       onSessionChange: () => undefined,
       onClose,
       onError: () => undefined,
     });
-    const dialog = screen.getByRole('dialog', {
-      name: `Committed changes from ${scenario.branches.source} against ${scenario.branches.target}`,
-    });
-    const cancelEvent = new Event('cancel', { cancelable: true });
 
-    fireEvent(dialog, cancelEvent);
+    fireEvent.keyDown(window, { key: 'Escape' });
 
-    expect(cancelEvent.defaultPrevented).toBe(true);
     expect(onClose).toHaveBeenCalledOnce();
   });
 
@@ -115,26 +110,21 @@ describe('DiffViewer commands', () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
-  it('closes on backdrop mouse-down but not inner-surface mouse-down', () => {
+  it('does not close on mouse-down inside the viewer surface', () => {
     const onClose = vi.fn();
-    renderDiffViewer(scenario.branchSession, {
+    const { container } = renderDiffViewer(scenario.branchSession, {
       onSessionChange: () => undefined,
       onClose,
       onError: () => undefined,
     });
-    const dialog = screen.getByRole('dialog', {
-      name: `Committed changes from ${scenario.branches.source} against ${scenario.branches.target}`,
-    });
-    const surface = dialog.firstElementChild;
+    const surface = container.firstElementChild;
     if (!(surface instanceof HTMLElement)) {
-      throw new Error('Expected the diff viewer inner surface.');
+      throw new Error('Expected the diff viewer surface.');
     }
 
     fireEvent.mouseDown(surface);
-    expect(onClose).not.toHaveBeenCalled();
 
-    fireEvent.mouseDown(dialog);
-    expect(onClose).toHaveBeenCalledOnce();
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it('closes the editor picker with Escape without closing the viewer', async () => {

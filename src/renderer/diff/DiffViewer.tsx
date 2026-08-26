@@ -1,5 +1,5 @@
 import { Search } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { MouseEvent as ReactMouseEvent } from 'react';
 import type {
   DiffFileSummary,
@@ -61,7 +61,6 @@ export function DiffViewer({
   toolPreferences: Record<ToolPickerGroup, string>;
   onSetToolPreference: (group: ToolPickerGroup, tool: string) => void;
 }): React.JSX.Element {
-  const dialogRef = useRef<HTMLDialogElement>(null);
   const [query, setQuery] = useState('');
   const [expanded, setExpanded] = useState(
     () => new Set(diffDirectoryPaths(session.files)),
@@ -84,13 +83,13 @@ export function DiffViewer({
   } = useDiffNavigation(orderedFiles, loading);
 
   useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    if (!dialog.open) dialog.showModal();
-    return () => {
-      if (dialog.open) dialog.close();
-    };
-  }, []);
+    // In the floating diff window, Escape closes the window wherever focus is.
+    return onKeyDownEscape(() => {
+      setFileContextMenu(undefined);
+      setLineContextMenu(undefined);
+      onClose();
+    });
+  }, [onClose]);
 
   useEffect(() => {
     const pane = diffPaneRef.current;
@@ -223,122 +222,116 @@ export function DiffViewer({
   };
 
   return (
-    <dialog
-      ref={dialogRef}
-      className={styles.dialog}
+    <section
+      className={styles.surface}
       aria-label={
         session.kind === 'branch'
           ? `Committed changes from ${session.branch} against ${session.targetBranch}`
           : `Changes in commit ${session.commit.hash}`
       }
-      onCancel={(event) => {
-        event.preventDefault();
-        onClose();
-      }}
-      onKeyDown={(event) => {
-        if (event.key !== 'Escape') return;
-        event.preventDefault();
-        event.stopPropagation();
-        onClose();
-      }}
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
     >
-      <section className={styles.surface}>
-        <DiffViewerToolbar
+      <DiffViewerToolbar
+        session={session}
+        settings={settings}
+        systemLocale={systemLocale}
+        onSessionChange={onSessionChange}
+        onClose={onClose}
+        onError={onError}
+      />
+
+      <div className={styles.viewer}>
+        <aside className={styles.fileSidebar} aria-label="Changed files">
+          <label className={styles.filter}>
+            <Search size={14} />
+            <input
+              value={query}
+              placeholder="Filter files…"
+              aria-label="Filter changed files"
+              onChange={(event) => {
+                clearPendingTarget();
+                setFileContextMenu(undefined);
+                setLineContextMenu(undefined);
+                setQuery(event.target.value);
+              }}
+            />
+          </label>
+          <div className={styles.fileCount}>
+            {filteredFiles.length} of {session.files.length}{' '}
+            {session.files.length === 1 ? 'file' : 'files'}
+          </div>
+          <nav
+            className={styles.fileTree}
+            aria-label="Changed file tree"
+            data-context-menu-open={fileContextMenu ? 'true' : undefined}
+            onScroll={closeFileContextMenu}
+          >
+            {tree.length ? (
+              <DiffFileTree
+                nodes={tree}
+                expanded={expanded}
+                forceExpanded={filtering}
+                activeFileId={displayedActiveFileId}
+                contextFileId={fileContextMenu?.fileId}
+                onToggle={toggleDirectory}
+                onSelect={selectFile}
+                onContextMenu={openFileContextMenu}
+              />
+            ) : (
+              <div className={styles.emptyTree}>
+                {filtering ? 'No matching files' : 'No changed files'}
+              </div>
+            )}
+          </nav>
+        </aside>
+
+        <DiffFilesPane
           session={session}
-          settings={settings}
-          systemLocale={systemLocale}
-          onSessionChange={onSessionChange}
-          onClose={onClose}
+          files={orderedFiles}
+          patches={patches}
+          loading={loading}
+          fileErrors={fileErrors}
+          filtering={filtering}
+          query={query}
+          contextLineId={lineContextMenu?.lineId}
+          toolPreferences={toolPreferences}
+          onSetToolPreference={onSetToolPreference}
+          scrollRoot={diffPaneRef}
+          onVisible={requestPatch}
+          onScroll={closeLineContextMenu}
+          onLineContextMenu={openLineContextMenu}
           onError={onError}
         />
-
-        <div className={styles.viewer}>
-          <aside className={styles.fileSidebar} aria-label="Changed files">
-            <label className={styles.filter}>
-              <Search size={14} />
-              <input
-                value={query}
-                placeholder="Filter files…"
-                aria-label="Filter changed files"
-                onChange={(event) => {
-                  clearPendingTarget();
-                  setFileContextMenu(undefined);
-                  setLineContextMenu(undefined);
-                  setQuery(event.target.value);
-                }}
-              />
-            </label>
-            <div className={styles.fileCount}>
-              {filteredFiles.length} of {session.files.length}{' '}
-              {session.files.length === 1 ? 'file' : 'files'}
-            </div>
-            <nav
-              className={styles.fileTree}
-              aria-label="Changed file tree"
-              data-context-menu-open={fileContextMenu ? 'true' : undefined}
-              onScroll={closeFileContextMenu}
-            >
-              {tree.length ? (
-                <DiffFileTree
-                  nodes={tree}
-                  expanded={expanded}
-                  forceExpanded={filtering}
-                  activeFileId={displayedActiveFileId}
-                  contextFileId={fileContextMenu?.fileId}
-                  onToggle={toggleDirectory}
-                  onSelect={selectFile}
-                  onContextMenu={openFileContextMenu}
-                />
-              ) : (
-                <div className={styles.emptyTree}>
-                  {filtering ? 'No matching files' : 'No changed files'}
-                </div>
-              )}
-            </nav>
-          </aside>
-
-          <DiffFilesPane
-            session={session}
-            files={orderedFiles}
-            patches={patches}
-            loading={loading}
-            fileErrors={fileErrors}
-            filtering={filtering}
-            query={query}
-            contextLineId={lineContextMenu?.lineId}
-            toolPreferences={toolPreferences}
-            onSetToolPreference={onSetToolPreference}
-            scrollRoot={diffPaneRef}
-            onVisible={requestPatch}
-            onScroll={closeLineContextMenu}
-            onLineContextMenu={openLineContextMenu}
-            onError={onError}
-          />
-        </div>
-        {fileContextMenu && (
-          <DiffFileContextMenu
-            state={fileContextMenu}
-            onClose={closeFileContextMenu}
-            onCopy={copyContextText}
-            onOpenEditor={openContextFileInEditor}
-            onOpenGitHub={openContextFileOnGitHub}
-          />
-        )}
-        {lineContextMenu && (
-          <DiffLineContextMenu
-            state={lineContextMenu}
-            onClose={closeLineContextMenu}
-            onCopy={copyContextText}
-            onOpenEditor={openContextLineInEditor}
-            onOpenGitHub={openContextLineOnGitHub}
-          />
-        )}
-      </section>
-    </dialog>
+      </div>
+      {fileContextMenu && (
+        <DiffFileContextMenu
+          state={fileContextMenu}
+          onClose={closeFileContextMenu}
+          onCopy={copyContextText}
+          onOpenEditor={openContextFileInEditor}
+          onOpenGitHub={openContextFileOnGitHub}
+        />
+      )}
+      {lineContextMenu && (
+        <DiffLineContextMenu
+          state={lineContextMenu}
+          onClose={closeLineContextMenu}
+          onCopy={copyContextText}
+          onOpenEditor={openContextLineInEditor}
+          onOpenGitHub={openContextLineOnGitHub}
+        />
+      )}
+    </section>
   );
+}
+
+function onKeyDownEscape(handler: () => void): () => void {
+  const listener = (event: KeyboardEvent): void => {
+    if (event.key !== 'Escape') return;
+    event.preventDefault();
+    handler();
+  };
+  window.addEventListener('keydown', listener);
+  return () => window.removeEventListener('keydown', listener);
 }
 
 function contextMenuPosition(

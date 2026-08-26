@@ -43,7 +43,7 @@ describe('preload repository-scoped API', () => {
       sourceBranch: createRequest.branch,
       targetBranch: 'main',
     });
-    await api.openCommitDiff({ commitHash: '1'.repeat(40) });
+    await api.openDiffWindow({ kind: 'commit', commitHash: '1'.repeat(40) });
     await api.updateRepositorySetup('npm install');
     await api.getCommandLog({
       kind: 'worktree',
@@ -56,9 +56,21 @@ describe('preload repository-scoped API', () => {
       [ipc.suggestWorktreePath, createRequest.branch],
       [ipc.createWorktree, createRequest],
       [ipc.openBranchDiff, { sourceBranch: createRequest.branch, targetBranch: 'main' }],
-      [ipc.openCommitDiff, { commitHash: '1'.repeat(40) }],
+      [ipc.openDiffWindow, { kind: 'commit', commitHash: '1'.repeat(40) }],
       [ipc.updateRepositorySetup, 'npm install'],
       [ipc.commandLog, { kind: 'worktree', worktreeId: 'owning-repository:worktree' }],
+    ]);
+  });
+
+  it('bootstraps diff windows without accepting a caller-selected session', async () => {
+    const api = exposedApi();
+
+    await api.getDiffWindowInit();
+    await api.closeDiffWindow();
+
+    expect(electron.invoke.mock.calls).toEqual([
+      [ipc.getDiffWindowInit],
+      [ipc.closeDiffWindow],
     ]);
   });
 

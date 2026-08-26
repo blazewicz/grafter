@@ -12,7 +12,7 @@ export default defineConfig({
   build: {
     sourcemap: true,
     rollupOptions: {
-      input: path.resolve(import.meta.dirname, 'index.html'),
+      input: path.resolve(import.meta.dirname, 'index.diff.html'),
     },
   },
 });

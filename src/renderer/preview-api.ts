@@ -947,29 +947,19 @@ export const previewApi: GrafterApi = {
       }),
     );
   },
-  openDiff: (worktreeId) => {
-    const worktreeDetails = details[worktreeId];
-    if (!worktreeDetails?.targetBranch) {
-      return Promise.reject(
-        new Error('This branch does not have a committed comparison target.'),
-      );
-    }
-    return Promise.resolve(
-      structuredClone({
-        kind: 'branch' as const,
-        id: 'preview-diff',
-        projectId: worktreeDetails.projectId,
-        sourceWorktreeId: worktreeId,
-        branch: worktreeDetails.branch,
-        targetBranch: worktreeDetails.targetBranch,
-        baseSha: '4fc93b86a45b1a47af174e0b97e422a31eb19db0',
-        headSha: worktreeDetails.head,
-        githubRepository: { owner: 'example', name: 'grafter' },
-        stats: { files: 7, additions: 438, deletions: 41 },
-        files: previewDiffFiles,
-      }),
-    );
+  openDiffWindow: (request) => {
+    const session =
+      request.kind === 'worktree'
+        ? buildWorktreeDiffSession(request.worktreeId)
+        : buildCommitDiffSession(request.commitHash);
+    previewDiffWindow = session;
+    return Promise.resolve();
   },
+  getDiffWindowInit: () =>
+    Promise.resolve({
+      session: structuredClone(previewDiffWindow ?? fallbackPreviewDiffWindow()),
+    }),
+  closeDiffWindow: () => Promise.resolve(),
   openBranchDiff: ({ sourceBranch, targetBranch }) => {
     const project = repositorySnapshot().repository;
     const sourceWorktree = project.worktrees.find(
@@ -988,31 +978,6 @@ export const previewApi: GrafterApi = {
         githubRepository: { owner: 'example', name: 'grafter' },
         stats: { files: 7, additions: 438, deletions: 41 },
         files: previewDiffFiles,
-      }),
-    );
-  },
-  openCommitDiff: ({ commitHash }) => {
-    const projectId = repositorySnapshot().repository.id;
-    const commit = previewCommits.find((item) => item.hash === commitHash);
-    if (!commit) {
-      return Promise.reject(new Error('Commit not found.'));
-    }
-    return Promise.resolve(
-      structuredClone({
-        kind: 'commit' as const,
-        id: `preview-commit-${commitHash}`,
-        projectId,
-        baseSha: '4fc93b86a45b1a47af174e0b97e422a31eb19db0',
-        headSha: commitHash,
-        githubRepository: { owner: 'example', name: 'grafter' },
-        stats: { files: 7, additions: 438, deletions: 41 },
-        files: previewDiffFiles,
-        commit: {
-          ...commit,
-          body: '',
-          stats: { files: 7, additions: 438, deletions: 41 },
-        },
-        parentShas: ['4fc93b86a45b1a47af174e0b97e422a31eb19db0'],
       }),
     );
   },
@@ -1118,4 +1083,69 @@ function repositorySnapshot(): RepositoryWindowSnapshot {
     throw new Error('This preview operation requires an open repository.');
   }
   return snapshot;
+}
+
+let previewDiffWindow: DiffSession | undefined;
+
+function buildWorktreeDiffSession(worktreeId: string): DiffSession {
+  const worktreeDetails = details[worktreeId];
+  if (!worktreeDetails?.targetBranch) {
+    throw new Error('This branch does not have a committed comparison target.');
+  }
+  return structuredClone({
+    kind: 'branch' as const,
+    id: 'preview-diff',
+    projectId: worktreeDetails.projectId,
+    sourceWorktreeId: worktreeId,
+    branch: worktreeDetails.branch,
+    targetBranch: worktreeDetails.targetBranch,
+    baseSha: '4fc93b86a45b1a47af174e0b97e422a31eb19db0',
+    headSha: worktreeDetails.head,
+    githubRepository: { owner: 'example', name: 'grafter' },
+    stats: { files: 7, additions: 438, deletions: 41 },
+    files: previewDiffFiles,
+  });
+}
+
+function buildCommitDiffSession(commitHash: string): DiffSession {
+  const commit = previewCommits.find((item) => item.hash === commitHash);
+  if (!commit) throw new Error('Commit not found.');
+  return structuredClone({
+    kind: 'commit' as const,
+    id: `preview-commit-${commitHash}`,
+    projectId: repositorySnapshot().repository.id,
+    baseSha: '4fc93b86a45b1a47af174e0b97e422a31eb19db0',
+    headSha: commitHash,
+    githubRepository: { owner: 'example', name: 'grafter' },
+    stats: { files: 7, additions: 438, deletions: 41 },
+    files: previewDiffFiles,
+    commit: {
+      ...commit,
+      body: '',
+      stats: { files: 7, additions: 438, deletions: 41 },
+    },
+    parentShas: ['4fc93b86a45b1a47af174e0b97e422a31eb19db0'],
+  });
+}
+
+/** Standalone diff-window preview (index.diff.html) without opening the app. */
+function fallbackPreviewDiffWindow(): DiffSession {
+  const commit = previewCommits[0];
+  if (!commit) throw new Error('Preview diff data is missing.');
+  return structuredClone({
+    kind: 'commit' as const,
+    id: `preview-commit-${commit.hash}`,
+    projectId: gardenPreviewProject.id,
+    baseSha: '4fc93b86a45b1a47af174e0b97e422a31eb19db0',
+    headSha: commit.hash,
+    githubRepository: { owner: 'example', name: 'grafter' },
+    stats: { files: 7, additions: 438, deletions: 41 },
+    files: previewDiffFiles,
+    commit: {
+      ...commit,
+      body: '',
+      stats: { files: 7, additions: 438, deletions: 41 },
+    },
+    parentShas: ['4fc93b86a45b1a47af174e0b97e422a31eb19db0'],
+  });
 }

@@ -1,4 +1,3 @@
-import { EventEmitter } from 'node:events';
 import { describe, expect, it } from 'vitest';
 import { ApplicationRuntime } from '../../src/main/application-runtime';
 import type { RepositoryLocation } from '../../src/main/services/repository-locator';
@@ -9,11 +8,7 @@ import {
   WelcomeWindowSession,
   type WindowSessionService,
 } from '../../src/main/window-session-services';
-import {
-  WindowSessionRegistry,
-  type WindowSessionSender,
-  type WindowSessionWindow,
-} from '../../src/main/window-sessions';
+import { WindowSessionRegistry } from '../../src/main/window-sessions';
 import type {
   AppSnapshot,
   ProjectConfig,
@@ -22,45 +17,9 @@ import type {
 } from '../../src/shared/contracts';
 import { ipc } from '../../src/shared/ipc';
 import { settingsFactory } from '../factories';
+import type { FakeSender } from './support/fake-window';
+import { FakeWindow } from './support/fake-window';
 import { StubCommandRunner } from './support/stub-command-runner';
-
-class FakeSender extends EventEmitter implements WindowSessionSender {
-  destroyed = false;
-  readonly sent: { channel: string; value: unknown }[] = [];
-
-  isDestroyed(): boolean {
-    return this.destroyed;
-  }
-
-  send(channel: string, value: unknown): void {
-    this.sent.push({ channel, value });
-  }
-}
-
-class FakeWindow extends EventEmitter implements WindowSessionWindow<FakeSender> {
-  destroyed = false;
-  focusCalls = 0;
-
-  constructor(readonly webContents = new FakeSender()) {
-    super();
-  }
-
-  isDestroyed(): boolean {
-    return this.destroyed;
-  }
-
-  focus(): void {
-    this.focusCalls += 1;
-  }
-
-  close(): void {
-    if (this.destroyed) return;
-    this.destroyed = true;
-    this.webContents.destroyed = true;
-    this.emit('closed');
-    this.webContents.emit('destroyed');
-  }
-}
 
 interface Harness {
   manager: WindowManager<FakeSender, FakeWindow>;

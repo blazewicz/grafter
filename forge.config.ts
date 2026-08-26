@@ -42,7 +42,10 @@ const config: ForgeConfig = {
           target: 'preload',
         },
       ],
-      renderer: [{ name: 'main_window', config: 'vite.renderer.config.mts' }],
+      renderer: [
+        { name: 'main_window', config: 'vite.renderer.config.mts' },
+        { name: 'diff_window', config: 'vite.diff.renderer.config.mts' },
+      ],
     }),
     new FusesPlugin({
       version: FuseVersion.V1,
