@@ -1,7 +1,6 @@
 // @vitest-environment happy-dom
 
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '../../../src/renderer/grafter-api';
 import { DiffWindowApp } from '../../../src/renderer/diff-window/DiffWindowApp';
@@ -57,7 +56,8 @@ describe('DiffWindowApp', () => {
       name: `Changes in commit ${session.commit.hash}`,
     });
     expect(surface).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Close diff viewer' })).toBeVisible();
+    // Closing is owned by the macOS traffic lights, not an in-page control.
+    expect(screen.queryByRole('button', { name: /close/i })).toBeNull();
   });
 
   it('explains a failed bootstrap instead of rendering an empty window', async () => {
@@ -71,13 +71,13 @@ describe('DiffWindowApp', () => {
     expect(screen.queryByRole('region', { name: /Changes in commit/ })).toBeNull();
   });
 
-  it('requests closing its own window when the viewer closes', async () => {
+  it('requests closing its own window with Escape', async () => {
     stubDiffWindowApi();
     const closeDiffWindow = vi.spyOn(api, 'closeDiffWindow').mockResolvedValue(undefined);
-    const user = userEvent.setup();
 
     render(<DiffWindowApp />);
-    await user.click(await screen.findByRole('button', { name: 'Close diff viewer' }));
+    await screen.findByRole('region', { name: /Changes in commit/ });
+    fireEvent.keyDown(window, { key: 'Escape' });
 
     await waitFor(() => {
       expect(closeDiffWindow).toHaveBeenCalledOnce();

@@ -1,4 +1,3 @@
-import { X } from 'lucide-react';
 import type { DiffSession, Settings } from '../../shared/contracts';
 import { BranchDiffControls } from './BranchDiffControls';
 import { CommitDiffControls } from './CommitDiffControls';
@@ -9,14 +8,12 @@ export function DiffViewerToolbar({
   settings,
   systemLocale,
   onSessionChange,
-  onClose,
   onError,
 }: {
   session: DiffSession;
   settings: Pick<Settings, 'dateFormat' | 'timeFormat'>;
   systemLocale: string;
   onSessionChange: (session: DiffSession) => void;
-  onClose: () => void;
   onError: (message: string) => void;
 }): React.JSX.Element {
   return (
@@ -42,15 +39,6 @@ export function DiffViewerToolbar({
         <strong className={styles.additions}>+{session.stats.additions}</strong>
         <strong className={styles.deletions}>−{session.stats.deletions}</strong>
       </div>
-      <button
-        className={styles.closeButton}
-        aria-label="Close diff viewer"
-        title="Close diff viewer"
-        autoFocus
-        onClick={onClose}
-      >
-        <X size={16} />
-      </button>
     </header>
   );
 }

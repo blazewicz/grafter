@@ -26,18 +26,14 @@ describe('DiffViewer commands', () => {
     vi.useRealTimers();
   });
 
-  it('closes from the close button exactly once', async () => {
-    const user = userEvent.setup();
-    const onClose = vi.fn();
+  it('leaves closing to the traffic lights instead of rendering its own button', () => {
     renderDiffViewer(scenario.branchSession, {
       onSessionChange: () => undefined,
-      onClose,
+      onClose: vi.fn(),
       onError: () => undefined,
     });
 
-    await user.click(screen.getByRole('button', { name: 'Close diff viewer' }));
-
-    expect(onClose).toHaveBeenCalledOnce();
+    expect(screen.queryByRole('button', { name: /close/i })).toBeNull();
   });
 
   it('closes with a window-level Escape even when focus is not in the viewer', () => {

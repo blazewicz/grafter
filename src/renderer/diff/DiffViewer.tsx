@@ -235,10 +235,8 @@ export function DiffViewer({
         settings={settings}
         systemLocale={systemLocale}
         onSessionChange={onSessionChange}
-        onClose={onClose}
         onError={onError}
       />
-
       <div className={styles.viewer}>
         <aside className={styles.fileSidebar} aria-label="Changed files">
           <label className={styles.filter}>
