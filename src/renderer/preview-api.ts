@@ -1112,34 +1112,27 @@ function buildWorktreeDiffSession(worktreeId: string): DiffSession {
 function buildCommitDiffSession(commitHash: string): DiffSession {
   const commit = previewCommits.find((item) => item.hash === commitHash);
   if (!commit) throw new Error('Commit not found.');
-  return structuredClone({
-    kind: 'commit' as const,
-    id: `preview-commit-${commitHash}`,
-    projectId: repositorySnapshot().repository.id,
-    baseSha: '4fc93b86a45b1a47af174e0b97e422a31eb19db0',
-    headSha: commitHash,
-    githubRepository: { owner: 'example', name: 'grafter' },
-    stats: { files: 7, additions: 438, deletions: 41 },
-    files: previewDiffFiles,
-    commit: {
-      ...commit,
-      body: '',
-      stats: { files: 7, additions: 438, deletions: 41 },
-    },
-    parentShas: ['4fc93b86a45b1a47af174e0b97e422a31eb19db0'],
-  });
+  return buildPreviewCommitDiff(repositorySnapshot().repository.id, commit);
 }
 
 /** Standalone diff-window preview (index.diff.html) without opening the app. */
 function fallbackPreviewDiffWindow(): DiffSession {
   const commit = previewCommits[0];
   if (!commit) throw new Error('Preview diff data is missing.');
+  return buildPreviewCommitDiff(gardenPreviewProject.id, commit);
+}
+
+function buildPreviewCommitDiff(
+  projectId: string,
+  commit: (typeof previewCommits)[number],
+): DiffSession {
+  const { hash } = commit;
   return structuredClone({
     kind: 'commit' as const,
-    id: `preview-commit-${commit.hash}`,
-    projectId: gardenPreviewProject.id,
+    id: `preview-commit-${hash}`,
+    projectId,
     baseSha: '4fc93b86a45b1a47af174e0b97e422a31eb19db0',
-    headSha: commit.hash,
+    headSha: hash,
     githubRepository: { owner: 'example', name: 'grafter' },
     stats: { files: 7, additions: 438, deletions: 41 },
     files: previewDiffFiles,

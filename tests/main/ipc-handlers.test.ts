@@ -26,6 +26,7 @@ interface Harness {
   setToolPreference: ReturnType<typeof vi.fn>;
   openDiffWindow: ReturnType<typeof vi.fn>;
   diffWindowInit: ReturnType<typeof vi.fn>;
+  closeDiffWindow: ReturnType<typeof vi.fn>;
 }
 
 function createHarness(
@@ -52,6 +53,7 @@ function createHarness(
   const setToolPreference = vi.fn().mockResolvedValue(undefined);
   const openDiffWindow = vi.fn().mockResolvedValue(undefined);
   const diffWindowInit = vi.fn().mockReturnValue(undefined);
+  const closeDiffWindow = vi.fn();
 
   registerIpcHandlers({
     ipcMain: { handle },
@@ -63,6 +65,7 @@ function createHarness(
       setToolPreference,
       openDiffWindow,
       diffWindowInit,
+      closeDiffWindow,
     },
     dialog: { showOpenDialog },
     shell: { openPath, openExternal },
@@ -86,6 +89,7 @@ function createHarness(
     setToolPreference,
     openDiffWindow,
     diffWindowInit,
+    closeDiffWindow,
   };
 }
 
@@ -305,10 +309,9 @@ describe('registerIpcHandlers', () => {
     );
   });
 
-  it('closes the invoking session window without exposing any escape hatches', async () => {
+  it('closes the invoking session window only through the guarded manager call', async () => {
     const sender = {} as WebContents;
-    const close = vi.fn();
-    const window = { close } as unknown as BrowserWindow;
+    const window = {} as BrowserWindow;
     const harness = createHarness(() => ({
       service: serviceStub({}),
       dialogParent: window,
@@ -316,7 +319,10 @@ describe('registerIpcHandlers', () => {
 
     await invoke(harness, ipc.closeDiffWindow, sender);
 
-    expect(close).toHaveBeenCalledOnce();
+    // The window close itself is gated by WindowManager: only a diff window
+    // may be closed this way, so the handler must not touch it directly.
+    expect(harness.closeDiffWindow).toHaveBeenCalledOnce();
+    expect(harness.closeDiffWindow).toHaveBeenCalledWith(sender);
   });
 
   it('validates a well-formed diff window request shape end to end', async () => {

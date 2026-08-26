@@ -38,6 +38,7 @@ interface DiffHarness {
   loadedKinds: ('app' | 'diff')[];
   runner: StubCommandRunner;
   repositoryServices: RepositoryService[];
+  headShaOverrides: Map<string, string>;
   setLoader(load: (kind: 'app' | 'diff') => Promise<void>): void;
 }
 
@@ -51,20 +52,28 @@ function repositoryLocation(name: string): RepositoryLocation {
   };
 }
 
-function worktreeOutput(location: RepositoryLocation): string {
+function worktreeOutput(
+  location: RepositoryLocation,
+  headShaOverrides: Map<string, string>,
+): string {
+  const headFor = (branch: string): string =>
+    headShaOverrides.get(branch) ?? shaFor(branch);
   return [
     `worktree ${location.mainWorktreePath}`,
-    `HEAD ${shaFor(featureOne.branch)}`,
+    `HEAD ${headFor(featureOne.branch)}`,
     `branch refs/heads/${featureOne.branch}`,
     '',
     `worktree /repositories/alpha-two`,
-    `HEAD ${shaFor(featureTwo.branch)}`,
+    `HEAD ${headFor(featureTwo.branch)}`,
     `branch refs/heads/${featureTwo.branch}`,
     '',
   ].join('\n');
 }
 
-function gitStub(locations: Map<string, RepositoryLocation>) {
+function gitStub(
+  locations: Map<string, RepositoryLocation>,
+  headShaOverrides: Map<string, string>,
+) {
   return (spec: {
     tool: string;
     args: readonly string[];
@@ -75,7 +84,7 @@ function gitStub(locations: Map<string, RepositoryLocation>) {
         (candidate) => candidate.mainWorktreePath === spec.cwd,
       );
       if (!location) throw new Error(`Unexpected repository: ${spec.cwd}`);
-      return { stdout: worktreeOutput(location) };
+      return { stdout: worktreeOutput(location, headShaOverrides) };
     }
     if (spec.tool === 'git' && spec.args[0] === 'remote' && spec.args[1] === '-v') {
       return { stdout: '' };
@@ -97,7 +106,8 @@ function gitStub(locations: Map<string, RepositoryLocation>) {
       const reference = spec.args[2].replace(/\^\{commit\}$/, '');
       // Full object ids resolve to themselves; branch names get stable ids.
       if (/^[0-9a-f]{40}$/.test(reference)) return { stdout: `${reference}\n` };
-      return { stdout: `${shaFor(reference.replace('refs/heads/', ''))}\n` };
+      const branchName = reference.replace('refs/heads/', '');
+      return { stdout: `${headShaOverrides.get(branchName) ?? shaFor(branchName)}\n` };
     }
     if (spec.tool === 'git' && spec.args[0] === 'merge-base') {
       return { stdout: `${parentSha}\n` };
@@ -131,13 +141,17 @@ function gitStub(locations: Map<string, RepositoryLocation>) {
   };
 }
 
-function createHarness(repositoryName = 'alpha'): DiffHarness {
+function createHarness(repositoryNames: string[] = ['alpha']): DiffHarness {
   const locations = new Map<string, RepositoryLocation>();
-  const location = repositoryLocation(repositoryName);
-  locations.set(location.mainWorktreePath, location);
-
+  for (const name of repositoryNames) {
+    const location = repositoryLocation(name);
+    locations.set(location.mainWorktreePath, location);
+  }
+  // Branch-name rev-parse results can be overridden per test to simulate
+  // history moving underneath an open diff window.
+  const headShaOverrides = new Map<string, string>();
   const store = new StateStore('/unused', { persist: () => Promise.resolve() });
-  const runner = new StubCommandRunner(gitStub(locations));
+  const runner = new StubCommandRunner(gitStub(locations, headShaOverrides));
   const runtime = new ApplicationRuntime({ commandRunner: runner });
   const sessions = new WindowSessionRegistry<
     FakeSender,
@@ -148,6 +162,7 @@ function createHarness(repositoryName = 'alpha'): DiffHarness {
   const loadedKinds: ('app' | 'diff')[] = [];
   const repositoryServices: RepositoryService[] = [];
   let load: (kind: 'app' | 'diff') => Promise<void> = () => Promise.resolve();
+  let nextRepositoryNumber = 0;
   const manager = new WindowManager({
     store,
     runtime,
@@ -171,7 +186,7 @@ function createHarness(repositoryName = 'alpha'): DiffHarness {
           : Promise.reject(new Error(`Missing repository: ${selectedPath}`));
       },
     },
-    createRepositoryId: () => projectId,
+    createRepositoryId: () => `repository-${(nextRepositoryNumber += 1)}`,
     createRepositoryService: (project, canonicalRepositoryKey) => {
       const service = new RepositoryService(
         project,
@@ -190,6 +205,7 @@ function createHarness(repositoryName = 'alpha'): DiffHarness {
     loadedKinds,
     runner,
     repositoryServices,
+    headShaOverrides,
     setLoader: (next) => {
       load = next;
     },
@@ -454,7 +470,7 @@ describe('WindowManager diff windows', () => {
     expect(firstDiff.focusCalls).toBe(beforeRetargetFocus + 1);
   });
 
-  it('caps live diff windows per repository instead of letting the LRU evict them', async () => {
+  it('caps live diff windows instead of letting the session store evict them', async () => {
     const harness = createHarness();
     const repoWindow = await openRepository(harness);
     const commitAt = (index: number): string =>
@@ -473,7 +489,7 @@ describe('WindowManager diff windows', () => {
         kind: 'commit',
         commitHash: commitAt(10),
       }),
-    ).rejects.toThrow('Too many open diff windows for this repository.');
+    ).rejects.toThrow('Too many open diff windows.');
     expect(harness.windows).toHaveLength(11);
 
     // Closing one window frees capacity.
@@ -490,6 +506,128 @@ describe('WindowManager diff windows', () => {
     expect(harness.manager.diffWindowInit(replacement.webContents)?.headSha).toBe(
       commitAt(10),
     );
+  });
+
+  it('shares one diff-window capacity pool across repositories', async () => {
+    const harness = createHarness(['alpha', 'beta']);
+    const alphaWindow = await openRepository(harness);
+    await harness.manager.openRepository(alphaWindow.webContents, '/repositories/beta');
+    const betaWindow = harness.windows[1];
+    if (!betaWindow) throw new Error('Expected a second app window.');
+    const commitAt = (index: number): string =>
+      `${String(index)}${'f'.repeat(40 - String(index).length)}`;
+
+    // Five windows per repository fit; both app windows stay alive.
+    for (let index = 0; index < 5; index += 1) {
+      await harness.manager.openDiffWindow(alphaWindow.webContents, {
+        kind: 'commit',
+        commitHash: commitAt(index),
+      });
+      await harness.manager.openDiffWindow(betaWindow.webContents, {
+        kind: 'commit',
+        commitHash: commitAt(100 + index),
+      });
+    }
+    expect(harness.windows).toHaveLength(12);
+
+    // A per-repository allowance would admit this on either side; the shared
+    // pool refuses it because GitService stores sessions globally.
+    await expect(
+      harness.manager.openDiffWindow(betaWindow.webContents, {
+        kind: 'commit',
+        commitHash: commitAt(200),
+      }),
+    ).rejects.toThrow('Too many open diff windows.');
+    expect(harness.windows).toHaveLength(12);
+  });
+
+  it('counts opens whose git sessions are still being created against the cap', async () => {
+    const harness = createHarness();
+    const repoWindow = await openRepository(harness);
+    const commitAt = (index: number): string =>
+      `${String(index)}${'f'.repeat(40 - String(index).length)}`;
+    let pendingLoads = 0;
+    const loadResolvers: (() => void)[] = [];
+    harness.setLoader(() => {
+      pendingLoads += 1;
+      return new Promise<void>((resolve) => {
+        loadResolvers.push(resolve);
+      });
+    });
+
+    const attempts = [];
+    for (let index = 0; index < 10; index += 1) {
+      attempts.push(
+        harness.manager.openDiffWindow(repoWindow.webContents, {
+          kind: 'commit',
+          commitHash: commitAt(index),
+        }),
+      );
+    }
+    // Reservations are taken before each git session exists, so all ten
+    // attempts eventually reach window creation without eviction pressure.
+    await vi.waitFor(() => expect(pendingLoads).toBe(10));
+
+    await expect(
+      harness.manager.openDiffWindow(repoWindow.webContents, {
+        kind: 'commit',
+        commitHash: commitAt(99),
+      }),
+    ).rejects.toThrow('Too many open diff windows.');
+
+    for (const resolve of loadResolvers.splice(0)) resolve();
+    await Promise.all(attempts);
+    expect(harness.windows).toHaveLength(11);
+  });
+
+  it('does not dedupe onto a stale window when history moved', async () => {
+    const harness = createHarness();
+    const repoWindow = await openRepository(harness);
+    await harness.manager.openDiffWindow(repoWindow.webContents, {
+      kind: 'worktree',
+      worktreeId: featureOne.id,
+    });
+    const staleWindow = harness.windows[1];
+    if (!staleWindow) throw new Error('Expected a diff window.');
+
+    // Commits land on the source branch after the window was opened.
+    const movedHeadSha = 'c'.repeat(40);
+    harness.headShaOverrides.set(featureOne.branch, movedHeadSha);
+
+    const focusCalls = staleWindow.focusCalls;
+    await harness.manager.openDiffWindow(repoWindow.webContents, {
+      kind: 'worktree',
+      worktreeId: featureOne.id,
+    });
+
+    // The old window keeps its content instead of silently absorbing the
+    // fresh diff; the fresh comparison gets its own window.
+    expect(staleWindow.focusCalls).toBe(focusCalls);
+    expect(harness.windows).toHaveLength(3);
+    const freshWindow = harness.windows[2];
+    if (!freshWindow) throw new Error('Expected a second diff window.');
+    expect(harness.manager.diffWindowInit(freshWindow.webContents)?.headSha).toBe(
+      movedHeadSha,
+    );
+  });
+
+  it('lets only diff windows close themselves through closeDiffWindow', async () => {
+    const harness = createHarness();
+    const repoWindow = await openRepository(harness);
+    await harness.manager.openDiffWindow(repoWindow.webContents, {
+      kind: 'commit',
+      commitHash: commitSha,
+    });
+    const diffWindow = harness.windows[1];
+    if (!diffWindow) throw new Error('Expected a diff window.');
+
+    harness.manager.closeDiffWindow(diffWindow.webContents);
+    expect(diffWindow.destroyed).toBe(true);
+
+    expect(() => harness.manager.closeDiffWindow(repoWindow.webContents)).toThrow(
+      'Only a diff window can request its own closure.',
+    );
+    expect(repoWindow.destroyed).toBe(false);
   });
 
   it('propagates tool preference changes from any window to every other window', async () => {

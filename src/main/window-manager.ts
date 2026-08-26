@@ -38,11 +38,15 @@ export interface ManagedWindow<
 export type WindowKind = 'app' | 'diff';
 
 /**
- * Live diff windows allowed per repository. GitService keeps diff sessions in
- * a bounded LRU; staying below its capacity with headroom guarantees the
- * long-lived session of an open window is never silently evicted.
+ * Live diff windows allowed process-wide. GitService stores diff sessions in
+ * one bounded map shared by every repository (GitService.maximumDiffSessions),
+ * so a per-repository cap cannot protect open windows once several repositories
+ * are in use. Slots are reserved before the underlying git session is created,
+ * which makes live windows plus transient opens ≤ this cap — safely below the
+ * store bound, with headroom for the brief overlap while a toolbar rebase
+ * replaces one window's session.
  */
-const maximumDiffWindowsPerRepository = 10;
+const maximumDiffWindows = 10;
 
 interface WindowManagerOptions<
   TSender extends WindowSessionSender,
@@ -113,6 +117,10 @@ export class WindowManager<
   readonly #pendingDiffInit = new Map<TSender, DiffSession>();
   readonly #inFlightOpens = new Map<string, Promise<TWindow>>();
   readonly #inFlightDiffOpens = new Map<string, Promise<void>>();
+  // Capacity tokens for diff-window opens. Held from before a git session is
+  // created until the open settles; on success the registering window takes
+  // the slot over, so every window and in-flight open is counted exactly once.
+  readonly #reservedDiffWindows = new Set<string>();
   #welcomeCreation: Promise<TWindow> | undefined;
 
   constructor(options: WindowManagerOptions<TSender, TWindow>) {
@@ -195,8 +203,8 @@ export class WindowManager<
 
   /**
    * Opens a diff session in its own floating window. Identical diffs are
-   * deduped: an open window showing the same branch pair or commit is focused
-   * and the freshly created git diff session is evicted.
+   * deduped: an open window showing the same content is focused and the
+   * freshly created git diff session is evicted.
    */
   async openDiffWindow(sender: TSender, request: OpenDiffWindowRequest): Promise<void> {
     const invokingWindow = this.#sessions.resolve(sender).dialogParent;
@@ -205,21 +213,30 @@ export class WindowManager<
       throw new Error('Opening a diff requires an open repository.');
     }
 
-    const inFlightKey = `${invoking.canonicalRepositoryKey}|${
+    const slotKey = `${invoking.canonicalRepositoryKey}|${
       request.kind === 'worktree'
         ? `worktree|${request.worktreeId}`
         : `commit|${request.commitHash}`
     }`;
-    const inFlight = this.#inFlightDiffOpens.get(inFlightKey);
+    const inFlight = this.#inFlightDiffOpens.get(slotKey);
     if (inFlight) return inFlight;
 
-    const open = this.#openDiffWindow(invoking, request);
-    this.#inFlightDiffOpens.set(inFlightKey, open);
+    // Capacity check counts both live windows and opens still preparing their
+    // git session; a window takes over its reservation's slot the moment it
+    // registers, so the two can never be double-counted.
+    if (this.#diffCapacityInUse() >= maximumDiffWindows) {
+      throw new Error('Too many open diff windows.');
+    }
+    this.#reservedDiffWindows.add(slotKey);
+
+    const open = this.#openDiffWindow(invoking, request, slotKey);
+    this.#inFlightDiffOpens.set(slotKey, open);
     try {
       await open;
     } finally {
-      if (this.#inFlightDiffOpens.get(inFlightKey) === open) {
-        this.#inFlightDiffOpens.delete(inFlightKey);
+      this.#reservedDiffWindows.delete(slotKey);
+      if (this.#inFlightDiffOpens.get(slotKey) === open) {
+        this.#inFlightDiffOpens.delete(slotKey);
       }
     }
   }
@@ -229,9 +246,19 @@ export class WindowManager<
     return this.#pendingDiffInit.get(sender);
   }
 
+  /** Closes the requesting window, but only when it hosts a diff session. */
+  closeDiffWindow(sender: TSender): void {
+    const window = this.#sessions.resolve(sender).dialogParent;
+    if (this.#windows.get(window)?.kind !== 'diff') {
+      throw new Error('Only a diff window can request its own closure.');
+    }
+    window.close();
+  }
+
   async #openDiffWindow(
     invoking: RepositoryManagedSession,
     request: OpenDiffWindowRequest,
+    slotKey: string,
   ): Promise<void> {
     const session =
       request.kind === 'worktree'
@@ -245,6 +272,7 @@ export class WindowManager<
         invoking.service.repository,
         invoking.canonicalRepositoryKey,
         session,
+        slotKey,
       );
       if (outcome === 'reused') {
         // An existing window already owns this content; the fresh session lost
@@ -267,13 +295,9 @@ export class WindowManager<
     repository: RepositoryService,
     canonicalRepositoryKey: string,
     session: DiffSession,
+    slotKey: string,
   ): Promise<'created' | 'reused'> {
     const key = diffWindowKey(session);
-    if (
-      this.#liveDiffWindowCount(canonicalRepositoryKey) >= maximumDiffWindowsPerRepository
-    ) {
-      throw new Error('Too many open diff windows for this repository.');
-    }
     const existing = this.#existingDiffWindow(key);
     if (existing) {
       existing.focus();
@@ -281,32 +305,39 @@ export class WindowManager<
     }
 
     const window = this.#createWindow('diff');
-    const service = new DiffWindowSession(
-      repository,
-      this.#store,
-      this.#context,
-      session,
-      (next) => this.#retrackDiffWindow(window, next),
-    );
-    const disposeRegistration = this.#sessions.register({
-      window,
-      service,
-      subscribeToSnapshotUpdates: (subscriber) =>
-        service.subscribeToSnapshotUpdates(subscriber),
-      subscribeToCommandUpdates: (subscriber) =>
-        service.subscribeToCommandUpdates(subscriber),
-    });
-    this.#windows.set(window, {
-      kind: 'diff',
-      canonicalRepositoryKey,
-      dedupeKey: key,
-      sender: window.webContents,
-      service,
-      disposeRegistration,
-    });
-    this.#indexDiffWindow(window, key);
-    this.#pendingDiffInit.set(window.webContents, session);
     this.#trackWindow(window);
+    try {
+      const service = new DiffWindowSession(
+        repository,
+        this.#store,
+        this.#context,
+        session,
+        (next) => this.#retrackDiffWindow(window, next),
+      );
+      const disposeRegistration = this.#sessions.register({
+        window,
+        service,
+        subscribeToSnapshotUpdates: (subscriber) =>
+          service.subscribeToSnapshotUpdates(subscriber),
+        subscribeToCommandUpdates: (subscriber) =>
+          service.subscribeToCommandUpdates(subscriber),
+      });
+      this.#windows.set(window, {
+        kind: 'diff',
+        canonicalRepositoryKey,
+        dedupeKey: key,
+        sender: window.webContents,
+        service,
+        disposeRegistration,
+      });
+      this.#indexDiffWindow(window, key);
+      this.#pendingDiffInit.set(window.webContents, session);
+      // The window now owns the capacity slot its open reserved.
+      this.#reservedDiffWindows.delete(slotKey);
+    } catch (error) {
+      this.#discardWindow(window);
+      throw error;
+    }
 
     try {
       await this.#loadWindow(window, 'diff');
@@ -336,15 +367,11 @@ export class WindowManager<
     return undefined;
   }
 
-  #liveDiffWindowCount(canonicalRepositoryKey: string): number {
-    let count = 0;
+  /** Live diff windows plus opens that have not registered their window yet. */
+  #diffCapacityInUse(): number {
+    let count = this.#reservedDiffWindows.size;
     for (const session of this.#windows.values()) {
-      if (
-        session.kind === 'diff' &&
-        session.canonicalRepositoryKey === canonicalRepositoryKey
-      ) {
-        count += 1;
-      }
+      if (session.kind === 'diff') count += 1;
     }
     return count;
   }

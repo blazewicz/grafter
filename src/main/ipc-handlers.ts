@@ -37,6 +37,7 @@ interface IpcHandlerDependencies {
     updateSettings(sender: WebContents, settings: Settings): Promise<unknown>;
     openDiffWindow(sender: WebContents, request: OpenDiffWindowRequest): Promise<void>;
     diffWindowInit(sender: WebContents): DiffSession | undefined;
+    closeDiffWindow(sender: WebContents): void;
     setToolPreference(
       sender: WebContents,
       group: ToolPickerGroup,
@@ -137,7 +138,8 @@ export function registerIpcHandlers(dependencies: IpcHandlerDependencies): void 
     return { session: init };
   });
   ipcMain.handle(ipc.closeDiffWindow, (event) => {
-    sessions.resolve(event.sender).dialogParent.close();
+    sessions.resolve(event.sender);
+    windowManager.closeDiffWindow(event.sender);
   });
   ipcMain.handle(ipc.diffFile, (event, request: unknown) =>
     sessions.resolve(event.sender).service.diffFile(request),

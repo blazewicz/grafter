@@ -162,6 +162,10 @@ export interface OpenBranchDiffRequest {
   targetBranch: string;
 }
 
+export interface OpenCommitDiffRequest {
+  commitHash: string;
+}
+
 export interface SetComparisonBaseRequest {
   worktreeId: string;
   targetBranch?: string;

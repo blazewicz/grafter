@@ -1,18 +1,3 @@
-import path from 'node:path';
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
+import { rendererViteConfig } from './vite.common.mts';
 
-export default defineConfig({
-  plugins: [react()],
-  css: {
-    modules: {
-      localsConvention: 'camelCaseOnly',
-    },
-  },
-  build: {
-    sourcemap: true,
-    rollupOptions: {
-      input: path.resolve(import.meta.dirname, 'index.diff.html'),
-    },
-  },
-});
+export default rendererViteConfig('index.diff.html');

@@ -9,6 +9,7 @@ import type {
   EditorTool,
   ListBranchCommitsRequest,
   OpenBranchDiffRequest,
+  OpenCommitDiffRequest,
   OpenDiffFileRequest,
   Project,
   ProjectConfig,
@@ -28,10 +29,6 @@ import { GitService } from './git-service';
 import { GitHubService } from './github-service';
 
 const pullRequestFreshnessMs = 30_000;
-
-interface OpenCommitDiffRequest {
-  commitHash: string;
-}
 
 export interface RepositoryServiceOptions {
   onSnapshotUpdate?: (project: Project) => void;

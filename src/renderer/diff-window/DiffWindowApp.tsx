@@ -75,6 +75,11 @@ export function DiffWindowApp(): React.JSX.Element {
   }, []);
 
   const dismissError = useCallback(() => setError(undefined), []);
+  const closeWindow = useCallback(() => {
+    void api
+      .closeDiffWindow()
+      .catch((caught: unknown) => setError(friendlyError(caught)));
+  }, []);
 
   if (error && (initializationFailed || !session)) {
     return (
@@ -106,7 +111,7 @@ export function DiffWindowApp(): React.JSX.Element {
         key={session.id}
         session={session}
         onSessionChange={setSession}
-        onClose={() => void api.closeDiffWindow()}
+        onClose={closeWindow}
         onError={setError}
         settings={environment.settings}
         systemLocale={environment.systemLocale}
