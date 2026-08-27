@@ -230,13 +230,6 @@ export function DiffViewer({
           : `Changes in commit ${session.commit.hash}`
       }
     >
-      <DiffViewerToolbar
-        session={session}
-        settings={settings}
-        systemLocale={systemLocale}
-        onSessionChange={onSessionChange}
-        onError={onError}
-      />
       <div className={styles.viewer}>
         <aside className={styles.fileSidebar} aria-label="Changed files">
           <label className={styles.filter}>
@@ -281,24 +274,36 @@ export function DiffViewer({
             )}
           </nav>
         </aside>
-
-        <DiffFilesPane
-          session={session}
-          files={orderedFiles}
-          patches={patches}
-          loading={loading}
-          fileErrors={fileErrors}
-          filtering={filtering}
-          query={query}
-          contextLineId={lineContextMenu?.lineId}
-          toolPreferences={toolPreferences}
-          onSetToolPreference={onSetToolPreference}
-          scrollRoot={diffPaneRef}
-          onVisible={requestPatch}
+        <main
+          ref={diffPaneRef}
+          className={styles.diffPane}
+          data-context-menu-open={lineContextMenu ? 'true' : undefined}
           onScroll={closeLineContextMenu}
-          onLineContextMenu={openLineContextMenu}
-          onError={onError}
-        />
+        >
+          <DiffViewerToolbar
+            session={session}
+            settings={settings}
+            systemLocale={systemLocale}
+            onSessionChange={onSessionChange}
+            onError={onError}
+          />
+          <DiffFilesPane
+            session={session}
+            files={orderedFiles}
+            patches={patches}
+            loading={loading}
+            fileErrors={fileErrors}
+            filtering={filtering}
+            query={query}
+            contextLineId={lineContextMenu?.lineId}
+            toolPreferences={toolPreferences}
+            onSetToolPreference={onSetToolPreference}
+            scrollRoot={diffPaneRef}
+            onVisible={requestPatch}
+            onLineContextMenu={openLineContextMenu}
+            onError={onError}
+          />
+        </main>
       </div>
       {fileContextMenu && (
         <DiffFileContextMenu

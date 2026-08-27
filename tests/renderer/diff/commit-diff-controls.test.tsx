@@ -6,25 +6,17 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CommitDiffControls } from '../../../src/renderer/diff/CommitDiffControls';
 import { api } from '../../../src/renderer/grafter-api';
 import type { CommitDiffSession } from '../../../src/shared/contracts';
-import { settingsFactory } from '../../factories';
 import { buildDiffViewerScenario } from '../../scenarios/diff/diff-viewer';
 import { deferred } from '../../support/deferred';
 
 const scenario = buildDiffViewerScenario();
-const settings = settingsFactory.build();
-
 function renderCommitDiffControls(
   session: CommitDiffSession = scenario.commitSession,
   onError: (message: string) => void = () => undefined,
 ): void {
   render(
     <>
-      <CommitDiffControls
-        session={session}
-        settings={settings}
-        systemLocale="en-US"
-        onError={onError}
-      />
+      <CommitDiffControls session={session} onError={onError} />
       <button>Outside control</button>
     </>,
   );
@@ -65,12 +57,7 @@ describe('CommitDiffControls', () => {
     vi.useFakeTimers();
     vi.spyOn(api, 'copyText').mockResolvedValue(undefined);
     const { unmount } = render(
-      <CommitDiffControls
-        session={scenario.commitSession}
-        settings={settings}
-        systemLocale="en-US"
-        onError={() => undefined}
-      />,
+      <CommitDiffControls session={scenario.commitSession} onError={() => undefined} />,
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Copy full commit hash' }));
@@ -101,76 +88,9 @@ describe('CommitDiffControls', () => {
     expect(copyText).toHaveBeenCalledWith(scenario.commitSession.commit.hash);
   });
 
-  it('toggles details with the full author identity, hash, and body', async () => {
-    const user = userEvent.setup();
-    const session = scenario.commitSession;
-    renderCommitDiffControls(session);
-    const detailsButton = screen.getByRole('button', { name: 'Show commit details' });
-
-    expect(detailsButton).toHaveAttribute('aria-expanded', 'false');
-    await user.click(detailsButton);
-
-    expect(detailsButton).toHaveAttribute('aria-expanded', 'true');
-    expect(detailsButton).toHaveAccessibleName('Hide commit details');
-    const details = screen.getByLabelText('Commit details');
-    expect(details).toHaveTextContent(
-      `${session.commit.authorName} <${session.commit.authorEmail}>`,
-    );
-    expect(details).toHaveTextContent(session.commit.hash);
-    expect(details).toHaveTextContent(session.commit.body);
-
-    await user.click(detailsButton);
-
-    expect(detailsButton).toHaveAttribute('aria-expanded', 'false');
-    expect(detailsButton).toHaveAccessibleName('Show commit details');
-    expect(screen.queryByLabelText('Commit details')).toBeNull();
-  });
-
-  it.each([
-    {
-      name: 'first-parent commit',
-      session: {
-        ...scenario.commitSession,
-        parentShas: [scenario.commitSession.baseSha],
-      },
-      description: `Compared with first parent ${scenario.commitSession.baseSha.slice(0, 7)}`,
-    },
-    {
-      name: 'multi-parent commit',
-      session: scenario.commitSession,
-      description: `Compared with first parent ${scenario.commitSession.baseSha.slice(0, 7)} · 2 parents`,
-    },
-    {
-      name: 'root commit',
-      session: scenario.rootCommitSession,
-      description: 'Root commit · compared with the empty tree',
-    },
-  ])('describes the $name comparison', async ({ session, description }) => {
-    const user = userEvent.setup();
-    renderCommitDiffControls(session);
-
-    await user.click(screen.getByRole('button', { name: 'Show commit details' }));
-
-    expect(screen.getByLabelText('Commit details')).toHaveTextContent(description);
-  });
-
-  it('shows the empty-body fallback for a root commit', async () => {
-    const user = userEvent.setup();
-    renderCommitDiffControls(scenario.rootCommitSession);
-
-    await user.click(screen.getByRole('button', { name: 'Show commit details' }));
-
-    expect(screen.getByText('No additional commit message.')).toBeVisible();
-  });
-
-  it('closes details on outside pointer-down', async () => {
-    const user = userEvent.setup();
+  it('does not expose the former details popover control', () => {
     renderCommitDiffControls();
-    const detailsButton = screen.getByRole('button', { name: 'Show commit details' });
 
-    await user.click(detailsButton);
-    fireEvent.pointerDown(screen.getByRole('button', { name: 'Outside control' }));
-
-    expect(screen.queryByLabelText('Commit details')).toBeNull();
+    expect(screen.queryByRole('button', { name: /commit details/i })).toBeNull();
   });
 });

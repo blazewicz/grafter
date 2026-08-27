@@ -27,7 +27,6 @@ export function DiffFilesPane({
   onSetToolPreference,
   scrollRoot,
   onVisible,
-  onScroll,
   onLineContextMenu,
   onError,
 }: {
@@ -41,9 +40,8 @@ export function DiffFilesPane({
   contextLineId: string | undefined;
   toolPreferences: Record<ToolPickerGroup, string>;
   onSetToolPreference: (group: ToolPickerGroup, tool: string) => void;
-  scrollRoot: RefObject<HTMLDivElement | null>;
+  scrollRoot: RefObject<HTMLElement | null>;
   onVisible: (file: DiffFileSummary) => void;
-  onScroll: () => void;
   onLineContextMenu: (
     event: ReactMouseEvent<HTMLDivElement>,
     file: DiffFileSummary,
@@ -104,12 +102,7 @@ export function DiffFilesPane({
   };
 
   return (
-    <div
-      ref={scrollRoot}
-      className={styles.diffPane}
-      data-context-menu-open={contextLineId ? 'true' : undefined}
-      onScroll={onScroll}
-    >
+    <div className={styles.diffFiles}>
       {files.length ? (
         files.map((file) => (
           <DiffFile

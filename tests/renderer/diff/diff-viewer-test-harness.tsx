@@ -61,7 +61,7 @@ export function getFileSection(file: DiffFileSummary): HTMLElement {
 export function getDiffPane(
   file: DiffFileSummary = scenario.files.modified,
 ): HTMLElement {
-  const pane = getFileSection(file).parentElement;
+  const pane = getFileSection(file).closest<HTMLElement>('main');
   if (!pane) throw new Error('Expected the rendered file to belong to the diff pane.');
   return pane;
 }

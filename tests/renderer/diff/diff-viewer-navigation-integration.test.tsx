@@ -41,6 +41,7 @@ const scrollSession = {
       (files.last.deletions ?? 0),
   },
 };
+const stickyContentOffset = 62;
 
 let animationFrames: AnimationFrameHarness;
 let intersectionObservers: IntersectionObserverHarness;
@@ -65,7 +66,7 @@ function stubActiveFileGeometry(
     scrollTop: 0,
     scrollHeight: 2000,
     clientHeight: 500,
-    scrollPaddingTop: 10,
+    scrollPaddingTop: stickyContentOffset,
   });
   stubElementTop(getFileSection(files.first), positions.first);
   stubElementTop(getFileSection(files.second), positions.second);
