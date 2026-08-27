@@ -22,6 +22,7 @@ import {
 } from './DiffFileContextMenu';
 import { DiffFilesPane } from './DiffFilesPane';
 import { DiffFileTree } from './DiffFileTree';
+import { CommitDiffDetails } from './CommitDiffDetails';
 import {
   type DiffLineSelection,
   clearDiffLineSelection,
@@ -274,19 +275,25 @@ export function DiffViewer({
             )}
           </nav>
         </aside>
+        <DiffViewerToolbar
+          session={session}
+          onSessionChange={onSessionChange}
+          onError={onError}
+        />
         <main
           ref={diffPaneRef}
           className={styles.diffPane}
           data-context-menu-open={lineContextMenu ? 'true' : undefined}
           onScroll={closeLineContextMenu}
         >
-          <DiffViewerToolbar
-            session={session}
-            settings={settings}
-            systemLocale={systemLocale}
-            onSessionChange={onSessionChange}
-            onError={onError}
-          />
+          {session.kind === 'commit' && (
+            <CommitDiffDetails
+              session={session}
+              settings={settings}
+              systemLocale={systemLocale}
+            />
+          )}
+          <div className={styles.toolbarDivider} aria-hidden="true" />
           <DiffFilesPane
             session={session}
             files={orderedFiles}

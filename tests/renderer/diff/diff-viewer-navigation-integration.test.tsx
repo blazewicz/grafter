@@ -41,7 +41,7 @@ const scrollSession = {
       (files.last.deletions ?? 0),
   },
 };
-const stickyContentOffset = 52;
+const scrollContentOffset = 0;
 
 let animationFrames: AnimationFrameHarness;
 let intersectionObservers: IntersectionObserverHarness;
@@ -66,7 +66,7 @@ function stubActiveFileGeometry(
     scrollTop: 0,
     scrollHeight: 2000,
     clientHeight: 500,
-    scrollPaddingTop: stickyContentOffset,
+    scrollPaddingTop: scrollContentOffset,
   });
   stubElementTop(getFileSection(files.first), positions.first);
   stubElementTop(getFileSection(files.second), positions.second);
@@ -96,9 +96,9 @@ describe('DiffViewer navigation integration', () => {
     renderDiffViewer(scrollSession);
     const pane = getDiffPane(files.first);
     stubActiveFileGeometry(pane, {
-      first: 80,
-      second: 120,
-      last: 150,
+      first: 60,
+      second: 80,
+      last: 100,
     });
 
     fireEvent.scroll(pane);
@@ -166,9 +166,9 @@ describe('DiffViewer navigation integration', () => {
     const firstSection = getFileSection(files.first);
     const targetSection = getFileSection(files.last);
     stubActiveFileGeometry(pane, {
-      first: 120,
+      first: 90,
       second: 300,
-      last: 110,
+      last: 100,
     });
 
     act(() => intersectionObservers.notify(firstSection, true));
@@ -204,9 +204,9 @@ describe('DiffViewer navigation integration', () => {
     const pane = getDiffPane(files.first);
     const targetSection = getFileSection(files.second);
     const laterSection = getFileSection(files.last);
-    let targetTop = 110;
+    let targetTop = 100;
     stubActiveFileGeometry(pane, {
-      first: 120,
+      first: 90,
       second: () => targetTop,
       last: 400,
     });
