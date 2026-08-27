@@ -1,6 +1,5 @@
 .surface {
   --diff-toolbar-height: 52px;
-  --diff-sticky-gap: 10px;
   --diff-toolbar-background: var(--app-background);
   position: relative;
   width: 100vw;
@@ -374,7 +373,7 @@
   overflow-x: hidden;
   overflow-y: auto;
   scroll-behavior: smooth;
-  scroll-padding-top: calc(var(--diff-toolbar-height) + var(--diff-sticky-gap));
+  scroll-padding-top: var(--diff-toolbar-height);
   background: var(--app-background);
 }
 
@@ -396,7 +395,7 @@
 .file-header {
   z-index: 20;
   position: sticky;
-  top: calc(var(--diff-toolbar-height) + var(--diff-sticky-gap));
+  top: var(--diff-toolbar-height);
   min-width: 0;
   height: 39px;
   display: flex;

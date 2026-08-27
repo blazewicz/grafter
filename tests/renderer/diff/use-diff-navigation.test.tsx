@@ -26,7 +26,7 @@ const navigationFiles = {
   last: scenario.files.renamed,
 };
 const files = [navigationFiles.first, navigationFiles.second, navigationFiles.last];
-const stickyContentOffset = 62;
+const stickyContentOffset = 52;
 
 function NavigationHarness({
   orderedFiles,
@@ -131,14 +131,14 @@ describe('useDiffNavigation', () => {
 
   it('tracks the closest file without activating a later file too early', () => {
     renderNavigation();
-    let secondTop = 163;
+    let secondTop = 153;
     stubGeometry([130, () => secondTop, 320]);
 
     fireEvent.scroll(pane());
     expect(fileButton(navigationFiles.first)).toHaveAttribute('aria-current', 'true');
     expect(fileButton(navigationFiles.second)).not.toHaveAttribute('aria-current');
 
-    secondTop = 161;
+    secondTop = 151;
     fireEvent.scroll(pane());
     expect(fileButton(navigationFiles.second)).toHaveAttribute('aria-current', 'true');
     expect(fileButton(navigationFiles.first)).not.toHaveAttribute('aria-current');
@@ -146,7 +146,7 @@ describe('useDiffNavigation', () => {
 
   it('falls back to the first displayed file when the ordered files change', () => {
     const { rerender } = renderNavigation();
-    stubGeometry([120, 140, 160]);
+    stubGeometry([120, 140, 150]);
     fireEvent.scroll(pane());
     expect(fileButton(navigationFiles.last)).toHaveAttribute('aria-current', 'true');
 
@@ -183,7 +183,7 @@ describe('useDiffNavigation', () => {
       animationFrames.flushNext();
     });
 
-    expect(diffPane.scrollTop).toBe(338);
+    expect(diffPane.scrollTop).toBe(348);
   });
 
   it.each([

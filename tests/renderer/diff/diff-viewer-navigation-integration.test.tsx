@@ -41,7 +41,7 @@ const scrollSession = {
       (files.last.deletions ?? 0),
   },
 };
-const stickyContentOffset = 62;
+const stickyContentOffset = 52;
 
 let animationFrames: AnimationFrameHarness;
 let intersectionObservers: IntersectionObserverHarness;
@@ -98,7 +98,7 @@ describe('DiffViewer navigation integration', () => {
     stubActiveFileGeometry(pane, {
       first: 80,
       second: 120,
-      last: 160,
+      last: 150,
     });
 
     fireEvent.scroll(pane);
