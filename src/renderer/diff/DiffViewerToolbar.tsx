@@ -1,23 +1,19 @@
-import type { DiffSession, Settings } from '../../shared/contracts';
+import type { DiffSession } from '../../shared/contracts';
 import { BranchDiffControls } from './BranchDiffControls';
 import { CommitDiffControls } from './CommitDiffControls';
 import styles from './DiffViewer.module.css';
 
 export function DiffViewerToolbar({
   session,
-  settings,
-  systemLocale,
   onSessionChange,
   onError,
 }: {
   session: DiffSession;
-  settings: Pick<Settings, 'dateFormat' | 'timeFormat'>;
-  systemLocale: string;
   onSessionChange: (session: DiffSession) => void;
   onError: (message: string) => void;
 }): React.JSX.Element {
   return (
-    <header className={styles.toolbar}>
+    <header className={styles.toolbar} data-kind={session.kind}>
       {session.kind === 'branch' ? (
         <BranchDiffControls
           session={session}
@@ -25,12 +21,7 @@ export function DiffViewerToolbar({
           onError={onError}
         />
       ) : (
-        <CommitDiffControls
-          session={session}
-          settings={settings}
-          systemLocale={systemLocale}
-          onError={onError}
-        />
+        <CommitDiffControls session={session} onError={onError} />
       )}
       <div className={styles.totalStats} aria-label="Diff totals">
         <span>

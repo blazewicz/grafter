@@ -22,6 +22,7 @@ import {
 } from './DiffFileContextMenu';
 import { DiffFilesPane } from './DiffFilesPane';
 import { DiffFileTree } from './DiffFileTree';
+import { CommitDiffDetails } from './CommitDiffDetails';
 import {
   type DiffLineSelection,
   clearDiffLineSelection,
@@ -230,13 +231,6 @@ export function DiffViewer({
           : `Changes in commit ${session.commit.hash}`
       }
     >
-      <DiffViewerToolbar
-        session={session}
-        settings={settings}
-        systemLocale={systemLocale}
-        onSessionChange={onSessionChange}
-        onError={onError}
-      />
       <div className={styles.viewer}>
         <aside className={styles.fileSidebar} aria-label="Changed files">
           <label className={styles.filter}>
@@ -281,24 +275,42 @@ export function DiffViewer({
             )}
           </nav>
         </aside>
-
-        <DiffFilesPane
+        <DiffViewerToolbar
           session={session}
-          files={orderedFiles}
-          patches={patches}
-          loading={loading}
-          fileErrors={fileErrors}
-          filtering={filtering}
-          query={query}
-          contextLineId={lineContextMenu?.lineId}
-          toolPreferences={toolPreferences}
-          onSetToolPreference={onSetToolPreference}
-          scrollRoot={diffPaneRef}
-          onVisible={requestPatch}
-          onScroll={closeLineContextMenu}
-          onLineContextMenu={openLineContextMenu}
+          onSessionChange={onSessionChange}
           onError={onError}
         />
+        <main
+          ref={diffPaneRef}
+          className={styles.diffPane}
+          data-context-menu-open={lineContextMenu ? 'true' : undefined}
+          onScroll={closeLineContextMenu}
+        >
+          {session.kind === 'commit' && (
+            <CommitDiffDetails
+              session={session}
+              settings={settings}
+              systemLocale={systemLocale}
+            />
+          )}
+          <div className={styles.toolbarDivider} aria-hidden="true" />
+          <DiffFilesPane
+            session={session}
+            files={orderedFiles}
+            patches={patches}
+            loading={loading}
+            fileErrors={fileErrors}
+            filtering={filtering}
+            query={query}
+            contextLineId={lineContextMenu?.lineId}
+            toolPreferences={toolPreferences}
+            onSetToolPreference={onSetToolPreference}
+            scrollRoot={diffPaneRef}
+            onVisible={requestPatch}
+            onLineContextMenu={openLineContextMenu}
+            onError={onError}
+          />
+        </main>
       </div>
       {fileContextMenu && (
         <DiffFileContextMenu

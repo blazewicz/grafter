@@ -72,24 +72,18 @@ describe('DiffViewer commands', () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
-  it('closes commit details before closing the viewer with Escape', async () => {
-    const user = userEvent.setup();
+  it('closes the commit viewer with Escape while its inline details are visible', () => {
     const onClose = vi.fn();
     renderDiffViewer(scenario.commitSession, {
       onSessionChange: () => undefined,
       onClose,
       onError: () => undefined,
     });
-    const detailsButton = screen.getByRole('button', { name: 'Show commit details' });
-
-    await user.click(detailsButton);
     expect(screen.getByLabelText('Commit details')).toBeVisible();
 
-    await user.keyboard('{Escape}');
+    fireEvent.keyDown(window, { key: 'Escape' });
 
-    expect(screen.queryByLabelText('Commit details')).toBeNull();
-    expect(detailsButton).toHaveAttribute('aria-expanded', 'false');
-    expect(onClose).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledOnce();
   });
 
   it('closes the viewer with Escape when no nested surface is open', async () => {

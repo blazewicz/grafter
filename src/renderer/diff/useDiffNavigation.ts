@@ -7,12 +7,12 @@ export function useDiffNavigation(
   orderedFiles: readonly DiffFileSummary[],
   loading: ReadonlySet<string>,
 ): {
-  diffPaneRef: RefObject<HTMLDivElement | null>;
+  diffPaneRef: RefObject<HTMLElement | null>;
   displayedActiveFileId: string | undefined;
   clearPendingTarget: () => void;
   selectFile: (fileId: string) => void;
 } {
-  const diffPaneRef = useRef<HTMLDivElement>(null);
+  const diffPaneRef = useRef<HTMLElement>(null);
   const [activeFileId, setActiveFileId] = useState<string>();
   const [pendingTargetId, setPendingTargetId] = useState<string>();
   const loadingFiles = useRef(loading);
@@ -33,10 +33,11 @@ export function useDiffNavigation(
 
     const updateActiveFile = (): void => {
       const paneTop = pane.getBoundingClientRect().top;
+      const activationTop = paneTop + scrollPaddingTop(pane);
       const files = pane.querySelectorAll<HTMLElement>('[data-diff-file-id]');
       let closestId = files[0]?.dataset.diffFileId;
       for (const file of files) {
-        if (file.getBoundingClientRect().top > paneTop + 70) break;
+        if (file.getBoundingClientRect().top > activationTop) break;
         closestId = file.dataset.diffFileId;
       }
       if (closestId) setActiveFileId(closestId);
@@ -174,14 +175,17 @@ export function diffFileElementId(fileId: string): string {
 function diffScrollCorrection(pane: HTMLElement, target: HTMLElement): number {
   const paneBounds = pane.getBoundingClientRect();
   const targetBounds = target.getBoundingClientRect();
-  const scrollPaddingTop =
-    Number.parseFloat(getComputedStyle(pane).scrollPaddingTop) || 0;
+  const paddingTop = scrollPaddingTop(pane);
   return calculateDiffScrollCorrection({
     paneTop: paneBounds.top,
     targetTop: targetBounds.top,
     scrollTop: pane.scrollTop,
     scrollHeight: pane.scrollHeight,
     clientHeight: pane.clientHeight,
-    scrollPaddingTop,
+    scrollPaddingTop: paddingTop,
   });
+}
+
+function scrollPaddingTop(pane: HTMLElement): number {
+  return Number.parseFloat(getComputedStyle(pane).scrollPaddingTop) || 0;
 }

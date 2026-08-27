@@ -50,6 +50,7 @@ describe('DiffViewer', () => {
     expect(totals).toHaveTextContent('7 files');
     expect(totals).toHaveTextContent('+17');
     expect(totals).toHaveTextContent('−11');
+    expect(screen.queryByRole('region', { name: 'Commit details' })).toBeNull();
   });
 
   it('uses singular file wording in the totals', () => {
@@ -141,6 +142,10 @@ describe('DiffViewer', () => {
     expect(screen.getByText(commitSession.commit.title)).toBeVisible();
     expect(screen.getByText(commitSession.commit.authorName)).toBeVisible();
     expect(screen.getByText('2026-07-21 at 12:30')).toBeVisible();
+    expect(screen.getByText(commitSession.commit.body)).toBeVisible();
+    expect(screen.getByRole('region', { name: 'Commit details' })).toBeVisible();
+    expect(screen.getAllByLabelText('Diff totals')).toHaveLength(1);
+    expect(screen.queryByRole('button', { name: /commit details/i })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Choose source branch' })).toBeNull();
     expect(
       screen.queryByRole('button', { name: 'Choose destination branch' }),

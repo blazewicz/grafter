@@ -42,7 +42,6 @@ function paneProps(
     toolPreferences: { editor: 'vscode', terminal: 'terminal' },
     onSetToolPreference: () => undefined,
     onVisible: () => undefined,
-    onScroll: () => undefined,
     onLineContextMenu: () => undefined,
     onError: () => undefined,
     ...overrides,

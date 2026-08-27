@@ -10,6 +10,7 @@ import type {
   DiffSession,
 } from '../../../src/shared/contracts';
 import {
+  getDiffPane,
   getDiffLineRow,
   getFileSection,
   installDiffViewerObservers,
@@ -201,12 +202,6 @@ async function renderLoadedTextualDiff(
   }
 }
 
-function diffPaneFor(file: DiffFileSummary): HTMLElement {
-  const pane = getFileSection(file).parentElement;
-  if (!pane) throw new Error('Expected the rendered file to belong to the diff pane.');
-  return pane;
-}
-
 function expectSelectionToIntersect(row: HTMLElement): void {
   const code = row.querySelector('code');
   const selection = window.getSelection();
@@ -360,7 +355,7 @@ describe('DiffViewer integrated file context menu', () => {
     const line = getDiffLineRow(file, scenario.lines.addition);
     const fileAnchor = treeFile(file);
     const tree = screen.getByRole('navigation', { name: 'Changed file tree' });
-    const diffPane = diffPaneFor(file);
+    const diffPane = getDiffPane(file);
 
     expect(line).toBeVisible();
     fireEvent.contextMenu(line);

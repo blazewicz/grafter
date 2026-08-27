@@ -1,36 +1,23 @@
 .surface {
+  --diff-toolbar-height: 52px;
+  --diff-toolbar-background: var(--app-background);
   position: relative;
   width: 100vw;
   height: 100vh;
-  display: grid;
-  grid-template-rows: 52px minmax(0, 1fr);
   overflow: hidden;
-  background: #1a1a1c;
+  background: var(--app-background);
   color: var(--text);
 }
 
-.commit-toolbar-copy {
+.commit-toolbar-primary {
   min-width: 0;
-  position: relative;
   flex: 1 1 auto;
-  display: flex !important;
-  flex-direction: column;
-  align-items: stretch !important;
-  gap: 2px !important;
-}
-
-.commit-toolbar-primary,
-.commit-toolbar-meta {
-  min-width: 0;
   display: flex;
   align-items: center;
-}
-
-.commit-toolbar-primary {
   gap: 6px;
 }
 
-.toolbar-title .commit-toolbar-primary strong {
+.commit-toolbar-primary strong {
   min-width: 0;
   flex: 1 1 auto;
   overflow: hidden;
@@ -44,90 +31,39 @@
   font-size: 10px;
 }
 
-.commit-toolbar-meta {
-  gap: 5px;
-  overflow: hidden;
-  color: var(--faint);
-  font-size: 9.5px;
-  white-space: nowrap;
+.commit-details {
+  min-height: 74px;
+  padding: 10px 18px 13px;
+  background: var(--diff-toolbar-background);
 }
 
-.commit-toolbar-meta > span:first-child,
-.commit-toolbar-meta time {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.commit-details-button {
-  flex: 0 0 auto;
-  border: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  color: var(--faint);
-  -webkit-app-region: no-drag;
-}
-
-.commit-details-button {
-  gap: 2px;
-  height: 17px;
-  padding: 0 3px;
-  border-radius: 3px;
-  font-size: 9.5px;
-}
-
-.commit-details-button[aria-expanded='true'] svg {
-  transform: rotate(180deg);
-}
-
-.commit-details-button:hover,
-.commit-details-button:focus-visible,
-.commit-details-button[aria-expanded='true'] {
-  outline: 0;
-  background: rgba(255, 255, 255, 0.065);
-  color: var(--text);
-}
-
-.commit-details-popover {
-  z-index: 60;
-  position: absolute;
-  top: calc(100% + 10px);
-  left: 0;
-  width: min(560px, calc(100vw - 130px));
-  padding: 12px 13px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 8px;
-  background: rgba(38, 39, 44, 0.99);
-  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.46);
-  -webkit-app-region: no-drag;
-}
-
-.commit-details-identity {
+.commit-details-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px 10px;
+  gap: 4px 7px;
   color: var(--faint);
   font-size: 10px;
 }
 
-.commit-details-identity code {
-  color: #b8b9c0;
-  font-size: 9.5px;
+.commit-details-meta span:last-child {
+  color: #777982;
 }
 
 .commit-message,
 .commit-message-empty {
-  max-height: 220px;
-  margin-top: 10px;
-  padding-top: 10px;
-  overflow: auto;
-  border-top: 1px solid var(--line);
+  margin-top: 7px;
+  overflow: hidden;
   color: #c5c6cc;
   font-size: 11.5px;
-  line-height: 1.55;
+  line-height: 1.45;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
+}
+
+.commit-message {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
 }
 
 .commit-message-empty {
@@ -135,16 +71,25 @@
 }
 
 .toolbar {
+  grid-column: 2;
+  grid-row: 1;
   min-width: 0;
+  height: var(--diff-toolbar-height);
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 15px;
-  /* Clears the macOS traffic lights, which start at x = 30 and span ~64px. */
-  padding: 0 12px 0 98px;
-  border-bottom: 1px solid var(--line-strong);
-  background: rgba(255, 255, 255, 0.018);
-  -webkit-app-region: drag;
+  padding: 0 14px 0 18px;
+  background: var(--diff-toolbar-background);
+}
+
+.toolbar-divider {
+  z-index: 41;
+  position: sticky;
+  top: 0;
+  height: 1px;
+  background: var(--line-strong);
+  pointer-events: none;
 }
 
 .toolbar-title {
@@ -179,7 +124,6 @@
   align-items: center;
   gap: 5px;
   color: var(--faint);
-  -webkit-app-region: no-drag;
 }
 
 .branch-control {
@@ -273,20 +217,40 @@
 }
 
 .viewer {
+  width: 100%;
+  height: 100%;
   min-width: 0;
   min-height: 0;
   display: grid;
-  grid-template-columns: 242px minmax(0, 1fr);
+  grid-template-columns: 252px minmax(0, 1fr);
+  grid-template-rows: var(--diff-toolbar-height) minmax(0, 1fr);
 }
 
 .file-sidebar {
+  grid-column: 1;
+  grid-row: 1 / 3;
   min-width: 0;
   min-height: 0;
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr);
-  padding: 12px 9px 10px;
-  border-right: 1px solid var(--line-strong);
-  background: rgba(255, 255, 255, 0.018);
+  margin: 10px 0 10px 10px;
+  padding: 54px 9px 10px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.095);
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent 28%), var(--sidebar);
+  box-shadow:
+    0 18px 38px rgba(0, 0, 0, 0.28),
+    0 3px 10px rgba(0, 0, 0, 0.22),
+    inset 0 1px rgba(255, 255, 255, 0.045);
+  -webkit-app-region: drag;
+}
+
+.filter,
+.file-count,
+.file-tree {
+  -webkit-app-region: no-drag;
 }
 
 .filter {
@@ -404,17 +368,24 @@
 }
 
 .diff-pane {
+  grid-column: 2;
+  grid-row: 2;
   min-width: 0;
   min-height: 0;
-  overflow: auto;
-  padding: 13px 14px 45px;
+  overflow-x: hidden;
+  overflow-y: auto;
   scroll-behavior: smooth;
-  scroll-padding-top: 10px;
-  background: #171719;
+  scroll-padding-top: 0;
+  background: var(--app-background);
+}
+
+.diff-files {
+  min-height: 100%;
+  padding: 13px 14px 45px;
 }
 
 .file {
-  min-width: 560px;
+  min-width: 0;
   margin-bottom: 13px;
   overflow: visible;
   border: 1px solid var(--line-strong);
@@ -424,6 +395,9 @@
 }
 
 .file-header {
+  z-index: 20;
+  position: sticky;
+  top: 0;
   min-width: 0;
   height: 39px;
   display: flex;
@@ -432,8 +406,9 @@
   gap: 12px;
   padding: 0 10px;
   border-bottom: 1px solid var(--line-strong);
-  background: #202023;
+  background: rgba(32, 32, 35, 0.985);
   border-radius: 7px 7px 0 0;
+  box-shadow: 0 5px 12px rgba(0, 0, 0, 0.13);
 }
 
 .file-header[data-expanded='false'] {
@@ -713,14 +688,14 @@
 
 @media (max-width: 950px) {
   .viewer {
-    grid-template-columns: 210px minmax(0, 1fr);
+    grid-template-columns: 220px minmax(0, 1fr);
   }
 
   .toolbar-title > div {
     gap: 7px;
   }
 
-  .toolbar-title strong {
+  .toolbar[data-kind='branch'] .toolbar-title strong {
     display: none;
   }
 

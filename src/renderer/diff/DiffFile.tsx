@@ -55,7 +55,7 @@ export function DiffFile({
   showEditorControls: boolean;
   toolPreferences: Record<ToolPickerGroup, string>;
   onSetToolPreference: (group: ToolPickerGroup, tool: string) => void;
-  scrollRoot: RefObject<HTMLDivElement | null>;
+  scrollRoot: RefObject<HTMLElement | null>;
   onVisible: (file: DiffFileSummary) => void;
   onCopy: () => void;
   onOpenInEditor: (editor: EditorTool) => void;
