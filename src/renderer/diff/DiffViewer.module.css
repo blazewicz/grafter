@@ -1,7 +1,7 @@
 .surface {
   --diff-toolbar-height: 52px;
   --diff-sticky-gap: 10px;
-  --diff-toolbar-background: #1f1f22;
+  --diff-toolbar-background: var(--app-background);
   position: relative;
   width: 100vw;
   height: 100vh;
