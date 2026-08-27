@@ -44,6 +44,7 @@ export function DiffViewerToolbar({
           systemLocale={systemLocale}
         />
       )}
+      <div className={styles.toolbarDivider} aria-hidden="true" />
     </>
   );
 }

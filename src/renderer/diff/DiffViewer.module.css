@@ -1,11 +1,12 @@
 .surface {
   --diff-toolbar-height: 52px;
   --diff-sticky-gap: 10px;
+  --diff-toolbar-background: #1f1f22;
   position: relative;
   width: 100vw;
   height: 100vh;
   overflow: hidden;
-  background: #1a1a1c;
+  background: var(--app-background);
   color: var(--text);
 }
 
@@ -34,8 +35,7 @@
 .commit-details {
   min-height: 74px;
   padding: 10px 18px 13px;
-  border-bottom: 1px solid var(--line-strong);
-  background: #1a1a1c;
+  background: var(--diff-toolbar-background);
 }
 
 .commit-details-meta {
@@ -82,10 +82,17 @@
   align-items: center;
   gap: 15px;
   padding: 0 14px 0 18px;
-  border-bottom: 1px solid var(--line-strong);
-  background: rgba(31, 31, 34, 0.985);
-  box-shadow: 0 5px 14px rgba(0, 0, 0, 0.12);
+  background: var(--diff-toolbar-background);
   -webkit-app-region: drag;
+}
+
+.toolbar-divider {
+  z-index: 41;
+  position: sticky;
+  top: calc(var(--diff-toolbar-height) - 1px);
+  height: 1px;
+  background: var(--line-strong);
+  pointer-events: none;
 }
 
 .toolbar-title {
@@ -219,7 +226,7 @@
   min-width: 0;
   min-height: 0;
   display: grid;
-  grid-template-columns: 242px minmax(0, 1fr);
+  grid-template-columns: 252px minmax(0, 1fr);
 }
 
 .file-sidebar {
@@ -227,9 +234,17 @@
   min-height: 0;
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr);
-  padding: 64px 9px 10px;
-  border-right: 1px solid var(--line-strong);
-  background: rgba(255, 255, 255, 0.018);
+  margin: 10px 0 10px 10px;
+  padding: 54px 9px 10px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.095);
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent 28%), var(--sidebar);
+  box-shadow:
+    0 18px 38px rgba(0, 0, 0, 0.28),
+    0 3px 10px rgba(0, 0, 0, 0.22),
+    inset 0 1px rgba(255, 255, 255, 0.045);
   -webkit-app-region: drag;
 }
 
@@ -360,7 +375,7 @@
   overflow-y: auto;
   scroll-behavior: smooth;
   scroll-padding-top: calc(var(--diff-toolbar-height) + var(--diff-sticky-gap));
-  background: #171719;
+  background: var(--app-background);
 }
 
 .diff-files {
@@ -672,7 +687,7 @@
 
 @media (max-width: 950px) {
   .viewer {
-    grid-template-columns: 210px minmax(0, 1fr);
+    grid-template-columns: 220px minmax(0, 1fr);
   }
 
   .toolbar-title > div {
