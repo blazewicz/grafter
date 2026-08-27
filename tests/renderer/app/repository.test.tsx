@@ -6,7 +6,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { api } from '../../../src/renderer/grafter-api';
 import {
   approvalRequestFactory,
-  branchDiffSessionFactory,
   diffStatsFactory,
   projectFactory,
   repositorySnapshotFactory,
@@ -16,7 +15,6 @@ import {
 import { buildNewWorktreeScenario } from '../../scenarios/sidebar/new-worktree';
 import { buildRepositoryWindowScenario } from '../../scenarios/sidebar/repository-window';
 import { buildWelcomeScenario } from '../../scenarios/welcome/welcome';
-import { installDiffViewerObservers } from '../diff/diff-viewer-test-harness';
 import { renderApp, stubRepositoryWindowApis } from './app-test-support';
 
 const repositoryScenario = buildRepositoryWindowScenario();
@@ -457,9 +455,8 @@ describe('App repository state', () => {
     });
   });
 
-  it('opens and closes the branch diff for the selected worktree', async () => {
+  it('opens branch diffs in a dedicated window via IPC', async () => {
     const user = userEvent.setup();
-    const intersectionObservers = installDiffViewerObservers();
     try {
       const { getWorktreeDetails } = stubRepositoryWindowApis(
         repositoryScenario.snapshot,
@@ -477,36 +474,23 @@ describe('App repository state', () => {
         },
       );
       getWorktreeDetails.mockResolvedValue(details);
-      const session = branchDiffSessionFactory.build({
-        projectId: repositoryScenario.repository.id,
-        branch: repositoryScenario.linkedWorktree.branch,
-        targetBranch: repositoryScenario.mainWorktree.branch,
-      });
-      const openDiff = vi.spyOn(api, 'openDiff').mockResolvedValue(session);
-      const closeDiff = vi.spyOn(api, 'closeDiff').mockResolvedValue(undefined);
+      const openDiffWindow = vi.spyOn(api, 'openDiffWindow').mockResolvedValue(undefined);
       renderApp(Promise.resolve(repositoryScenario.snapshot));
 
       await user.click(await screen.findByRole('button', { name: 'View branch diff' }));
 
-      expect(openDiff).toHaveBeenCalledOnce();
-      expect(openDiff).toHaveBeenCalledWith(repositoryScenario.linkedWorktree.id);
-      const dialog = await screen.findByRole('dialog', {
-        name: `Committed changes from ${session.branch} against ${session.targetBranch}`,
+      expect(openDiffWindow).toHaveBeenCalledOnce();
+      expect(openDiffWindow).toHaveBeenCalledWith({
+        kind: 'worktree',
+        worktreeId: repositoryScenario.linkedWorktree.id,
       });
-      expect(dialog).toBeVisible();
-
-      await user.click(screen.getByRole('button', { name: 'Close diff viewer' }));
-
+      // The diff renders in its own window; nothing mounts inside this one.
       await waitFor(() => {
         expect(
-          screen.queryByRole('dialog', {
-            name: `Committed changes from ${session.branch} against ${session.targetBranch}`,
-          }),
+          screen.queryByRole('region', { name: /Committed changes from/ }),
         ).toBeNull();
       });
-      expect(closeDiff).toHaveBeenCalledWith(session.id);
     } finally {
-      intersectionObservers.reset();
       vi.unstubAllGlobals();
     }
   });

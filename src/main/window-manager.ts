@@ -1,6 +1,14 @@
 import { randomUUID } from 'node:crypto';
-import type { AppSnapshot, ProjectConfig, Settings } from '../shared/contracts';
+import type {
+  AppSnapshot,
+  DiffSession,
+  OpenDiffWindowRequest,
+  ProjectConfig,
+  Settings,
+  ToolPickerGroup,
+} from '../shared/contracts';
 import type { ApplicationRuntime } from './application-runtime';
+import { diffWindowKey } from './diff-window-keys';
 import {
   RepositoryLocator,
   type RepositoryLocation,
@@ -8,6 +16,7 @@ import {
 import { RepositoryService } from './services/repository-service';
 import type { StateStore } from './store';
 import {
+  DiffWindowSession,
   RepositoryWindowSession,
   WelcomeWindowSession,
   type WindowSessionService,
@@ -25,6 +34,20 @@ export interface ManagedWindow<
   close(): void;
 }
 
+/** Which renderer surface a BrowserWindow hosts. */
+export type WindowKind = 'app' | 'diff';
+
+/**
+ * Live diff windows allowed process-wide. GitService stores diff sessions in
+ * one bounded map shared by every repository (GitService.maximumDiffSessions),
+ * so a per-repository cap cannot protect open windows once several repositories
+ * are in use. Slots are reserved before the underlying git session is created,
+ * which makes live windows plus transient opens ≤ this cap — safely below the
+ * store bound, with headroom for the brief overlap while a toolbar rebase
+ * replaces one window's session.
+ */
+const maximumDiffWindows = 10;
+
 interface WindowManagerOptions<
   TSender extends WindowSessionSender,
   TWindow extends ManagedWindow<TSender>,
@@ -32,8 +55,8 @@ interface WindowManagerOptions<
   store: StateStore;
   runtime: ApplicationRuntime;
   sessions: WindowSessionRegistry<TSender, TWindow, WindowSessionService>;
-  createWindow: () => TWindow;
-  loadWindow: (window: TWindow) => Promise<void>;
+  createWindow: (kind: WindowKind) => TWindow;
+  loadWindow: (window: TWindow, kind: WindowKind) => Promise<void>;
   homeDirectory: string;
   systemLocale: string;
   locator?: Pick<RepositoryLocator, 'locate'>;
@@ -57,9 +80,19 @@ interface RepositoryManagedSession {
   disposeRegistration: () => void;
 }
 
-type ManagedSession = WelcomeManagedSession | RepositoryManagedSession;
+interface DiffManagedSession<TSender extends WindowSessionSender> {
+  kind: 'diff';
+  canonicalRepositoryKey: string;
+  dedupeKey: string;
+  sender: TSender;
+  service: DiffWindowSession;
+  disposeRegistration: () => void;
+}
 
-/** Owns the one-welcome-or-one-repository lifecycle of every live BrowserWindow. */
+type ManagedSession<TSender extends WindowSessionSender> =
+  WelcomeManagedSession | RepositoryManagedSession | DiffManagedSession<TSender>;
+
+/** Owns the lifecycle of every live BrowserWindow. */
 export class WindowManager<
   TSender extends WindowSessionSender,
   TWindow extends ManagedWindow<TSender>,
@@ -67,8 +100,8 @@ export class WindowManager<
   readonly #store: StateStore;
   readonly #runtime: ApplicationRuntime;
   readonly #sessions: WindowSessionRegistry<TSender, TWindow, WindowSessionService>;
-  readonly #createWindow: () => TWindow;
-  readonly #loadWindow: (window: TWindow) => Promise<void>;
+  readonly #createWindow: (kind: WindowKind) => TWindow;
+  readonly #loadWindow: (window: TWindow, kind: WindowKind) => Promise<void>;
   readonly #context: { homeDirectory: string; systemLocale: string };
   readonly #locator: Pick<RepositoryLocator, 'locate'>;
   readonly #createRepositoryService: (
@@ -76,9 +109,18 @@ export class WindowManager<
     canonicalRepositoryKey: string,
   ) => RepositoryService;
   readonly #createRepositoryId: () => string;
-  readonly #windows = new Map<TWindow, ManagedSession>();
+  readonly #windows = new Map<TWindow, ManagedSession<TSender>>();
   readonly #repositoryWindows = new Map<string, TWindow>();
+  // Several live windows can briefly show the same content while a toolbar
+  // rebase retargets one of them, so each key keeps every candidate window.
+  readonly #diffWindows = new Map<string, Set<TWindow>>();
+  readonly #pendingDiffInit = new Map<TSender, DiffSession>();
   readonly #inFlightOpens = new Map<string, Promise<TWindow>>();
+  readonly #inFlightDiffOpens = new Map<string, Promise<void>>();
+  // Capacity tokens for diff-window opens. Held from before a git session is
+  // created until the open settles; on success the registering window takes
+  // the slot over, so every window and in-flight open is counted exactly once.
+  readonly #reservedDiffWindows = new Set<string>();
   #welcomeCreation: Promise<TWindow> | undefined;
 
   constructor(options: WindowManagerOptions<TSender, TWindow>) {
@@ -106,8 +148,12 @@ export class WindowManager<
   }
 
   async ensureWelcomeWindow(): Promise<TWindow> {
-    const liveWindow = [...this.#windows.keys()].find((window) => !window.isDestroyed());
-    if (liveWindow) return liveWindow;
+    // Diff windows are not "the application window": reactivation focuses or
+    // recreates an app surface instead.
+    const liveAppWindow = [...this.#windows].find(
+      ([window, session]) => session.kind !== 'diff' && !window.isDestroyed(),
+    );
+    if (liveAppWindow) return liveAppWindow[0];
     if (this.#welcomeCreation) return this.#welcomeCreation;
 
     const creation = this.#createWelcomeWindow();
@@ -143,6 +189,221 @@ export class WindowManager<
     return snapshot;
   }
 
+  /** Persists a tool preference and republishes it to every live window. */
+  async setToolPreference(
+    sender: TSender,
+    group: ToolPickerGroup,
+    tool: string,
+  ): Promise<AppSnapshot> {
+    const session = this.#sessions.resolve(sender).service;
+    const snapshot = await session.setToolPreference(group, tool);
+    this.#publishSnapshots();
+    return snapshot;
+  }
+
+  /**
+   * Opens a diff session in its own floating window. Identical diffs are
+   * deduped: an open window showing the same content is focused and the
+   * freshly created git diff session is evicted.
+   */
+  async openDiffWindow(sender: TSender, request: OpenDiffWindowRequest): Promise<void> {
+    const invokingWindow = this.#sessions.resolve(sender).dialogParent;
+    const invoking = this.#session(invokingWindow);
+    if (invoking.kind !== 'repository') {
+      throw new Error('Opening a diff requires an open repository.');
+    }
+
+    const slotKey = `${invoking.canonicalRepositoryKey}|${
+      request.kind === 'worktree'
+        ? `worktree|${request.worktreeId}`
+        : `commit|${request.commitHash}`
+    }`;
+    const inFlight = this.#inFlightDiffOpens.get(slotKey);
+    if (inFlight) return inFlight;
+
+    // Capacity check counts both live windows and opens still preparing their
+    // git session; a window takes over its reservation's slot the moment it
+    // registers, so the two can never be double-counted.
+    if (this.#diffCapacityInUse() >= maximumDiffWindows) {
+      throw new Error('Too many open diff windows.');
+    }
+    this.#reservedDiffWindows.add(slotKey);
+
+    const open = this.#openDiffWindow(invoking, request, slotKey);
+    this.#inFlightDiffOpens.set(slotKey, open);
+    try {
+      await open;
+    } finally {
+      this.#reservedDiffWindows.delete(slotKey);
+      if (this.#inFlightDiffOpens.get(slotKey) === open) {
+        this.#inFlightDiffOpens.delete(slotKey);
+      }
+    }
+  }
+
+  /** Initial diff session handed to a booting diff window for this sender. */
+  diffWindowInit(sender: TSender): DiffSession | undefined {
+    return this.#pendingDiffInit.get(sender);
+  }
+
+  /** Closes the requesting window, but only when it hosts a diff session. */
+  closeDiffWindow(sender: TSender): void {
+    const window = this.#sessions.resolve(sender).dialogParent;
+    if (this.#windows.get(window)?.kind !== 'diff') {
+      throw new Error('Only a diff window can request its own closure.');
+    }
+    window.close();
+  }
+
+  async #openDiffWindow(
+    invoking: RepositoryManagedSession,
+    request: OpenDiffWindowRequest,
+    slotKey: string,
+  ): Promise<void> {
+    const session =
+      request.kind === 'worktree'
+        ? await invoking.service.repository.openDiff(request.worktreeId)
+        : await invoking.service.repository.openCommitDiff({
+            commitHash: request.commitHash,
+          });
+
+    try {
+      const outcome = await this.#installDiffWindow(
+        invoking.service.repository,
+        invoking.canonicalRepositoryKey,
+        session,
+        slotKey,
+      );
+      if (outcome === 'reused') {
+        // An existing window already owns this content; the fresh session lost
+        // the race and is evicted before it can leak an LRU slot.
+        invokeQuietly(() => invoking.service.repository.closeDiff(session.id));
+      }
+    } catch (error) {
+      // The window never took ownership of the session; evict it so nothing leaks.
+      invokeQuietly(() => invoking.service.repository.closeDiff(session.id));
+      throw error;
+    }
+  }
+
+  /**
+   * Installs a freshly created diff session into its own window. Returns
+   * 'reused' when a window showing the same content already exists; the caller
+   * must then evict the fresh session.
+   */
+  async #installDiffWindow(
+    repository: RepositoryService,
+    canonicalRepositoryKey: string,
+    session: DiffSession,
+    slotKey: string,
+  ): Promise<'created' | 'reused'> {
+    const key = diffWindowKey(session);
+    const existing = this.#existingDiffWindow(key);
+    if (existing) {
+      existing.focus();
+      return 'reused';
+    }
+
+    const window = this.#createWindow('diff');
+    this.#trackWindow(window);
+    try {
+      const service = new DiffWindowSession(
+        repository,
+        this.#store,
+        this.#context,
+        session,
+        (next) => this.#retrackDiffWindow(window, next),
+      );
+      const disposeRegistration = this.#sessions.register({
+        window,
+        service,
+        subscribeToSnapshotUpdates: (subscriber) =>
+          service.subscribeToSnapshotUpdates(subscriber),
+        subscribeToCommandUpdates: (subscriber) =>
+          service.subscribeToCommandUpdates(subscriber),
+      });
+      this.#windows.set(window, {
+        kind: 'diff',
+        canonicalRepositoryKey,
+        dedupeKey: key,
+        sender: window.webContents,
+        service,
+        disposeRegistration,
+      });
+      this.#indexDiffWindow(window, key);
+      this.#pendingDiffInit.set(window.webContents, session);
+      // The window now owns the capacity slot its open reserved.
+      this.#reservedDiffWindows.delete(slotKey);
+    } catch (error) {
+      this.#discardWindow(window);
+      throw error;
+    }
+
+    try {
+      await this.#loadWindow(window, 'diff');
+    } catch (error) {
+      this.#discardWindow(window);
+      throw error;
+    }
+    window.focus();
+    return 'created';
+  }
+
+  /** Keeps the dedupe index aligned when the toolbar replaces the shown diff. */
+  #retrackDiffWindow(window: TWindow, next: DiffSession): void {
+    const managed = this.#windows.get(window);
+    if (managed?.kind !== 'diff') return;
+    const nextKey = diffWindowKey(next);
+    if (nextKey === managed.dedupeKey) return;
+    this.#unindexDiffWindow(window, managed.dedupeKey);
+    managed.dedupeKey = nextKey;
+    this.#indexDiffWindow(window, nextKey);
+  }
+
+  #existingDiffWindow(key: string): TWindow | undefined {
+    for (const window of this.#diffWindows.get(key) ?? []) {
+      if (!window.isDestroyed()) return window;
+    }
+    return undefined;
+  }
+
+  /** Live diff windows plus opens that have not registered their window yet. */
+  #diffCapacityInUse(): number {
+    let count = this.#reservedDiffWindows.size;
+    for (const session of this.#windows.values()) {
+      if (session.kind === 'diff') count += 1;
+    }
+    return count;
+  }
+
+  #indexDiffWindow(window: TWindow, key: string): void {
+    const bucket = this.#diffWindows.get(key);
+    if (bucket) {
+      bucket.add(window);
+      return;
+    }
+    this.#diffWindows.set(key, new Set([window]));
+  }
+
+  #unindexDiffWindow(window: TWindow, key: string): void {
+    const bucket = this.#diffWindows.get(key);
+    if (!bucket?.delete(window)) return;
+    if (bucket.size === 0) this.#diffWindows.delete(key);
+  }
+
+  #closeDiffWindowsFor(canonicalRepositoryKey: string): void {
+    for (const [window, managed] of [...this.#windows]) {
+      if (
+        managed.kind === 'diff' &&
+        managed.canonicalRepositoryKey === canonicalRepositoryKey &&
+        !window.isDestroyed()
+      ) {
+        this.#replaceSession(window);
+        window.close();
+      }
+    }
+  }
+
   async openRepositoryFromWindow(
     invokingWindow: TWindow,
     selectedPath: string,
@@ -174,10 +435,10 @@ export class WindowManager<
   }
 
   #createWelcomeWindow(): Promise<TWindow> {
-    const window = this.#createWindow();
+    const window = this.#createWindow('app');
     this.#trackWindow(window);
     this.#installWelcomeSession(window);
-    return this.#loadWindow(window).then(
+    return this.#loadWindow(window, 'app').then(
       () => window,
       (error: unknown) => {
         this.#discardWindow(window);
@@ -227,7 +488,7 @@ export class WindowManager<
 
       const invokingSession = this.#session(invokingWindow);
       const reuseWelcome = invokingSession.kind === 'welcome';
-      const targetWindow = reuseWelcome ? invokingWindow : this.#createWindow();
+      const targetWindow = reuseWelcome ? invokingWindow : this.#createWindow('app');
       if (!reuseWelcome) this.#trackWindow(targetWindow);
       this.#installRepositorySession(targetWindow, location.commonDirectoryPath, service);
 
@@ -235,7 +496,7 @@ export class WindowManager<
         service.publishSnapshot();
       } else {
         try {
-          await this.#loadWindow(targetWindow);
+          await this.#loadWindow(targetWindow, 'app');
         } catch (error) {
           this.#discardWindow(targetWindow);
           throw error;
@@ -306,7 +567,16 @@ export class WindowManager<
   #replaceSession(window: TWindow): void {
     const previous = this.#windows.get(window);
     if (!previous) return;
+    // Closing a repository window cascades to the diff windows it spawned, so
+    // their sessions are evicted while the repository service is still alive.
+    if (previous.kind === 'repository') {
+      this.#closeDiffWindowsFor(previous.canonicalRepositoryKey);
+    }
     previous.disposeRegistration();
+    if (previous.kind === 'diff') {
+      this.#pendingDiffInit.delete(previous.sender);
+      this.#unindexDiffWindow(window, previous.dedupeKey);
+    }
     previous.service.dispose();
     if (
       previous.kind === 'repository' &&
@@ -340,11 +610,19 @@ export class WindowManager<
     this.#sessions.forEachService((service) => service.publishSnapshot());
   }
 
-  #session(window: TWindow): ManagedSession {
+  #session(window: TWindow): ManagedSession<TSender> {
     const session = this.#windows.get(window);
     if (!session || window.isDestroyed()) {
       throw new Error('Window session is not available.');
     }
     return session;
+  }
+}
+
+function invokeQuietly(action: () => void): void {
+  try {
+    action();
+  } catch (error) {
+    console.error('A cleanup action failed.', error);
   }
 }

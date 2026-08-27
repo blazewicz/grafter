@@ -5,7 +5,6 @@ import { AuditPanel } from './audit/AuditPanel';
 import { useCommandLogs } from './audit/useCommandLogs';
 import { MainView } from './details/MainView';
 import { useWorktreeInspection } from './details/useWorktreeInspection';
-import { DiffViewer } from './diff/DiffViewer';
 import { ApprovalDialog } from './dialogs/ApprovalDialog';
 import { SettingsDialog } from './dialogs/SettingsDialog';
 import { useCommandApproval } from './dialogs/useCommandApproval';
@@ -17,7 +16,7 @@ import { useNavigationHistory } from './shell/useNavigationHistory';
 import { defaultSidebarWidth } from './sidebar/ResizeHandle';
 import { Sidebar } from './sidebar/Sidebar';
 import { useRepositoryRefresh } from './sidebar/useRepositoryRefresh';
-import { useDiffViewer } from './diff/useDiffViewer';
+import { useDiffWindowLauncher } from './diff/useDiffWindowLauncher';
 import { api, friendlyError } from './grafter-api';
 import { Welcome } from './welcome/Welcome';
 import { useHotKey } from './useHotKey';
@@ -99,6 +98,9 @@ export function App(): React.JSX.Element {
           }
           return;
         }
+        case 'diff':
+          // Diff-window snapshots are published to their own windows only.
+          return;
         default:
           return assertNever(next);
       }
@@ -168,13 +170,10 @@ export function App(): React.JSX.Element {
   };
 
   const {
-    diffSession,
-    diffOpening,
-    openDiff,
+    opening: diffOpening,
+    openWorktreeDiff,
     openCommitDiff,
-    closeDiff,
-    replaceDiffSession,
-  } = useDiffViewer(api, setError);
+  } = useDiffWindowLauncher(api, setError);
 
   const { approval, approvalRunning, enqueueApproval, resolveApproval } =
     useCommandApproval(api, run, applySnapshot);
@@ -203,6 +202,16 @@ export function App(): React.JSX.Element {
           onOpenRepository={chooseRepository}
           onOpenRecentRepository={openRecentRepository}
         />
+      </AppFrame>
+    );
+  }
+
+  // Unreachable via applySnapshot, which drops diff-window snapshots before
+  // they reach state; this branch exists for type narrowing and defense.
+  if (snapshot.kind === 'diff') {
+    return (
+      <AppFrame error={error} onDismissError={dismissError}>
+        <Splash />
       </AppFrame>
     );
   }
@@ -252,7 +261,7 @@ export function App(): React.JSX.Element {
             onSnapshot={applySnapshot}
             onAdd={chooseRepository}
             diffOpening={diffOpening}
-            onOpenDiff={openDiff}
+            onOpenDiff={openWorktreeDiff}
             onOpenCommitDiff={openCommitDiff}
             onError={setError}
           />
@@ -316,20 +325,6 @@ export function App(): React.JSX.Element {
               if (next.setupApproval) enqueueApproval(next.setupApproval);
             }}
             onError={setError}
-          />
-        )}
-
-        {diffSession && (
-          <DiffViewer
-            key={diffSession.id}
-            session={diffSession}
-            onSessionChange={replaceDiffSession}
-            onClose={closeDiff}
-            onError={setError}
-            settings={snapshot.settings}
-            systemLocale={snapshot.systemLocale}
-            toolPreferences={snapshot.toolPreferences}
-            onSetToolPreference={setToolPreference}
           />
         )}
       </div>

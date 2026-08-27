@@ -23,6 +23,10 @@ interface Harness {
   openRepository: ReturnType<typeof vi.fn>;
   openRecentRepository: ReturnType<typeof vi.fn>;
   updateSettings: ReturnType<typeof vi.fn>;
+  setToolPreference: ReturnType<typeof vi.fn>;
+  openDiffWindow: ReturnType<typeof vi.fn>;
+  diffWindowInit: ReturnType<typeof vi.fn>;
+  closeDiffWindow: ReturnType<typeof vi.fn>;
 }
 
 function createHarness(
@@ -46,11 +50,23 @@ function createHarness(
   const openRepository = vi.fn().mockResolvedValue(undefined);
   const openRecentRepository = vi.fn().mockResolvedValue(undefined);
   const updateSettings = vi.fn().mockResolvedValue(undefined);
+  const setToolPreference = vi.fn().mockResolvedValue(undefined);
+  const openDiffWindow = vi.fn().mockResolvedValue(undefined);
+  const diffWindowInit = vi.fn().mockReturnValue(undefined);
+  const closeDiffWindow = vi.fn();
 
   registerIpcHandlers({
     ipcMain: { handle },
     sessions: { resolve } as unknown as Sessions,
-    windowManager: { openRepository, openRecentRepository, updateSettings },
+    windowManager: {
+      openRepository,
+      openRecentRepository,
+      updateSettings,
+      setToolPreference,
+      openDiffWindow,
+      diffWindowInit,
+      closeDiffWindow,
+    },
     dialog: { showOpenDialog },
     shell: { openPath, openExternal },
     clipboard: { writeText },
@@ -70,6 +86,10 @@ function createHarness(
     openRepository,
     openRecentRepository,
     updateSettings,
+    setToolPreference,
+    openDiffWindow,
+    diffWindowInit,
+    closeDiffWindow,
   };
 }
 
@@ -177,19 +197,18 @@ describe('registerIpcHandlers', () => {
     expect(harness.launchTerminal).toHaveBeenCalledWith('iterm2', '/code/worktree-a');
   });
 
-  it('persists a tool preference through the session service', async () => {
+  it('persists a tool preference through the window manager', async () => {
     const sender = {} as WebContents;
     const window = {} as BrowserWindow;
-    const setToolPreference = vi.fn().mockResolvedValue(undefined);
     const harness = createHarness(() => ({
-      service: serviceStub({ setToolPreference }),
+      service: serviceStub({}),
       dialogParent: window,
     }));
 
     await invoke(harness, ipc.setToolPreference, sender, 'editor', 'vscode');
 
-    expect(setToolPreference).toHaveBeenCalledOnce();
-    expect(setToolPreference).toHaveBeenCalledWith('editor', 'vscode');
+    expect(harness.setToolPreference).toHaveBeenCalledOnce();
+    expect(harness.setToolPreference).toHaveBeenCalledWith(sender, 'editor', 'vscode');
   });
 
   it('preserves approval, URL, and clipboard validation behind session resolution', async () => {
@@ -229,5 +248,123 @@ describe('registerIpcHandlers', () => {
     expect(() => invoke(harness, ipc.copyText, sender, 'text')).toThrow(unavailable);
     expect(harness.openExternal).not.toHaveBeenCalled();
     expect(harness.writeText).not.toHaveBeenCalled();
+  });
+
+  it('rejects malformed diff window requests before reaching the window manager', () => {
+    const sender = {} as WebContents;
+    const window = {} as BrowserWindow;
+    const harness = createHarness(() => ({
+      service: serviceStub({}),
+      dialogParent: window,
+    }));
+
+    for (const payload of [
+      { kind: 'worktree' },
+      { kind: 'worktree', worktreeId: '' },
+      { kind: 'worktree', worktreeId: 'x', extra: true },
+      { kind: 'commit', commitHash: 42 },
+      { kind: 'worktree', worktreeId: 'x', commitHash: 'y' },
+      { kind: 'nonsense' },
+      'worktree-1',
+    ]) {
+      expect(() => invoke(harness, ipc.openDiffWindow, sender, payload)).toThrow(
+        'Invalid diff window request.',
+      );
+    }
+
+    expect(harness.resolve).toHaveBeenCalledTimes(7);
+    expect(harness.openDiffWindow).not.toHaveBeenCalled();
+  });
+
+  it('rejects a diff window bootstrap when no initialization is pending', () => {
+    const sender = {} as WebContents;
+    const window = {} as BrowserWindow;
+    const harness = createHarness(() => ({
+      service: serviceStub({}),
+      dialogParent: window,
+    }));
+
+    expect(() => invoke(harness, ipc.getDiffWindowInit, sender)).toThrow(
+      'No pending diff window initialization.',
+    );
+  });
+
+  it('hands a valid pending initialization to its own window only', () => {
+    const sender = {} as WebContents;
+    const window = {} as BrowserWindow;
+    const sessionPayload = { kind: 'commit', id: 'diff-1' };
+    const harness = createHarness(() => ({
+      service: serviceStub({}),
+      dialogParent: window,
+    }));
+    harness.diffWindowInit.mockImplementation((requestingSender: unknown) =>
+      requestingSender === sender ? sessionPayload : undefined,
+    );
+
+    expect(invoke(harness, ipc.getDiffWindowInit, sender)).toEqual({
+      session: sessionPayload,
+    });
+    expect(() => invoke(harness, ipc.getDiffWindowInit, {} as WebContents)).toThrow(
+      'No pending diff window initialization.',
+    );
+  });
+
+  it('closes the invoking session window only through the guarded manager call', async () => {
+    const sender = {} as WebContents;
+    const window = {} as BrowserWindow;
+    const harness = createHarness(() => ({
+      service: serviceStub({}),
+      dialogParent: window,
+    }));
+
+    await invoke(harness, ipc.closeDiffWindow, sender);
+
+    // The window close itself is gated by WindowManager: only a diff window
+    // may be closed this way, so the handler must not touch it directly.
+    expect(harness.closeDiffWindow).toHaveBeenCalledOnce();
+    expect(harness.closeDiffWindow).toHaveBeenCalledWith(sender);
+  });
+
+  it('validates a well-formed diff window request shape end to end', async () => {
+    const sender = {} as WebContents;
+    const window = {} as BrowserWindow;
+    const harness = createHarness(() => ({
+      service: serviceStub({}),
+      dialogParent: window,
+    }));
+
+    await invoke(harness, ipc.openDiffWindow, sender, {
+      kind: 'commit',
+      commitHash: '1'.repeat(40),
+    });
+
+    expect(harness.openDiffWindow).toHaveBeenCalledOnce();
+    expect(harness.openDiffWindow).toHaveBeenCalledWith(sender, {
+      kind: 'commit',
+      commitHash: '1'.repeat(40),
+    });
+  });
+
+  it('rejects malformed branch diff requests before reaching the session service', () => {
+    const sender = {} as WebContents;
+    const window = {} as BrowserWindow;
+    const openBranchDiff = vi.fn().mockResolvedValue(undefined);
+    const harness = createHarness(() => ({
+      service: serviceStub({ openBranchDiff }),
+      dialogParent: window,
+    }));
+
+    for (const payload of [
+      { sourceBranch: 'feature' },
+      { sourceBranch: '', targetBranch: 'main' },
+      { sourceBranch: 'feature', targetBranch: 'main', extra: true },
+      undefined,
+    ]) {
+      expect(() => invoke(harness, ipc.openBranchDiff, sender, payload)).toThrow(
+        'Invalid branch diff request.',
+      );
+    }
+
+    expect(openBranchDiff).not.toHaveBeenCalled();
   });
 });

@@ -218,7 +218,9 @@ describe('BranchDiffControls', () => {
     const openBranchDiff = vi
       .spyOn(api, 'openBranchDiff')
       .mockRejectedValue(
-        new Error("Error invoking remote method 'grafter:open-diff': Error: failed"),
+        new Error(
+          "Error invoking remote method 'grafter:open-branch-diff': Error: failed",
+        ),
       );
     const onError = vi.fn();
     renderBranchDiffControls({ onError });
